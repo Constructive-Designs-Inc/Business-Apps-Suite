@@ -1,0 +1,20 @@
+{
+  "projects": {
+    "default": "business-apps-suite"
+  },
+  "targets": {
+    "business-apps-suite": {
+      "hosting": {
+        "landing":      ["cdi-landing"],
+        "bookit":       ["cdi-bookit"],
+        "clientflow":   ["cdi-clientflow"],
+        "invoiceready": ["cdi-invoiceready"],
+        "contentplan":  ["cdi-contentplan"],
+        "leadcatcher":  ["cdi-leadcatcher"],
+        "proposalpro":  ["cdi-proposalpro"],
+        "expensetrack": ["cdi-expensetrack"],
+        "reviewboost":  ["cdi-reviewboost"]
+      }
+    }
+  }
+}

@@ -1,0 +1,556 @@
+-- ================================================================
+--  CDI BUSINESS APPS SUITE — MASTER SETUP SQL
+--  Run this ONE file in Supabase SQL Editor (NEW QUERY)
+--  It replaces all 5 separate SQL files — run this instead
+--  Safe to re-run: all statements use IF NOT EXISTS guards
+--  Project URL: https://lizbvlcogvjgycsyiqrc.supabase.co
+-- ================================================================
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 1: PROFILES TABLE (Central Identity Hub)
+-- ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id               UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  full_name        TEXT,
+  owner_name       TEXT,
+  email            TEXT,
+  phone            TEXT,
+  address          TEXT,
+  business_name    TEXT,
+  business_email   TEXT,
+  logo_url         TEXT,
+  avatar_url       TEXT,
+  brand_color      TEXT DEFAULT '#7c5cfc',
+  timezone         TEXT DEFAULT 'America/New_York',
+  provider         TEXT DEFAULT 'email',
+  provider_id      TEXT,
+  industry         TEXT,
+  website          TEXT,
+  plan             TEXT DEFAULT 'trial',
+  plan_expires_at  TIMESTAMPTZ,
+  apps_enabled     TEXT[] DEFAULT ARRAY[
+                     'bookit','clientflow','invoiceready','contentplan',
+                     'leadcatcher','proposalpro','expensetrack','reviewboost'
+                   ],
+  onboarded        BOOLEAN DEFAULT FALSE,
+  onboarded_at     TIMESTAMPTZ,
+  referral_source  TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 2: ALL 8 APP TABLES
+-- ────────────────────────────────────────────────────────────────
+
+-- ── InvoiceReady ──
+CREATE TABLE IF NOT EXISTS public.ir_clients (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name       TEXT NOT NULL,
+  email      TEXT, phone TEXT, company TEXT, address TEXT, notes TEXT,
+  source     TEXT DEFAULT 'manual',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.ir_invoices (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id          UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  client_id        UUID REFERENCES public.ir_clients(id) ON DELETE SET NULL,
+  invoice_number   TEXT NOT NULL,
+  issue_date       DATE DEFAULT CURRENT_DATE,
+  due_date         DATE,
+  status           TEXT DEFAULT 'draft',
+  subtotal         NUMERIC(10,2) DEFAULT 0,
+  tax_rate         NUMERIC(5,2)  DEFAULT 0,
+  tax_amount       NUMERIC(10,2) DEFAULT 0,
+  total            NUMERIC(10,2) DEFAULT 0,
+  notes            TEXT,
+  from_proposal_id UUID,
+  from_proposal_ref TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.ir_invoice_line_items (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  invoice_id  UUID REFERENCES public.ir_invoices(id) ON DELETE CASCADE NOT NULL,
+  description TEXT NOT NULL,
+  quantity    NUMERIC(10,2) DEFAULT 1,
+  unit_price  NUMERIC(10,2) DEFAULT 0,
+  amount      NUMERIC(10,2) DEFAULT 0,
+  sort_order  INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.ir_payments (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  invoice_id   UUID REFERENCES public.ir_invoices(id) ON DELETE CASCADE NOT NULL,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  amount       NUMERIC(10,2) NOT NULL,
+  payment_date DATE DEFAULT CURRENT_DATE,
+  method       TEXT,
+  notes        TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── ProposalPro ──
+CREATE TABLE IF NOT EXISTS public.pp_clients (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name       TEXT NOT NULL,
+  email      TEXT, phone TEXT, company TEXT, address TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.pp_proposals (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id          UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  client_id        UUID REFERENCES public.pp_clients(id) ON DELETE SET NULL,
+  title            TEXT NOT NULL,
+  status           TEXT DEFAULT 'draft',
+  valid_until      DATE,
+  intro_text       TEXT, scope_text TEXT, terms_text TEXT,
+  subtotal         NUMERIC(10,2) DEFAULT 0,
+  tax_rate         NUMERIC(5,2)  DEFAULT 0,
+  tax_amount       NUMERIC(10,2) DEFAULT 0,
+  total            NUMERIC(10,2) DEFAULT 0,
+  accepted_date    DATE,
+  invoice_number   TEXT,
+  invoice_created  BOOLEAN DEFAULT FALSE,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.pp_proposal_line_items (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  proposal_id UUID REFERENCES public.pp_proposals(id) ON DELETE CASCADE NOT NULL,
+  description TEXT NOT NULL,
+  quantity    NUMERIC(10,2) DEFAULT 1,
+  unit_price  NUMERIC(10,2) DEFAULT 0,
+  amount      NUMERIC(10,2) DEFAULT 0,
+  sort_order  INTEGER DEFAULT 0
+);
+
+-- ── ClientFlow CRM ──
+CREATE TABLE IF NOT EXISTS public.cf_contacts (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name        TEXT NOT NULL,
+  email       TEXT, phone TEXT, company TEXT, title TEXT,
+  status      TEXT DEFAULT 'lead',
+  source      TEXT, tags TEXT[], notes TEXT, avatar_color TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.cf_activities (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id       UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  contact_id    UUID REFERENCES public.cf_contacts(id) ON DELETE CASCADE NOT NULL,
+  type          TEXT NOT NULL,
+  title         TEXT NOT NULL,
+  notes         TEXT,
+  activity_date TIMESTAMPTZ DEFAULT NOW(),
+  completed     BOOLEAN DEFAULT FALSE,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.cf_deals (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  contact_id UUID REFERENCES public.cf_contacts(id) ON DELETE SET NULL,
+  title      TEXT NOT NULL,
+  value      NUMERIC(10,2) DEFAULT 0,
+  stage      TEXT DEFAULT 'prospect',
+  probability INTEGER DEFAULT 0,
+  close_date DATE, notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── LeadCatcher ──
+CREATE TABLE IF NOT EXISTS public.lc_lead_sources (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name       TEXT NOT NULL, type TEXT, url TEXT,
+  active     BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.lc_leads (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  source_id  UUID REFERENCES public.lc_lead_sources(id) ON DELETE SET NULL,
+  name       TEXT NOT NULL,
+  email      TEXT, phone TEXT, company TEXT, message TEXT,
+  status      TEXT DEFAULT 'new',
+  temperature TEXT DEFAULT 'warm',
+  notes      TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.lc_lead_forms (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name       TEXT NOT NULL,
+  fields     JSONB DEFAULT '[]',
+  active     BOOLEAN DEFAULT TRUE,
+  embed_code TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Book It ──
+CREATE TABLE IF NOT EXISTS public.bi_services (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name        TEXT NOT NULL, description TEXT,
+  duration    INTEGER NOT NULL,
+  price       NUMERIC(10,2) DEFAULT 0,
+  color       TEXT DEFAULT '#ff6b6b',
+  active      BOOLEAN DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.bi_bookings (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  service_id     UUID REFERENCES public.bi_services(id) ON DELETE SET NULL,
+  client_name    TEXT NOT NULL,
+  client_email   TEXT, client_phone TEXT,
+  start_time     TIMESTAMPTZ NOT NULL,
+  end_time       TIMESTAMPTZ NOT NULL,
+  status         TEXT DEFAULT 'confirmed',
+  notes          TEXT, internal_notes TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.bi_availability (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  day_of_week  INTEGER NOT NULL,
+  start_time   TIME NOT NULL,
+  end_time     TIME NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE
+);
+CREATE TABLE IF NOT EXISTS public.bi_blocked_times (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time   TIMESTAMPTZ NOT NULL,
+  reason     TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── ContentPlan Pro ──
+CREATE TABLE IF NOT EXISTS public.cp_posts (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title          TEXT NOT NULL, content TEXT, caption TEXT,
+  platform       TEXT NOT NULL,
+  status         TEXT DEFAULT 'draft',
+  scheduled_date TIMESTAMPTZ,
+  published_date TIMESTAMPTZ,
+  media_url      TEXT, tags TEXT[], campaign TEXT, notes TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.cp_campaigns (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name        TEXT NOT NULL, description TEXT,
+  start_date  DATE, end_date DATE,
+  color       TEXT DEFAULT '#38bdf8',
+  active      BOOLEAN DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── ExpenseTrack ──
+CREATE TABLE IF NOT EXISTS public.et_expenses (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  description    TEXT NOT NULL,
+  amount         NUMERIC(10,2) NOT NULL,
+  category       TEXT NOT NULL,
+  expense_date   DATE DEFAULT CURRENT_DATE,
+  tax_deductible BOOLEAN DEFAULT FALSE,
+  source         TEXT DEFAULT 'manual',
+  receipt_id     UUID, notes TEXT, vendor TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.et_receipts (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  store_name   TEXT NOT NULL,
+  receipt_date DATE DEFAULT CURRENT_DATE,
+  total        NUMERIC(10,2),
+  image_url    TEXT, image_base64 TEXT,
+  retain_until DATE, notes TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.et_receipt_items (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  receipt_id  UUID REFERENCES public.et_receipts(id) ON DELETE CASCADE NOT NULL,
+  description TEXT NOT NULL,
+  amount      NUMERIC(10,2) NOT NULL,
+  category    TEXT,
+  locked      BOOLEAN DEFAULT TRUE
+);
+CREATE TABLE IF NOT EXISTS public.et_recurring_expenses (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name           TEXT NOT NULL,
+  amount         NUMERIC(10,2) NOT NULL,
+  category       TEXT NOT NULL,
+  frequency      TEXT NOT NULL,
+  start_date     DATE NOT NULL,
+  next_due_date  DATE,
+  last_posted    DATE,
+  active         BOOLEAN DEFAULT TRUE,
+  tax_deductible BOOLEAN DEFAULT FALSE,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── ReviewBoost ──
+CREATE TABLE IF NOT EXISTS public.rb_review_requests (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id         UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  client_name     TEXT NOT NULL,
+  client_email    TEXT, client_phone TEXT,
+  service         TEXT,
+  platform        TEXT NOT NULL,
+  status          TEXT DEFAULT 'pending',
+  sent_date       TIMESTAMPTZ,
+  from_invoice_id UUID, from_booking_id UUID,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS public.rb_reviews (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  request_id  UUID REFERENCES public.rb_review_requests(id) ON DELETE SET NULL,
+  platform    TEXT NOT NULL,
+  reviewer    TEXT,
+  rating      INTEGER CHECK (rating >= 1 AND rating <= 5),
+  content     TEXT, response TEXT,
+  review_date DATE DEFAULT CURRENT_DATE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 3: AUTO-CREATE PROFILE ON SIGN-IN (Google, GitHub, Email)
+-- ────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.profiles (
+    id, email, full_name, avatar_url, provider, business_email,
+    plan, apps_enabled, onboarded_at, updated_at
+  )
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'name',
+      NEW.raw_user_meta_data->>'user_name',
+      split_part(NEW.email, '@', 1)
+    ),
+    COALESCE(
+      NEW.raw_user_meta_data->>'avatar_url',
+      NEW.raw_user_meta_data->>'picture'
+    ),
+    COALESCE(NEW.app_metadata->>'provider', 'email'),
+    NEW.email,
+    'trial',
+    ARRAY['bookit','clientflow','invoiceready','contentplan',
+          'leadcatcher','proposalpro','expensetrack','reviewboost'],
+    NOW(), NOW()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name  = EXCLUDED.full_name,
+    avatar_url = EXCLUDED.avatar_url,
+    provider   = EXCLUDED.provider,
+    updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$;
+
+DROP TRIGGER IF EXISTS on_profiles_updated ON public.profiles;
+CREATE TRIGGER on_profiles_updated
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 4: ROW LEVEL SECURITY (Every user sees only their data)
+-- ────────────────────────────────────────────────────────────────
+ALTER TABLE public.profiles           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ir_clients         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ir_invoices        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ir_invoice_line_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ir_payments        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pp_clients         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pp_proposals       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pp_proposal_line_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cf_contacts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cf_activities      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cf_deals           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lc_lead_sources    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lc_leads           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lc_lead_forms      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bi_services        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bi_bookings        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bi_availability    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bi_blocked_times   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cp_posts           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cp_campaigns       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.et_expenses        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.et_receipts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.et_receipt_items   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.et_recurring_expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rb_review_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rb_reviews         ENABLE ROW LEVEL SECURITY;
+
+-- Profiles policies
+DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
+CREATE POLICY "profiles_select" ON public.profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "profiles_insert" ON public.profiles;
+CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- All other tables: users see only their own rows
+DO $$ DECLARE tbl TEXT;
+BEGIN FOR tbl IN SELECT unnest(ARRAY[
+  'ir_clients','ir_invoices','ir_payments',
+  'pp_clients','pp_proposals',
+  'cf_contacts','cf_activities','cf_deals',
+  'lc_lead_sources','lc_leads','lc_lead_forms',
+  'bi_services','bi_bookings','bi_availability','bi_blocked_times',
+  'cp_posts','cp_campaigns',
+  'et_expenses','et_receipts','et_recurring_expenses',
+  'rb_review_requests','rb_reviews'
+]) LOOP
+  EXECUTE format('DROP POLICY IF EXISTS "own_data" ON public.%I', tbl);
+  EXECUTE format('CREATE POLICY "own_data" ON public.%I FOR ALL USING (auth.uid() = user_id)', tbl);
+END LOOP; END; $$;
+
+-- Line items policies (scoped through parent)
+DROP POLICY IF EXISTS "own_data" ON public.ir_invoice_line_items;
+CREATE POLICY "own_data" ON public.ir_invoice_line_items FOR ALL
+  USING (invoice_id IN (SELECT id FROM public.ir_invoices WHERE user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "own_data" ON public.pp_proposal_line_items;
+CREATE POLICY "own_data" ON public.pp_proposal_line_items FOR ALL
+  USING (proposal_id IN (SELECT id FROM public.pp_proposals WHERE user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "own_data" ON public.et_receipt_items;
+CREATE POLICY "own_data" ON public.et_receipt_items FOR ALL
+  USING (receipt_id IN (SELECT id FROM public.et_receipts WHERE user_id = auth.uid()));
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 5: PERFORMANCE INDEXES
+-- ────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_profiles_provider   ON public.profiles(provider);
+CREATE INDEX IF NOT EXISTS idx_ir_invoices_user    ON public.ir_invoices(user_id);
+CREATE INDEX IF NOT EXISTS idx_ir_invoices_status  ON public.ir_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_ir_invoices_client  ON public.ir_invoices(client_id);
+CREATE INDEX IF NOT EXISTS idx_ir_clients_user     ON public.ir_clients(user_id);
+CREATE INDEX IF NOT EXISTS idx_pp_proposals_user   ON public.pp_proposals(user_id);
+CREATE INDEX IF NOT EXISTS idx_pp_proposals_status ON public.pp_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_cf_contacts_user    ON public.cf_contacts(user_id);
+CREATE INDEX IF NOT EXISTS idx_cf_contacts_status  ON public.cf_contacts(status);
+CREATE INDEX IF NOT EXISTS idx_cf_activities_user  ON public.cf_activities(user_id);
+CREATE INDEX IF NOT EXISTS idx_cf_deals_user       ON public.cf_deals(user_id);
+CREATE INDEX IF NOT EXISTS idx_lc_leads_user       ON public.lc_leads(user_id);
+CREATE INDEX IF NOT EXISTS idx_lc_leads_status     ON public.lc_leads(status);
+CREATE INDEX IF NOT EXISTS idx_bi_bookings_user    ON public.bi_bookings(user_id);
+CREATE INDEX IF NOT EXISTS idx_bi_bookings_time    ON public.bi_bookings(start_time);
+CREATE INDEX IF NOT EXISTS idx_bi_services_user    ON public.bi_services(user_id);
+CREATE INDEX IF NOT EXISTS idx_cp_posts_user       ON public.cp_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_cp_posts_platform   ON public.cp_posts(platform);
+CREATE INDEX IF NOT EXISTS idx_cp_posts_scheduled  ON public.cp_posts(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_et_expenses_user    ON public.et_expenses(user_id);
+CREATE INDEX IF NOT EXISTS idx_et_expenses_date    ON public.et_expenses(expense_date);
+CREATE INDEX IF NOT EXISTS idx_et_receipts_user    ON public.et_receipts(user_id);
+CREATE INDEX IF NOT EXISTS idx_et_recurring_due    ON public.et_recurring_expenses(next_due_date);
+CREATE INDEX IF NOT EXISTS idx_rb_requests_user    ON public.rb_review_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_rb_reviews_user     ON public.rb_reviews(user_id);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 6: STORAGE BUCKETS
+-- ────────────────────────────────────────────────────────────────
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('receipts',      'receipts',      false) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('brand-assets',  'brand-assets',  true)  ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public)
+  VALUES ('content-media', 'content-media', false) ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "receipts_user"       ON storage.objects;
+DROP POLICY IF EXISTS "brand_assets_user"   ON storage.objects;
+DROP POLICY IF EXISTS "content_media_user"  ON storage.objects;
+
+CREATE POLICY "receipts_user" ON storage.objects FOR ALL
+  USING (bucket_id = 'receipts' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "brand_assets_user" ON storage.objects FOR ALL
+  USING (bucket_id = 'brand-assets' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "content_media_user" ON storage.objects FOR ALL
+  USING (bucket_id = 'content-media' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 7: HELPFUL VIEW — use in apps as: SELECT * FROM my_profile
+-- ────────────────────────────────────────────────────────────────
+CREATE OR REPLACE VIEW public.my_profile
+  WITH (security_invoker = true) AS
+  SELECT id, full_name, avatar_url, provider, business_name,
+         business_email, phone, address, logo_url, brand_color,
+         plan, plan_expires_at, apps_enabled, onboarded, onboarded_at
+  FROM public.profiles WHERE id = auth.uid();
+
+GRANT SELECT ON public.my_profile TO authenticated;
+
+
+-- ────────────────────────────────────────────────────────────────
+-- SECTION 8: ADMIN PROVISION FUNCTION (Heather calls this after payment)
+-- ────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.cdi_provision_client(
+  _user_id UUID, _plan TEXT, _business_name TEXT, _months INT DEFAULT 1
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.profiles SET
+    plan            = _plan,
+    business_name   = _business_name,
+    plan_expires_at = NOW() + (_months * INTERVAL '1 month'),
+    apps_enabled    = CASE WHEN _plan = 'suite'
+                        THEN ARRAY['bookit','clientflow','invoiceready','contentplan',
+                                   'leadcatcher','proposalpro','expensetrack','reviewboost']
+                        ELSE apps_enabled END,
+    updated_at      = NOW()
+  WHERE id = _user_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'User % not found', _user_id; END IF;
+END; $$;
+
+REVOKE ALL ON FUNCTION public.cdi_provision_client FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.cdi_provision_client TO service_role;
+
+
+-- ────────────────────────────────────────────────────────────────
+-- VERIFY SUCCESS — run these separately after this script completes
+-- ────────────────────────────────────────────────────────────────
+-- SELECT table_name FROM information_schema.tables
+--   WHERE table_schema = 'public' ORDER BY table_name;
+-- Should return 26+ tables including profiles, ir_*, pp_*, cf_*, etc.
+--
+-- SELECT COUNT(*) FROM public.profiles; -- Should return 0 (empty, ready)
+
+-- ================================================================
+-- SETUP COMPLETE — All 26 tables, triggers, RLS, indexes, and
+-- storage buckets are ready. Sign in with Google or GitHub to test.
+-- ================================================================

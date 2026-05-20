@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>ExpenseTrack</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base: '#0f1117',
+            card: '#1a1d2e',
+            cardHover: '#222640',
+            primary: '#2dd4bf',
+            secondary: '#5eead4',
+            warning: '#fb923c',
+            success: '#4ade80',
+            danger: '#ff6b6b',
+            muted: '#8b8fa8',
+            stroke: 'rgba(255,255,255,0.08)',
+            inputBg: '#141725',
+            plaid: '#22c55e',
+            recurBlue: '#38bdf8',
+            lockAmber: '#f59e0b',
+          },
+          fontFamily: { inter: ['Inter', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#0f1117;color:#e2e4ed;min-height:100vh;padding-bottom:52px}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:#0f1117}
+    ::-webkit-scrollbar-thumb{background:#2a2d3e;border-radius:3px}
+    .tab-active{color:#2dd4bf;border-bottom:2px solid #2dd4bf}
+    .tab-inactive{color:#8b8fa8;border-bottom:2px solid transparent}
+    .tab-inactive:hover{color:#e2e4ed}
+    .modal-overlay{background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)}
+    .progress-bar{transition:width .5s ease}
+    .badge{font-size:.7rem;padding:2px 8px;border-radius:9999px;font-weight:600;letter-spacing:.02em}
+    .cat-marketing{background:rgba(45,212,191,.15);color:#2dd4bf}
+    .cat-software{background:rgba(168,85,247,.15);color:#a855f7}
+    .cat-travel{background:rgba(59,130,246,.15);color:#3b82f6}
+    .cat-meals{background:rgba(251,146,60,.15);color:#fb923c}
+    .cat-supplies{background:rgba(52,211,153,.15);color:#34d399}
+    .cat-utilities{background:rgba(156,163,175,.15);color:#9ca3af}
+    .cat-other{background:rgba(139,143,168,.15);color:#8b8fa8}
+    input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
+    .toggle-track{width:40px;height:22px;border-radius:11px;background:#2a2d3e;position:relative;cursor:pointer;transition:background .2s}
+    .toggle-track.active{background:#2dd4bf}
+    .toggle-knob{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s}
+    .toggle-track.active .toggle-knob{transform:translateX(18px)}
+    .chart-bar-h{height:18px;border-radius:4px;transition:width .6s ease;min-width:4px}
+    input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 2px rgba(45,212,191,.35)}
+    .fade-in{animation:fadeIn .25s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .help-overlay{background:rgba(0,0,0,.7);backdrop-filter:blur(6px)}
+    .help-modal-enter{animation:helpSlideIn .35s cubic-bezier(.16,1,.3,1)}
+    @keyframes helpSlideIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .help-modal-exit{animation:helpSlideOut .2s ease forwards}
+    @keyframes helpSlideOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(16px) scale(.97)}}
+    .accordion-content{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.16,1,.3,1),padding .3s ease;padding-top:0;padding-bottom:0}
+    .accordion-content.open{max-height:600px;padding-top:12px;padding-bottom:4px}
+    .accordion-chevron{transition:transform .3s ease}
+    .accordion-chevron.open{transform:rotate(180deg)}
+    .receipt-badge{font-size:.65rem;padding:1px 6px;border-radius:9999px;font-weight:600;background:rgba(45,212,191,.15);color:#2dd4bf;white-space:nowrap}
+    .recurring-badge{font-size:.65rem;padding:1px 6px;border-radius:9999px;font-weight:600;background:rgba(56,189,248,.15);color:#38bdf8;white-space:nowrap}
+    .bank-badge{font-size:.65rem;padding:1px 6px;border-radius:9999px;font-weight:600;background:rgba(34,197,94,.15);color:#22c55e;white-space:nowrap}
+    .lock-icon{color:#f59e0b;cursor:help}
+    .scan-step{opacity:.4;transition:opacity .4s ease,color .4s ease}
+    .scan-step.active{opacity:1}
+    .scan-step.done{opacity:1;color:#4ade80}
+    @keyframes pulseGlow{0%,100%{box-shadow:0 0 8px rgba(45,212,191,.2)}50%{box-shadow:0 0 20px rgba(45,212,191,.5)}}
+    .scan-pulse{animation:pulseGlow 1.2s ease-in-out infinite}
+    @keyframes spinLoader{to{transform:rotate(360deg)}}
+    .scan-spinner{width:16px;height:16px;border:2px solid rgba(45,212,191,.3);border-top-color:#2dd4bf;border-radius:50%;animation:spinLoader .8s linear infinite}
+    .nav-badge{font-size:.6rem;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:#2dd4bf;color:#0f1117;font-weight:700;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;top:-1px}
+    .receipt-history-item{transition:all .2s ease}
+    .receipt-history-item:hover{background:#222640}
+    .toast-msg{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);background:#1a1d2e;border:1px solid rgba(255,255,255,.08);color:#e2e4ed;padding:10px 20px;border-radius:12px;font-size:.85rem;z-index:200;animation:fadeIn .3s ease;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+    .plaid-step{animation:fadeIn .3s ease}
+    .lightbox-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+    .lightbox-overlay img{max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 0 40px rgba(0,0,0,.5)}
+    .notif-banner{animation:fadeIn .4s ease}
+    .pairing-banner{border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;position:relative;transition:opacity .3s ease}
+    .pairing-banner.dismissed{opacity:0;pointer-events:none;max-height:0;padding:0;margin:0;overflow:hidden;transition:all .3s ease}
+    .pairing-banner .banner-icon-wrap{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .pairing-banner .banner-body{flex:1;min-width:0}
+    .pairing-banner .banner-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    .pairing-banner .banner-actions .btn-connect{font-size:.75rem;font-weight:600;padding:6px 14px;border-radius:8px;color:#0f1117;transition:filter .2s}
+    .pairing-banner .banner-actions .btn-connect:hover{filter:brightness(1.15)}
+    .pairing-banner .banner-actions .btn-learn{font-size:.75rem;font-weight:600;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);color:#8b8fa8;background:transparent;transition:all .2s}
+    .pairing-banner .banner-actions .btn-learn:hover{color:#e2e4ed;border-color:rgba(255,255,255,.2)}
+    .pairing-banner .btn-dismiss-banner{position:absolute;top:10px;right:10px;background:none;border:none;color:#8b8fa8;cursor:pointer;padding:4px;transition:color .2s}
+    .pairing-banner .btn-dismiss-banner:hover{color:#e2e4ed}
+    .cdi-footer{position:fixed;bottom:0;left:0;right:0;z-index:90;height:44px;background:linear-gradient(to right,#1a1d2e,#0f1117);border-top:1px solid rgba(45,212,191,.2);display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+    .cdi-footer .cdi-left{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden}
+    .cdi-footer .cdi-left .cdi-label-full{display:none}
+    .cdi-footer .cdi-left .cdi-label-short{display:inline}
+    @media(min-width:640px){.cdi-footer .cdi-left .cdi-label-full{display:inline}.cdi-footer .cdi-left .cdi-label-short{display:none}}
+    .cdi-footer .cdi-explore-btn{background:linear-gradient(to right,#2dd4bf,#5eead4);color:#0f1117;font-size:.75rem;font-weight:700;padding:6px 14px;border-radius:9999px;white-space:nowrap;transition:filter .2s;text-decoration:none}
+    .cdi-footer .cdi-explore-btn:hover{filter:brightness(1.15)}
+    @media(max-width:400px){.pairing-banner{flex-direction:column;align-items:flex-start}.pairing-banner .banner-actions{width:100%}}
+    @media print{body{background:#fff!important;color:#000!important}.cdi-footer{display:none!important}}
+    /* Auth Modal */
+    .auth-overlay{position:fixed;inset:0;z-index:999;background:#0f1117;display:flex;align-items:center;justify-content:center;padding:16px}
+    .auth-card{background:#1a1d2e;border:1px solid rgba(255,255,255,.08);border-radius:16px;width:100%;max-width:420px;padding:32px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+    .auth-tab-active{color:#2dd4bf;border-bottom:2px solid #2dd4bf}
+    .auth-tab-inactive{color:#8b8fa8;border-bottom:2px solid transparent}
+    .auth-tab-inactive:hover{color:#e2e4ed}
+    .auth-input{width:100%;background:#141725;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;font-size:.875rem;color:#e2e4ed;transition:box-shadow .2s}
+    .auth-input:focus{outline:none;box-shadow:0 0 0 2px rgba(45,212,191,.35)}
+    .auth-input::placeholder{color:#8b8fa8}
+    .auth-btn{width:100%;padding:12px;border-radius:10px;font-size:.875rem;font-weight:700;border:none;cursor:pointer;transition:filter .2s,opacity .2s}
+    .auth-btn:hover{filter:brightness(1.1)}
+    .auth-btn:disabled{opacity:.5;cursor:not-allowed}
+    .auth-btn-primary{background:linear-gradient(135deg,#2dd4bf,#5eead4);color:#0f1117}
+    .auth-error-pill{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.25);border-radius:9999px;padding:6px 16px;font-size:.8rem;font-weight:500;text-align:center;margin-bottom:12px;animation:fadeIn .25s ease}
+    .auth-success-pill{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.25);border-radius:9999px;padding:6px 16px;font-size:.8rem;font-weight:500;text-align:center;margin-bottom:12px;animation:fadeIn .25s ease}
+    .auth-loading-spinner{width:20px;height:20px;border:2px solid rgba(13,13,17,.2);border-top-color:#0f1117;border-radius:50%;animation:spinLoader .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
+  </style>
+</head>
+<body data-id="0" class="font-inter">
+  <app-icon data-id="1" hidden data-icon="wallet" data-palette="Green"></app-icon>
+  <app-disclaimer data-id="2" intent="financial"></app-disclaimer>
+
+  <!-- ==================== AUTH MODAL ==================== -->
+  <div data-id="3" id="auth-modal-overlay" class="auth-overlay" style="display:none;">
+    <div data-id="4" class="auth-card fade-in">
+      <div data-id="5" class="text-center mb-6">
+        <div data-id="6" class="flex items-center justify-center gap-2 mb-1">
+          <i data-id="7" data-lucide="wallet" class="w-7 h-7 text-primary"></i>
+          <span data-id="8" class="text-2xl font-extrabold text-primary tracking-tight">ExpenseTrack</span>
+        </div>
+        <p data-id="9" class="text-xs text-muted">by Constructive Designs Inc.</p>
+      </div>
+      <div data-id="10" class="flex border-b border-stroke mb-5">
+        <button data-id="11" id="auth-tab-signin" class="flex-1 pb-3 text-sm font-semibold auth-tab-active transition-colors text-center">Sign In</button>
+        <button data-id="12" id="auth-tab-signup" class="flex-1 pb-3 text-sm font-semibold auth-tab-inactive transition-colors text-center">Sign Up</button>
+      </div>
+      <div data-id="13" id="auth-error-container"></div>
+      <div data-id="14" id="auth-success-container"></div>
+      <!-- Sign In Form -->
+      <div data-id="15" id="auth-signin-form">
+        <div data-id="16" class="space-y-3 mb-4">
+          <div data-id="17">
+            <label data-id="18" class="block text-xs text-muted mb-1 font-medium">Email</label>
+            <input data-id="19" id="auth-signin-email" type="email" placeholder="you@company.com" class="auth-input" />
+          </div>
+          <div data-id="20">
+            <label data-id="21" class="block text-xs text-muted mb-1 font-medium">Password</label>
+            <input data-id="22" id="auth-signin-password" type="password" placeholder="••••••••" class="auth-input" />
+          </div>
+        </div>
+        <button data-id="23" id="auth-signin-btn" class="auth-btn auth-btn-primary mb-3">Sign In</button>
+        <button data-id="24" id="auth-forgot-btn" class="w-full text-center text-xs text-primary hover:text-secondary font-medium bg-transparent border-none cursor-pointer py-1">Forgot password?</button>
+      </div>
+      <!-- Sign Up Form -->
+      <div data-id="25" id="auth-signup-form" class="hidden">
+        <div data-id="26" class="space-y-3 mb-4">
+          <div data-id="27">
+            <label data-id="28" class="block text-xs text-muted mb-1 font-medium">Business Name</label>
+            <input data-id="29" id="auth-signup-business" type="text" placeholder="Acme Corp" class="auth-input" />
+          </div>
+          <div data-id="30">
+            <label data-id="31" class="block text-xs text-muted mb-1 font-medium">Email</label>
+            <input data-id="32" id="auth-signup-email" type="email" placeholder="you@company.com" class="auth-input" />
+          </div>
+          <div data-id="33">
+            <label data-id="34" class="block text-xs text-muted mb-1 font-medium">Password</label>
+            <input data-id="35" id="auth-signup-password" type="password" placeholder="Min 6 characters" class="auth-input" />
+          </div>
+          <div data-id="36">
+            <label data-id="37" class="block text-xs text-muted mb-1 font-medium">Confirm Password</label>
+            <input data-id="38" id="auth-signup-confirm" type="password" placeholder="••••••••" class="auth-input" />
+          </div>
+        </div>
+        <button data-id="39" id="auth-signup-btn" class="auth-btn auth-btn-primary">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Banner (recurring auto-post) -->
+  <div data-id="40" id="recurring-notif-banner" class="hidden notif-banner">
+    <div data-id="41" class="max-w-7xl mx-auto px-4 md:px-6 pt-4">
+      <div data-id="42" class="bg-recurBlue/10 border border-recurBlue/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+        <div data-id="43" class="flex items-center gap-2 text-sm text-recurBlue">
+          <i data-id="44" data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span data-id="45" id="recurring-notif-text"></span>
+        </div>
+        <button data-id="46" id="dismiss-recurring-notif" class="p-1 text-recurBlue/60 hover:text-recurBlue"><i data-id="47" data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Nav -->
+  <header data-id="48" id="header-nav-a1b2" class="sticky top-0 z-50 bg-base/95 backdrop-blur border-b border-stroke">
+    <div data-id="49" class="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 h-14">
+      <div data-id="50" class="flex items-center gap-2">
+        <i data-id="51" data-lucide="wallet" class="w-6 h-6 text-primary"></i>
+        <span data-id="52" class="text-lg font-bold text-white tracking-tight">ExpenseTrack</span>
+      </div>
+      <nav data-id="53" id="desktop-nav-c3d4" class="hidden md:flex items-center gap-1">
+        <button data-id="54" data-nav="dashboard" class="nav-tab tab-active px-3 lg:px-4 py-4 text-sm font-medium transition-colors">Dashboard</button>
+        <button data-id="55" data-nav="bank" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors">Bank</button>
+        <button data-id="56" data-nav="expenses" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors">Expenses</button>
+        <button data-id="57" data-nav="receipts" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors flex items-center gap-1.5">Receipts <span data-id="58" id="receipt-nav-badge" class="nav-badge hidden">0</span></button>
+        <button data-id="59" data-nav="recurring" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors flex items-center gap-1.5"><i data-id="60" data-lucide="repeat" class="w-3.5 h-3.5 inline"></i> Recurring</button>
+        <button data-id="61" data-nav="budget" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors">Budget</button>
+        <button data-id="62" data-nav="reports" class="nav-tab tab-inactive px-3 lg:px-4 py-4 text-sm font-medium transition-colors">Reports</button>
+      </nav>
+      <div data-id="63" class="flex items-center gap-3">
+        <!-- User Badge (visible when authenticated) -->
+        <div data-id="64" id="nav-user-badge" class="hidden items-center gap-2">
+          <div data-id="65" id="nav-user-avatar" class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-base font-bold text-xs flex-shrink-0">?</div>
+          <span data-id="66" id="nav-user-email" class="hidden lg:inline text-xs text-muted truncate max-w-[120px]"></span>
+          <button data-id="67" id="nav-signout-btn" class="text-xs text-muted hover:text-danger font-medium px-2 py-1 rounded-lg border border-stroke bg-transparent hover:border-danger/30 transition-colors whitespace-nowrap">Sign Out</button>
+        </div>
+        <button data-id="68" id="help-btn" class="w-8 h-8 rounded-full border border-stroke bg-card flex items-center justify-center text-muted hover:text-primary hover:border-primary transition-colors" title="Help">
+          <i data-id="69" data-lucide="help-circle" class="w-4 h-4"></i>
+        </button>
+        <button data-id="70" id="log-expense-btn-e5f6" class="hidden md:flex items-center gap-2 bg-primary text-base font-semibold text-sm px-4 py-2 rounded-lg hover:bg-secondary transition-colors">
+          <i data-id="71" data-lucide="plus" class="w-4 h-4"></i> Log Expense
+        </button>
+        <button data-id="72" id="mobile-menu-btn-g7h8" class="md:hidden p-2 text-muted hover:text-white">
+          <i data-id="73" data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Menu -->
+  <nav data-id="74" id="mobile-menu-i9j0" class="hidden fixed inset-0 bg-base z-[60] flex flex-col p-5">
+    <div data-id="75" class="flex items-center justify-between mb-8">
+      <div data-id="76" class="flex items-center gap-2">
+        <i data-id="77" data-lucide="wallet" class="w-6 h-6 text-primary"></i>
+        <span data-id="78" class="text-lg font-bold text-white">ExpenseTrack</span>
+      </div>
+      <button data-id="79" id="mobile-menu-close-k1l2" class="p-2 text-muted hover:text-white">
+        <i data-id="80" data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+    <!-- Mobile user info -->
+    <div data-id="81" id="mobile-user-badge" class="hidden mb-4 p-3 bg-card rounded-xl border border-stroke flex items-center gap-3">
+      <div data-id="82" id="mobile-user-avatar" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-base font-bold text-sm flex-shrink-0">?</div>
+      <div data-id="83" class="min-w-0 flex-1">
+        <div data-id="84" id="mobile-user-email" class="text-xs text-white truncate"></div>
+        <button data-id="85" id="mobile-signout-btn" class="text-[11px] text-muted hover:text-danger font-medium mt-0.5">Sign Out</button>
+      </div>
+    </div>
+    <div data-id="86" class="flex flex-col gap-2">
+      <button data-id="87" data-nav="dashboard" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-white bg-card">Dashboard</button>
+      <button data-id="88" data-nav="bank" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition">Bank</button>
+      <button data-id="89" data-nav="expenses" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition">Expenses</button>
+      <button data-id="90" data-nav="receipts" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition flex items-center gap-2">Receipts <span data-id="91" id="receipt-nav-badge-mobile" class="nav-badge hidden">0</span></button>
+      <button data-id="92" data-nav="recurring" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition">Recurring</button>
+      <button data-id="93" data-nav="budget" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition">Budget</button>
+      <button data-id="94" data-nav="reports" class="mobile-nav-tab text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-card hover:text-white transition">Reports</button>
+    </div>
+    <button data-id="95" id="mobile-log-btn-m3n4" class="mt-6 flex items-center justify-center gap-2 bg-primary text-base font-semibold text-sm px-4 py-3 rounded-lg">
+      <i data-id="96" data-lucide="plus" class="w-4 h-4"></i> Log Expense
+    </button>
+  </nav>
+
+  <main data-id="97" id="app-main-content" class="max-w-7xl mx-auto px-4 md:px-6 py-6">
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <section data-id="98" id="tab-dashboard" class="tab-content fade-in">
+      <div data-id="99" id="stats-grid-o5p6" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div data-id="100" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="101" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="102" data-lucide="credit-card" class="w-4 h-4"></i> Total Spent</div>
+          <div data-id="103" id="stat-total-q7r8" class="text-2xl md:text-3xl font-bold text-white tabular-nums">$0</div>
+          <div data-id="104" class="text-xs text-muted mt-1">This month</div>
+        </div>
+        <div data-id="105" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="106" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="107" data-lucide="piggy-bank" class="w-4 h-4"></i> Budget Left</div>
+          <div data-id="108" id="stat-remaining-s9t0" class="text-2xl md:text-3xl font-bold text-success tabular-nums">$0</div>
+          <div data-id="109" class="text-xs text-muted mt-1">Remaining</div>
+        </div>
+        <div data-id="110" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="111" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="112" data-lucide="trending-up" class="w-4 h-4"></i> Largest</div>
+          <div data-id="113" id="stat-largest-u1v2" class="text-2xl md:text-3xl font-bold text-warning tabular-nums">$0</div>
+          <div data-id="114" id="stat-largest-label-w3x4" class="text-xs text-muted mt-1">—</div>
+        </div>
+        <div data-id="115" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="116" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="117" data-lucide="receipt" class="w-4 h-4"></i> Tax Deductible</div>
+          <div data-id="118" id="stat-tax-y5z6" class="text-2xl md:text-3xl font-bold text-primary tabular-nums">$0</div>
+          <div data-id="119" class="text-xs text-muted mt-1">Deductible total</div>
+        </div>
+      </div>
+
+      <!-- InvoiceReady Pairing Banner (Dashboard) -->
+      <div data-id="120" id="banner-invoiceready-wrap" class="mb-6">
+        <div data-id="121" id="expensetrack_invoiceready_banner" class="pairing-banner" style="border-left:3px solid #4ade80;background:linear-gradient(to right,rgba(74,222,128,0.06),transparent)">
+          <div data-id="122" class="banner-icon-wrap" style="background:rgba(74,222,128,0.12)"><i data-id="123" data-lucide="file-text" class="w-5 h-5" style="color:#4ade80"></i></div>
+          <div data-id="124" class="banner-body">
+            <div data-id="125" class="flex items-center gap-2 mb-1"><span data-id="126" class="text-sm font-bold text-white">InvoiceReady</span></div>
+            <p data-id="127" class="text-xs text-muted leading-relaxed">You track every dollar out — InvoiceReady tracks every dollar in. Together they give you the clearest picture of your business finances: real profit, real cash flow, real control. One ecosystem, zero gaps.</p>
+          </div>
+          <div data-id="128" class="banner-actions">
+            <button data-id="129" class="btn-connect banner-link-btn" style="background:#4ade80">Connect Now</button>
+            <button data-id="130" class="btn-learn banner-link-btn">Learn More</button>
+          </div>
+          <button data-id="131" class="btn-dismiss-banner" data-banner-id="expensetrack_invoiceready_banner"><i data-id="132" data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+
+      <!-- Bank + Reconciliation row -->
+      <div data-id="133" id="dash-bank-row" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div data-id="134" id="dash-bank-card" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="135" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="136" data-lucide="landmark" class="w-4 h-4"></i> Bank Balance</div>
+          <div data-id="137" id="dash-bank-value" class="text-2xl md:text-3xl font-bold text-plaid tabular-nums">—</div>
+          <div data-id="138" id="dash-bank-sub" class="text-xs text-muted mt-1">Connect Bank →</div>
+        </div>
+        <div data-id="139" id="dash-recon-card" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="140" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="141" data-lucide="git-compare-arrows" class="w-4 h-4"></i> Reconciliation</div>
+          <div data-id="142" id="dash-recon-value" class="text-sm font-semibold text-muted mt-1">Connect bank to reconcile</div>
+        </div>
+      </div>
+
+      <div data-id="143" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div data-id="144" class="bg-card rounded-xl p-5 border border-stroke">
+          <h3 data-id="145" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="146" data-lucide="bar-chart-3" class="w-4 h-4 text-primary"></i> Spending by Category</h3>
+          <div data-id="147" id="cat-bars-a2b3" class="space-y-3"></div>
+        </div>
+        <div data-id="148" class="bg-card rounded-xl p-5 border border-stroke">
+          <h3 data-id="149" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="150" data-lucide="git-compare-arrows" class="w-4 h-4 text-primary"></i> Month-over-Month</h3>
+          <div data-id="151" class="flex items-center gap-4 text-xs text-muted mb-3">
+            <span data-id="152" class="flex items-center gap-1"><span data-id="153" class="w-3 h-3 rounded-sm bg-primary inline-block"></span> This Month</span>
+            <span data-id="154" class="flex items-center gap-1"><span data-id="155" class="w-3 h-3 rounded-sm bg-muted inline-block"></span> Last Month</span>
+          </div>
+          <div data-id="156" id="mom-bars-c4d5" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <div data-id="157" class="bg-card rounded-xl p-5 border border-stroke">
+        <h3 data-id="158" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="159" data-lucide="clock" class="w-4 h-4 text-primary"></i> Recent Expenses</h3>
+        <div data-id="160" id="recent-list-e6f7" class="divide-y divide-stroke"></div>
+      </div>
+    </section>
+
+    <!-- ==================== BANK TAB ==================== -->
+    <section data-id="161" id="tab-bank" class="tab-content hidden fade-in">
+      <div data-id="162" id="bank-disconnected" class="fade-in">
+        <div data-id="163" class="bg-card rounded-2xl border-2 border-dashed border-stroke hover:border-plaid transition-colors p-8 md:p-12 text-center max-w-2xl mx-auto">
+          <div data-id="164" class="w-16 h-16 rounded-2xl bg-plaid/15 flex items-center justify-center mx-auto mb-5">
+            <div data-id="165" class="flex flex-col gap-[3px]"><span data-id="166" class="block w-6 h-[3px] rounded bg-plaid"></span><span data-id="167" class="block w-6 h-[3px] rounded bg-plaid"></span><span data-id="168" class="block w-6 h-[3px] rounded bg-plaid"></span></div>
+          </div>
+          <h2 data-id="169" class="text-xl font-bold text-white mb-2">Connect Your Bank Account</h2>
+          <p data-id="170" class="text-sm text-muted mb-6 max-w-md mx-auto">Link your business bank account via Plaid to automatically import transactions, track your real balance, and keep ExpenseTrack perfectly aligned with your actual spending.</p>
+          <div data-id="171" class="space-y-2 text-sm text-left max-w-sm mx-auto mb-6">
+            <div data-id="172" class="flex items-center gap-2"><i data-id="173" data-lucide="check" class="w-4 h-4 text-plaid flex-shrink-0"></i><span data-id="174" class="text-[#c8cad8]">Real-time account balance</span></div>
+            <div data-id="175" class="flex items-center gap-2"><i data-id="176" data-lucide="check" class="w-4 h-4 text-plaid flex-shrink-0"></i><span data-id="177" class="text-[#c8cad8]">Automatic transaction import</span></div>
+            <div data-id="178" class="flex items-center gap-2"><i data-id="179" data-lucide="check" class="w-4 h-4 text-plaid flex-shrink-0"></i><span data-id="180" class="text-[#c8cad8]">Smart expense categorization</span></div>
+            <div data-id="181" class="flex items-center gap-2"><i data-id="182" data-lucide="check" class="w-4 h-4 text-plaid flex-shrink-0"></i><span data-id="183" class="text-[#c8cad8]">Daily reconciliation with your logged expenses</span></div>
+            <div data-id="184" class="flex items-center gap-2"><i data-id="185" data-lucide="check" class="w-4 h-4 text-plaid flex-shrink-0"></i><span data-id="186" class="text-[#c8cad8]">Supports 10,000+ US banks & credit unions</span></div>
+          </div>
+          <button data-id="187" id="connect-plaid-btn" class="bg-plaid text-base font-semibold text-sm px-8 py-3 rounded-xl hover:bg-green-400 transition-colors mb-4">Connect via Plaid</button>
+          <p data-id="188" class="text-xs text-muted flex items-center justify-center gap-1.5"><i data-id="189" data-lucide="lock" class="w-3 h-3"></i> Bank-level 256-bit encryption. ExpenseTrack never stores your bank credentials. Powered by Plaid.</p>
+        </div>
+      </div>
+
+      <div data-id="190" id="bank-connected" class="hidden fade-in">
+        <div data-id="191" class="bg-card rounded-xl p-5 border-2 border-plaid/30 mb-6">
+          <div data-id="192" class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div data-id="193">
+              <div data-id="194" class="flex items-center gap-2 mb-1">
+                <span data-id="195" id="bank-acct-name" class="text-base font-bold text-white"></span>
+                <span data-id="196" class="badge bg-plaid/15 text-plaid">Connected via Plaid</span>
+              </div>
+              <div data-id="197" class="text-xs text-muted" id="bank-last-sync"></div>
+            </div>
+            <div data-id="198" class="flex items-center gap-3">
+              <button data-id="199" id="bank-sync-btn" class="flex items-center gap-2 bg-plaid/15 text-plaid font-semibold text-xs px-4 py-2 rounded-lg hover:bg-plaid/25 transition-colors"><i data-id="200" data-lucide="refresh-cw" class="w-3.5 h-3.5" id="sync-icon"></i> Sync Now</button>
+              <button data-id="201" id="bank-disconnect-btn" class="text-xs text-muted hover:text-danger transition">Disconnect</button>
+            </div>
+          </div>
+          <div data-id="202" class="grid grid-cols-2 gap-4 mt-4">
+            <div data-id="203"><div data-id="204" class="text-xs text-muted uppercase tracking-wide">Current Balance</div><div data-id="205" id="bank-balance-val" class="text-2xl font-bold text-plaid tabular-nums"></div></div>
+            <div data-id="206"><div data-id="207" class="text-xs text-muted uppercase tracking-wide">Available Balance</div><div data-id="208" id="bank-avail-val" class="text-2xl font-bold text-white tabular-nums"></div></div>
+          </div>
+        </div>
+
+        <div data-id="209" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+          <h3 data-id="210" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="211" data-lucide="git-compare-arrows" class="w-4 h-4 text-primary"></i> Reconciliation Summary</h3>
+          <div data-id="212" class="flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+            <div data-id="213" class="flex-1"><div data-id="214" class="text-xs text-muted uppercase tracking-wide">Bank Balance</div><div data-id="215" id="recon-bank" class="text-xl font-bold text-plaid tabular-nums"></div></div>
+            <div data-id="216" class="text-2xl text-muted font-light">vs</div>
+            <div data-id="217" class="flex-1"><div data-id="218" class="text-xs text-muted uppercase tracking-wide">Tracked Expenses (This Month)</div><div data-id="219" id="recon-tracked" class="text-xl font-bold text-primary tabular-nums"></div></div>
+          </div>
+          <div data-id="220" id="recon-status" class="text-center mt-4 text-sm font-medium"></div>
+        </div>
+
+        <div data-id="221" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+          <div data-id="222" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h3 data-id="223" class="text-sm font-semibold text-white flex items-center gap-2"><i data-id="224" data-lucide="list" class="w-4 h-4 text-primary"></i> Recent Bank Transactions</h3>
+            <div data-id="225" class="flex items-center gap-2">
+              <select data-id="226" id="bank-txn-filter" class="bg-inputBg border border-stroke rounded-lg px-3 py-1.5 text-xs text-white">
+                <option data-id="227" value="all">All</option><option data-id="228" value="expenses">Expenses</option><option data-id="229" value="deposits">Deposits</option><option data-id="230" value="unimported">Unimported</option>
+              </select>
+              <button data-id="231" id="bank-import-all-btn" class="flex items-center gap-1 bg-plaid text-base font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-green-400 transition-colors"><i data-id="232" data-lucide="download" class="w-3 h-3"></i> Import All Expenses</button>
+            </div>
+          </div>
+          <div data-id="233" id="bank-txn-list" class="divide-y divide-stroke"></div>
+        </div>
+
+        <div data-id="234" class="bg-card rounded-xl border border-stroke overflow-hidden">
+          <button data-id="235" id="import-history-toggle" class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-cardHover transition-colors">
+            <h3 data-id="236" class="text-sm font-semibold text-white flex items-center gap-2"><i data-id="237" data-lucide="history" class="w-4 h-4 text-primary"></i> Import History</h3>
+            <i data-id="238" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="import-hist-chevron"></i>
+          </button>
+          <div data-id="239" class="accordion-content px-5" id="import-hist-content">
+            <div data-id="240" id="import-hist-list" class="divide-y divide-stroke pb-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== EXPENSES TAB ==================== -->
+    <section data-id="241" id="tab-expenses" class="tab-content hidden fade-in">
+      <div data-id="242" class="bg-card rounded-xl p-4 md:p-5 border border-stroke mb-6">
+        <div data-id="243" class="flex flex-col md:flex-row md:items-end gap-3">
+          <div data-id="244" class="flex-1">
+            <label data-id="245" class="block text-xs text-muted mb-1 font-medium">Search</label>
+            <div data-id="246" class="relative">
+              <i data-id="247" data-lucide="search" class="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input data-id="248" id="expense-search-g8h9" type="text" placeholder="Search expenses..." class="w-full bg-inputBg border border-stroke rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-muted focus:border-primary" />
+            </div>
+          </div>
+          <div data-id="249"><label data-id="250" class="block text-xs text-muted mb-1 font-medium">Category</label>
+            <select data-id="251" id="filter-cat-i0j1" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-40">
+              <option data-id="252" value="">All</option><option data-id="253">Marketing</option><option data-id="254">Supplies</option><option data-id="255">Software</option><option data-id="256">Travel</option><option data-id="257">Utilities</option><option data-id="258">Meals</option><option data-id="259">Other</option>
+            </select>
+          </div>
+          <div data-id="260"><label data-id="261" class="block text-xs text-muted mb-1 font-medium">Tax Deductible</label>
+            <select data-id="262" id="filter-tax-k2l3" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-32">
+              <option data-id="263" value="">All</option><option data-id="264" value="yes">Yes</option><option data-id="265" value="no">No</option>
+            </select>
+          </div>
+          <div data-id="266"><label data-id="267" class="block text-xs text-muted mb-1 font-medium">From</label>
+            <input data-id="268" id="filter-from-m4n5" type="date" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-36" />
+          </div>
+          <div data-id="269"><label data-id="270" class="block text-xs text-muted mb-1 font-medium">To</label>
+            <input data-id="271" id="filter-to-o6p7" type="date" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-36" />
+          </div>
+        </div>
+        <div data-id="272" class="flex items-center justify-between mt-3">
+          <div data-id="273" id="expense-count-q8r9" class="text-xs text-muted"></div>
+          <button data-id="274" id="bulk-delete-btn-s0t1" class="hidden items-center gap-1 text-xs text-danger hover:text-red-400 font-medium"><i data-id="275" data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete Selected</button>
+        </div>
+      </div>
+      <div data-id="276" class="bg-card rounded-xl border border-stroke overflow-hidden">
+        <div data-id="277" class="overflow-x-auto">
+          <table data-id="278" class="w-full text-left text-sm">
+            <thead data-id="279" class="bg-cardHover text-xs font-medium uppercase tracking-wide text-muted">
+              <tr data-id="280">
+                <th data-id="281" class="px-4 py-3 w-10"><input data-id="282" id="select-all-chk-u2v3" type="checkbox" class="accent-primary rounded" /></th>
+                <th data-id="283" class="px-4 py-3 cursor-pointer" data-sort="date">Date <i data-id="284" data-lucide="chevrons-up-down" class="w-3 h-3 inline"></i></th>
+                <th data-id="285" class="px-4 py-3">Description</th>
+                <th data-id="286" class="px-4 py-3">Category</th>
+                <th data-id="287" class="px-4 py-3 text-right cursor-pointer" data-sort="amount">Amount <i data-id="288" data-lucide="chevrons-up-down" class="w-3 h-3 inline"></i></th>
+                <th data-id="289" class="px-4 py-3 text-center">Tax Ded.</th>
+                <th data-id="290" class="px-4 py-3 text-center">Receipt</th>
+                <th data-id="291" class="px-4 py-3">Notes</th>
+                <th data-id="292" class="px-4 py-3 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody data-id="293" id="expenses-tbody-w4x5" class="divide-y divide-stroke"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RECEIPTS TAB ==================== -->
+    <section data-id="294" id="tab-receipts" class="tab-content hidden fade-in">
+      <div data-id="295" id="receipt-storage-banner" class="bg-warning/10 border border-warning/30 rounded-xl px-4 py-3 mb-6 flex items-start gap-3">
+        <i data-id="296" data-lucide="lightbulb" class="w-4 h-4 text-warning flex-shrink-0 mt-0.5"></i>
+        <div data-id="297" class="flex-1">
+          <p data-id="298" class="text-sm text-[#c8cad8]">Receipt images are stored locally in your browser. For long-term cloud backup (recommended for 3-year IRS retention), connect Google Drive in Settings → Cloud Storage.</p>
+        </div>
+        <button data-id="299" id="dismiss-storage-banner" class="p-1 text-warning/60 hover:text-warning flex-shrink-0"><i data-id="300" data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div data-id="301" class="bg-card rounded-2xl border-2 border-dashed border-stroke hover:border-primary transition-colors p-6 md:p-8 mb-8 text-center">
+        <div data-id="302" class="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-4">
+          <i data-id="303" data-lucide="scan-line" class="w-8 h-8 text-primary"></i>
+        </div>
+        <h2 data-id="304" class="text-xl font-bold text-white mb-2">Scan a Receipt</h2>
+        <p data-id="305" class="text-sm text-muted mb-5 max-w-md mx-auto">Snap or upload a photo of any receipt — we'll extract every line item automatically</p>
+        <div data-id="306" class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button data-id="307" id="take-photo-btn" class="flex items-center gap-2 bg-primary text-base font-semibold text-sm px-6 py-3 rounded-xl hover:bg-secondary transition-colors"><i data-id="308" data-lucide="camera" class="w-4 h-4"></i> Take Photo</button>
+          <button data-id="309" id="upload-img-btn" class="flex items-center gap-2 bg-inputBg border border-stroke text-white font-semibold text-sm px-6 py-3 rounded-xl hover:bg-cardHover transition-colors"><i data-id="310" data-lucide="image" class="w-4 h-4"></i> Upload Image</button>
+        </div>
+        <input data-id="311" type="file" id="receipt-capture-input" accept="image/*" capture="environment" class="hidden" />
+        <input data-id="312" type="file" id="receipt-upload-input" accept="image/*" class="hidden" />
+      </div>
+
+      <div data-id="313" class="bg-card rounded-xl border border-stroke p-5">
+        <h3 data-id="314" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="315" data-lucide="history" class="w-4 h-4 text-primary"></i> Scanned Receipts</h3>
+        <div data-id="316" class="flex flex-col md:flex-row md:items-end gap-3 mb-4">
+          <div data-id="317" class="flex-1">
+            <label data-id="318" class="block text-xs text-muted mb-1 font-medium">Search</label>
+            <div data-id="319" class="relative">
+              <i data-id="320" data-lucide="search" class="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input data-id="321" id="rcpt-search-input" type="text" placeholder="Search by store name..." class="w-full bg-inputBg border border-stroke rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-muted focus:border-primary" />
+            </div>
+          </div>
+          <div data-id="322"><label data-id="323" class="block text-xs text-muted mb-1 font-medium">Category</label>
+            <select data-id="324" id="rcpt-filter-cat" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-40">
+              <option data-id="325" value="">All</option><option data-id="326">Marketing</option><option data-id="327">Supplies</option><option data-id="328">Software</option><option data-id="329">Travel</option><option data-id="330">Utilities</option><option data-id="331">Meals</option><option data-id="332">Other</option>
+            </select>
+          </div>
+          <div data-id="333"><label data-id="334" class="block text-xs text-muted mb-1 font-medium">From</label>
+            <input data-id="335" id="rcpt-filter-from" type="date" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-36" />
+          </div>
+          <div data-id="336"><label data-id="337" class="block text-xs text-muted mb-1 font-medium">To</label>
+            <input data-id="338" id="rcpt-filter-to" type="date" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-full md:w-36" />
+          </div>
+        </div>
+        <div data-id="339" id="rcpt-list-container" class="space-y-3"></div>
+        <div data-id="340" id="rcpt-empty-state" class="hidden text-center py-10">
+          <i data-id="341" data-lucide="scan-line" class="w-10 h-10 text-muted mx-auto mb-3 opacity-40"></i>
+          <p data-id="342" class="text-sm text-muted">No scanned receipts yet. Scan your first receipt above!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RECURRING TAB ==================== -->
+    <section data-id="343" id="tab-recurring" class="tab-content hidden fade-in">
+      <div data-id="344" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div data-id="345" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="346" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="347" data-lucide="repeat" class="w-4 h-4"></i> Monthly Total</div>
+          <div data-id="348" id="recur-total" class="text-2xl md:text-3xl font-bold text-recurBlue tabular-nums">$0</div>
+          <div data-id="349" class="text-xs text-muted mt-1">Active commitments</div>
+        </div>
+        <div data-id="350" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="351" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="352" data-lucide="hash" class="w-4 h-4"></i> Active Items</div>
+          <div data-id="353" id="recur-count" class="text-2xl md:text-3xl font-bold text-white tabular-nums">0</div>
+          <div data-id="354" class="text-xs text-muted mt-1">Recurring expenses</div>
+        </div>
+        <div data-id="355" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="356" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="357" data-lucide="calendar" class="w-4 h-4"></i> Next Due</div>
+          <div data-id="358" id="recur-next" class="text-lg md:text-xl font-bold text-white">—</div>
+          <div data-id="359" id="recur-next-name" class="text-xs text-muted mt-1">—</div>
+        </div>
+        <div data-id="360" class="bg-card rounded-xl p-4 md:p-5 border border-stroke">
+          <div data-id="361" class="flex items-center gap-2 mb-2 text-muted text-xs font-medium uppercase tracking-wide"><i data-id="362" data-lucide="calendar-range" class="w-4 h-4"></i> Annual Total</div>
+          <div data-id="363" id="recur-annual" class="text-2xl md:text-3xl font-bold text-warning tabular-nums">$0</div>
+          <div data-id="364" class="text-xs text-muted mt-1">Projected yearly</div>
+        </div>
+      </div>
+
+      <div data-id="365" class="flex items-center justify-between mb-4">
+        <h3 data-id="366" class="text-sm font-semibold text-white">Recurring Items</h3>
+        <button data-id="367" id="add-recurring-btn" class="flex items-center gap-2 bg-recurBlue text-base font-semibold text-sm px-4 py-2 rounded-lg hover:bg-sky-400 transition-colors"><i data-id="368" data-lucide="plus" class="w-4 h-4"></i> Add Recurring</button>
+      </div>
+
+      <div data-id="369" id="recurring-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ==================== BUDGET TAB ==================== -->
+    <section data-id="370" id="tab-budget" class="tab-content hidden fade-in">
+      <div data-id="371" id="budget-summary-y6z7" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+        <div data-id="372" class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div data-id="373">
+            <h3 data-id="374" class="text-sm font-semibold text-white flex items-center gap-2 mb-1"><i data-id="375" data-lucide="gauge" class="w-4 h-4 text-primary"></i> Monthly Budget Overview</h3>
+            <p data-id="376" class="text-xs text-muted">May 2026</p>
+          </div>
+          <div data-id="377" class="flex flex-wrap items-center gap-6 text-center">
+            <div data-id="378"><div data-id="379" class="text-xs text-muted uppercase tracking-wide">Budgeted</div><div data-id="380" id="budget-total-a8b9" class="text-xl font-bold text-white tabular-nums">$0</div></div>
+            <div data-id="381"><div data-id="382" class="text-xs text-muted uppercase tracking-wide">Spent</div><div data-id="383" id="budget-spent-c0d1" class="text-xl font-bold text-primary tabular-nums">$0</div></div>
+            <div data-id="384"><div data-id="385" class="text-xs text-muted uppercase tracking-wide">Used</div><div data-id="386" id="budget-pct-e2f3" class="text-xl font-bold text-white tabular-nums">0%</div></div>
+            <div data-id="387"><div data-id="388" class="text-xs text-muted uppercase tracking-wide">Remaining</div><div data-id="389" id="budget-rem-g4h5" class="text-xl font-bold text-success tabular-nums">$0</div></div>
+          </div>
+        </div>
+        <div data-id="390" class="mt-4 w-full bg-inputBg rounded-full h-3 overflow-hidden">
+          <div data-id="391" id="budget-bar-i6j7" class="h-3 rounded-full bg-primary progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <div data-id="392" class="bg-card rounded-xl p-5 border border-stroke mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+        <label data-id="393" class="text-sm font-medium text-white">Total Monthly Budget:</label>
+        <div data-id="394" class="flex items-center gap-2">
+          <span data-id="395" class="text-muted">$</span>
+          <input data-id="396" id="total-budget-input-k8l9" type="number" value="5000" min="0" step="100" class="bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white w-32 tabular-nums" />
+          <button data-id="397" id="save-total-budget-m0n1" class="bg-primary text-base font-semibold text-sm px-4 py-2 rounded-lg hover:bg-secondary transition-colors">Save</button>
+        </div>
+      </div>
+      <div data-id="398" id="budget-cards-o2p3" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ==================== REPORTS TAB ==================== -->
+    <section data-id="399" id="tab-reports" class="tab-content hidden fade-in">
+
+      <div data-id="400" id="banner-proposalpro-wrap" class="mb-6">
+        <div data-id="401" id="expensetrack_proposalpro_banner" class="pairing-banner" style="border-left:3px solid #f472b6;background:linear-gradient(to right,rgba(244,114,182,0.06),transparent)">
+          <div data-id="402" class="banner-icon-wrap" style="background:rgba(244,114,182,0.12)"><i data-id="403" data-lucide="pen-tool" class="w-5 h-5" style="color:#f472b6"></i></div>
+          <div data-id="404" class="banner-body">
+            <div data-id="405" class="flex items-center gap-2 mb-1"><span data-id="406" class="text-sm font-bold text-white">ProposalPro</span></div>
+            <p data-id="407" class="text-xs text-muted leading-relaxed">Knowing your costs makes your proposals sharper. Use ExpenseTrack to understand your real overhead, then build proposals in ProposalPro that price your work accurately — and profitably.</p>
+          </div>
+          <div data-id="408" class="banner-actions">
+            <button data-id="409" class="btn-connect banner-link-btn" style="background:#f472b6">Connect Now</button>
+            <button data-id="410" class="btn-learn banner-link-btn">Learn More</button>
+          </div>
+          <button data-id="411" class="btn-dismiss-banner" data-banner-id="expensetrack_proposalpro_banner"><i data-id="412" data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+
+      <div data-id="413" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+        <div data-id="414" class="flex flex-col md:flex-row md:items-center gap-3">
+          <label data-id="415" class="text-sm font-medium text-white">Date Range:</label>
+          <div data-id="416" class="flex flex-wrap items-center gap-2">
+            <button data-id="417" data-range="this-month" class="range-btn bg-primary text-base text-xs font-semibold px-3 py-1.5 rounded-lg">This Month</button>
+            <button data-id="418" data-range="last-month" class="range-btn bg-inputBg text-muted text-xs font-medium px-3 py-1.5 rounded-lg hover:text-white transition">Last Month</button>
+            <button data-id="419" data-range="last-3" class="range-btn bg-inputBg text-muted text-xs font-medium px-3 py-1.5 rounded-lg hover:text-white transition">Last 3 Months</button>
+            <button data-id="420" data-range="this-year" class="range-btn bg-inputBg text-muted text-xs font-medium px-3 py-1.5 rounded-lg hover:text-white transition">This Year</button>
+            <button data-id="421" data-range="custom" class="range-btn bg-inputBg text-muted text-xs font-medium px-3 py-1.5 rounded-lg hover:text-white transition">Custom</button>
+          </div>
+          <div data-id="422" id="custom-range-q4r5" class="hidden flex items-center gap-2 ml-0 md:ml-2">
+            <input data-id="423" id="report-from-s6t7" type="date" class="bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-xs text-white" />
+            <span data-id="424" class="text-muted text-xs">to</span>
+            <input data-id="425" id="report-to-u8v9" type="date" class="bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-xs text-white" />
+            <button data-id="426" id="apply-custom-w0x1" class="text-primary text-xs font-semibold hover:text-secondary">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div data-id="427" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div data-id="428" class="bg-card rounded-xl p-5 border border-stroke">
+          <h3 data-id="429" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="430" data-lucide="file-text" class="w-4 h-4 text-primary"></i> Summary</h3>
+          <div data-id="431" id="report-summary-y2z3" class="space-y-3"></div>
+        </div>
+        <div data-id="432" class="bg-card rounded-xl p-5 border border-stroke">
+          <h3 data-id="433" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="434" data-lucide="pie-chart" class="w-4 h-4 text-primary"></i> Category Breakdown</h3>
+          <div data-id="435" id="report-cat-table-a4b5" class="overflow-x-auto"></div>
+        </div>
+      </div>
+      <div data-id="436" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+        <h3 data-id="437" class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-id="438" data-lucide="trending-up" class="w-4 h-4 text-primary"></i> Monthly Spending Trend (12 Months)</h3>
+        <div data-id="439" class="relative h-64 md:h-80"><canvas data-id="440" id="trend-chart-c6d7"></canvas></div>
+      </div>
+      <div data-id="441" class="bg-card rounded-xl p-5 border border-stroke mb-6">
+        <div data-id="442" class="flex items-center justify-between mb-4">
+          <h3 data-id="443" class="text-sm font-semibold text-white flex items-center gap-2"><i data-id="444" data-lucide="landmark" class="w-4 h-4 text-primary"></i> Tax Deductible Summary</h3>
+          <button data-id="445" id="export-csv-btn-e8f9" class="flex items-center gap-1 bg-primary text-base font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-secondary transition-colors"><i data-id="446" data-lucide="download" class="w-3.5 h-3.5"></i> Export CSV</button>
+        </div>
+        <div data-id="447" id="tax-summary-g0h1" class="overflow-x-auto"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== LOG EXPENSE MODAL ==================== -->
+  <div data-id="448" id="expense-modal-i2j3" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="449" class="bg-card rounded-2xl border border-stroke w-full max-w-lg p-6 shadow-2xl fade-in max-h-[90vh] overflow-y-auto">
+      <div data-id="450" class="flex items-center justify-between mb-5">
+        <h2 data-id="451" id="modal-title-k4l5" class="text-lg font-bold text-white">Log Expense</h2>
+        <button data-id="452" id="modal-close-m6n7" class="p-1 text-muted hover:text-white"><i data-id="453" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="454" class="space-y-4">
+        <div data-id="455" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="456"><label data-id="457" class="block text-xs text-muted mb-1 font-medium">Date <span data-id="458" class="text-danger">*</span></label><input data-id="459" id="modal-date-o8p9" type="date" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+          <div data-id="460"><label data-id="461" class="block text-xs text-muted mb-1 font-medium">Amount <span data-id="462" class="text-danger">*</span></label><input data-id="463" id="modal-amount-q0r1" type="number" min="0" step="0.01" placeholder="0.00" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white tabular-nums" /></div>
+        </div>
+        <div data-id="464"><label data-id="465" class="block text-xs text-muted mb-1 font-medium">Description <span data-id="466" class="text-danger">*</span></label><input data-id="467" id="modal-desc-s2t3" type="text" placeholder="e.g. Office supplies from Staples" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="468" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="469"><label data-id="470" class="block text-xs text-muted mb-1 font-medium">Category <span data-id="471" class="text-danger">*</span></label>
+            <select data-id="472" id="modal-cat-u4v5" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white">
+              <option data-id="473" value="">Select...</option><option data-id="474">Marketing</option><option data-id="475">Supplies</option><option data-id="476">Software</option><option data-id="477">Travel</option><option data-id="478">Utilities</option><option data-id="479">Meals</option><option data-id="480">Other</option>
+            </select>
+          </div>
+          <div data-id="481" class="flex items-center gap-3 pt-5">
+            <label data-id="482" class="text-sm text-white font-medium">Tax Deductible</label>
+            <div data-id="483" id="modal-tax-toggle-w6x7" class="toggle-track" role="switch" aria-checked="false" tabindex="0"><div data-id="484" class="toggle-knob"></div></div>
+          </div>
+        </div>
+        <div data-id="485"><label data-id="486" class="block text-xs text-muted mb-1 font-medium">Notes</label><textarea data-id="487" id="modal-notes-y8z9" rows="2" placeholder="Optional notes..." class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea></div>
+        <div data-id="488"><label data-id="489" class="block text-xs text-muted mb-1 font-medium">Receipt</label>
+          <div data-id="490" id="receipt-drop-a0b1" class="border-2 border-dashed border-stroke rounded-lg p-4 text-center cursor-pointer hover:border-primary transition-colors"><i data-id="491" data-lucide="paperclip" class="w-5 h-5 mx-auto text-muted mb-1"></i><p data-id="492" class="text-xs text-muted">Click to attach receipt (placeholder)</p></div>
+        </div>
+      </div>
+      <div data-id="493" class="flex items-center justify-end gap-3 mt-6">
+        <button data-id="494" id="modal-cancel-c2d3" class="px-4 py-2 text-sm text-muted hover:text-white transition">Cancel</button>
+        <button data-id="495" id="modal-save-e4f5" class="bg-primary text-base font-semibold text-sm px-6 py-2 rounded-lg hover:bg-secondary transition-colors">Save Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EDIT BUDGET MODAL ==================== -->
+  <div data-id="496" id="budget-modal-g6h7" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="497" class="bg-card rounded-2xl border border-stroke w-full max-w-sm p-6 shadow-2xl fade-in">
+      <div data-id="498" class="flex items-center justify-between mb-5">
+        <h2 data-id="499" class="text-lg font-bold text-white">Edit Budget</h2>
+        <button data-id="500" id="budget-modal-close-i8j9" class="p-1 text-muted hover:text-white"><i data-id="501" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="502" class="space-y-4">
+        <div data-id="503"><label data-id="504" class="block text-xs text-muted mb-1 font-medium">Category</label><div data-id="505" id="budget-modal-cat-k0l1" class="text-sm text-white font-semibold"></div></div>
+        <div data-id="506"><label data-id="507" class="block text-xs text-muted mb-1 font-medium">Budget Amount ($)</label><input data-id="508" id="budget-modal-amount-m2n3" type="number" min="0" step="50" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white tabular-nums" /></div>
+      </div>
+      <div data-id="509" class="flex items-center justify-end gap-3 mt-6">
+        <button data-id="510" id="budget-modal-cancel-o4p5" class="px-4 py-2 text-sm text-muted hover:text-white transition">Cancel</button>
+        <button data-id="511" id="budget-modal-save-q6r7" class="bg-primary text-base font-semibold text-sm px-6 py-2 rounded-lg hover:bg-secondary transition-colors">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RECURRING MODAL ==================== -->
+  <div data-id="512" id="recurring-modal-overlay" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="513" class="bg-card rounded-2xl border border-stroke w-full max-w-lg p-6 shadow-2xl fade-in max-h-[90vh] overflow-y-auto">
+      <div data-id="514" class="flex items-center justify-between mb-5">
+        <h2 data-id="515" id="recurring-modal-title" class="text-lg font-bold text-white">Add Recurring Expense</h2>
+        <button data-id="516" id="recurring-modal-close" class="p-1 text-muted hover:text-white"><i data-id="517" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="518" class="space-y-4">
+        <div data-id="519"><label data-id="520" class="block text-xs text-muted mb-1 font-medium">Name <span data-id="521" class="text-danger">*</span></label><input data-id="522" id="recur-name-input" type="text" placeholder="e.g. Adobe Creative Cloud" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="523" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="524"><label data-id="525" class="block text-xs text-muted mb-1 font-medium">Amount ($) <span data-id="526" class="text-danger">*</span></label><input data-id="527" id="recur-amount-input" type="number" min="0" step="0.01" placeholder="0.00" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white tabular-nums" /></div>
+          <div data-id="528"><label data-id="529" class="block text-xs text-muted mb-1 font-medium">Category <span data-id="530" class="text-danger">*</span></label>
+            <select data-id="531" id="recur-cat-input" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white">
+              <option data-id="532" value="">Select...</option><option data-id="533">Marketing</option><option data-id="534">Supplies</option><option data-id="535">Software</option><option data-id="536">Travel</option><option data-id="537">Utilities</option><option data-id="538">Meals</option><option data-id="539">Other</option>
+            </select>
+          </div>
+        </div>
+        <div data-id="540" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="541"><label data-id="542" class="block text-xs text-muted mb-1 font-medium">Frequency <span data-id="543" class="text-danger">*</span></label>
+            <select data-id="544" id="recur-freq-input" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white">
+              <option data-id="545">Monthly</option><option data-id="546">Weekly</option><option data-id="547">Quarterly</option><option data-id="548">Annual</option>
+            </select>
+          </div>
+          <div data-id="549"><label data-id="550" class="block text-xs text-muted mb-1 font-medium">Start Date</label><input data-id="551" id="recur-start-input" type="date" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        </div>
+        <div data-id="552"><label data-id="553" class="block text-xs text-muted mb-1 font-medium">Next Due Date</label><input data-id="554" id="recur-next-input" type="date" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="555"><label data-id="556" class="block text-xs text-muted mb-1 font-medium">Notes</label><textarea data-id="557" id="recur-notes-input" rows="2" placeholder="Optional notes..." class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea></div>
+        <div data-id="558" class="flex items-center gap-6">
+          <div data-id="559" class="flex items-center gap-3"><label data-id="560" class="text-sm text-white font-medium">Tax Deductible</label><div data-id="561" id="recur-tax-toggle" class="toggle-track" role="switch" aria-checked="false" tabindex="0"><div data-id="562" class="toggle-knob"></div></div></div>
+          <div data-id="563" class="flex items-center gap-3"><label data-id="564" class="text-sm text-white font-medium">Active</label><div data-id="565" id="recur-active-toggle" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"><div data-id="566" class="toggle-knob"></div></div></div>
+        </div>
+      </div>
+      <div data-id="567" class="flex items-center justify-end gap-3 mt-6">
+        <button data-id="568" id="recurring-modal-cancel" class="px-4 py-2 text-sm text-muted hover:text-white transition">Cancel</button>
+        <button data-id="569" id="recurring-modal-save" class="bg-recurBlue text-base font-semibold text-sm px-6 py-2 rounded-lg hover:bg-sky-400 transition-colors">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCANNING MODAL ==================== -->
+  <div data-id="570" id="scanning-modal-overlay" class="hidden fixed inset-0 z-[75] modal-overlay flex items-center justify-center p-4">
+    <div data-id="571" id="scanning-modal-content" class="bg-card rounded-2xl border border-stroke w-full max-w-xl p-6 shadow-2xl fade-in">
+      <div data-id="572" class="flex items-center justify-between mb-5">
+        <h2 data-id="573" class="text-lg font-bold text-white flex items-center gap-2"><i data-id="574" data-lucide="scan-line" class="w-5 h-5 text-primary"></i> Scanning Receipt</h2>
+      </div>
+      <div data-id="575" class="flex flex-col md:flex-row gap-5">
+        <div data-id="576" id="scan-preview-box" class="w-full md:w-40 h-48 md:h-56 rounded-xl bg-inputBg border border-stroke flex items-center justify-center overflow-hidden flex-shrink-0 scan-pulse">
+          <img data-id="577" id="scan-preview-img" class="w-full h-full object-cover hidden" alt="Receipt preview" />
+          <i data-id="578" data-lucide="camera" class="w-10 h-10 text-muted opacity-30"></i>
+        </div>
+        <div data-id="579" class="flex-1 flex flex-col justify-center gap-3">
+          <div data-id="580" class="scan-step flex items-center gap-3" id="scan-step-1"><div data-id="581" class="w-6 h-6 flex items-center justify-center flex-shrink-0"><div data-id="582" class="scan-spinner" id="scan-spin-1"></div></div><span data-id="583" class="text-sm">Detecting receipt edges...</span></div>
+          <div data-id="584" class="scan-step flex items-center gap-3" id="scan-step-2"><div data-id="585" class="w-6 h-6 flex items-center justify-center flex-shrink-0"><div data-id="586" class="scan-spinner hidden" id="scan-spin-2"></div></div><span data-id="587" class="text-sm">Reading merchant info...</span></div>
+          <div data-id="588" class="scan-step flex items-center gap-3" id="scan-step-3"><div data-id="589" class="w-6 h-6 flex items-center justify-center flex-shrink-0"><div data-id="590" class="scan-spinner hidden" id="scan-spin-3"></div></div><span data-id="591" class="text-sm">Extracting line items...</span></div>
+          <div data-id="592" class="scan-step flex items-center gap-3" id="scan-step-4"><div data-id="593" class="w-6 h-6 flex items-center justify-center flex-shrink-0"><div data-id="594" class="scan-spinner hidden" id="scan-spin-4"></div></div><span data-id="595" class="text-sm">Calculating totals...</span></div>
+          <div data-id="596" class="scan-step flex items-center gap-3" id="scan-step-5"><div data-id="597" class="w-6 h-6 flex items-center justify-center flex-shrink-0"><div data-id="598" class="scan-spinner hidden" id="scan-spin-5"></div></div><span data-id="599" class="text-sm">Auto-categorizing items...</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== REVIEW MODAL ==================== -->
+  <div data-id="600" id="review-modal-overlay" class="hidden fixed inset-0 z-[75] modal-overlay flex items-start justify-center overflow-y-auto p-4">
+    <div data-id="601" id="review-modal-content" class="bg-card rounded-2xl border border-stroke w-full max-w-2xl my-6 p-6 shadow-2xl fade-in">
+      <div data-id="602" class="flex items-center justify-between mb-5">
+        <h2 data-id="603" class="text-lg font-bold text-white flex items-center gap-2"><i data-id="604" data-lucide="check-circle" class="w-5 h-5 text-success"></i> Receipt Scanned — Review Items</h2>
+        <button data-id="605" id="review-close-btn" class="p-1 text-muted hover:text-white"><i data-id="606" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="607" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <div data-id="608"><label data-id="609" class="block text-xs text-muted mb-1 font-medium">Store Name</label><input data-id="610" id="review-store-name" type="text" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="611"><label data-id="612" class="block text-xs text-muted mb-1 font-medium">Date</label><input data-id="613" id="review-date" type="date" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="614"><label data-id="615" class="block text-xs text-muted mb-1 font-medium">Receipt #</label><input data-id="616" id="review-receipt-num" type="text" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+      </div>
+      <div data-id="617" class="overflow-x-auto mb-4">
+        <table data-id="618" class="w-full text-sm">
+          <thead data-id="619" class="bg-cardHover text-xs font-medium uppercase tracking-wide text-muted">
+            <tr data-id="620"><th data-id="621" class="px-3 py-2 text-left">Item Description</th><th data-id="622" class="px-3 py-2 text-center w-16">Qty</th><th data-id="623" class="px-3 py-2 text-right w-24">Unit Price</th><th data-id="624" class="px-3 py-2 text-right w-24">Total</th><th data-id="625" class="px-3 py-2 text-left w-32">Category</th><th data-id="626" class="px-3 py-2 text-center w-12"></th></tr>
+          </thead>
+          <tbody data-id="627" id="review-items-tbody" class="divide-y divide-stroke"></tbody>
+        </table>
+      </div>
+      <button data-id="628" id="review-add-item-btn" class="text-xs text-primary hover:text-secondary font-semibold flex items-center gap-1 mb-5"><i data-id="629" data-lucide="plus" class="w-3.5 h-3.5"></i> Add Item</button>
+      <div data-id="630" class="bg-inputBg rounded-xl p-4 mb-5 space-y-2">
+        <div data-id="631" class="flex justify-between text-sm"><span data-id="632" class="text-muted">Subtotal</span><span data-id="633" id="review-subtotal" class="text-white font-medium tabular-nums">$0.00</span></div>
+        <div data-id="634" class="flex justify-between text-sm items-center"><span data-id="635" class="text-muted">Tax Amount</span><div data-id="636" class="flex items-center gap-1"><span data-id="637" class="text-muted text-xs">$</span><input data-id="638" id="review-tax-amount" type="number" min="0" step="0.01" class="bg-card border border-stroke rounded-lg px-2 py-1 text-sm text-white w-20 tabular-nums text-right" /></div></div>
+        <div data-id="639" class="border-t border-stroke pt-2 flex justify-between text-sm"><span data-id="640" class="text-white font-semibold">Grand Total</span><span data-id="641" id="review-grand-total" class="text-primary font-bold tabular-nums text-lg">$0.00</span></div>
+      </div>
+      <div data-id="642" class="flex flex-col sm:flex-row items-center justify-end gap-3">
+        <button data-id="643" id="review-cancel-btn" class="px-4 py-2 text-sm text-muted hover:text-white transition order-3 sm:order-1">Cancel</button>
+        <button data-id="644" id="review-save-single-btn" class="flex items-center gap-2 bg-inputBg border border-stroke text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-cardHover transition-colors order-2">Save as Single Total</button>
+        <button data-id="645" id="review-save-all-btn" class="flex items-center gap-2 bg-primary text-base font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-secondary transition-colors order-1 sm:order-3"><i data-id="646" data-lucide="check" class="w-4 h-4"></i> Save All to Expenses</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PLAID LINK MODAL ==================== -->
+  <div data-id="647" id="plaid-modal-overlay" class="hidden fixed inset-0 z-[75] modal-overlay flex items-center justify-center p-4">
+    <div data-id="648" class="bg-card rounded-2xl border border-stroke w-full max-w-md p-6 shadow-2xl fade-in max-h-[90vh] overflow-y-auto">
+      <div data-id="649" class="flex items-center justify-between mb-5">
+        <h2 data-id="650" class="text-lg font-bold text-white flex items-center gap-2">
+          <div data-id="651" class="flex flex-col gap-[2px]"><span data-id="652" class="block w-5 h-[2.5px] rounded bg-plaid"></span><span data-id="653" class="block w-5 h-[2.5px] rounded bg-plaid"></span><span data-id="654" class="block w-5 h-[2.5px] rounded bg-plaid"></span></div>
+          <span data-id="655" id="plaid-modal-title">Connect Your Bank</span>
+        </h2>
+        <button data-id="656" id="plaid-modal-close" class="p-1 text-muted hover:text-white"><i data-id="657" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="658" id="plaid-step-content"></div>
+    </div>
+  </div>
+
+  <!-- ==================== BANK IMPORT MODAL ==================== -->
+  <div data-id="659" id="bank-import-modal" class="hidden fixed inset-0 z-[75] modal-overlay flex items-center justify-center p-4">
+    <div data-id="660" class="bg-card rounded-2xl border border-stroke w-full max-w-md p-6 shadow-2xl fade-in">
+      <div data-id="661" class="flex items-center justify-between mb-5">
+        <h2 data-id="662" class="text-lg font-bold text-white">Import Transaction</h2>
+        <button data-id="663" id="bank-import-close" class="p-1 text-muted hover:text-white"><i data-id="664" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="665" class="space-y-4">
+        <div data-id="666"><label data-id="667" class="block text-xs text-muted mb-1 font-medium">Description</label><input data-id="668" id="bank-import-desc" type="text" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white" /></div>
+        <div data-id="669" class="grid grid-cols-2 gap-4">
+          <div data-id="670"><label data-id="671" class="block text-xs text-muted mb-1 font-medium">Amount</label><input data-id="672" id="bank-import-amount" type="number" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white tabular-nums" readonly /></div>
+          <div data-id="673"><label data-id="674" class="block text-xs text-muted mb-1 font-medium">Category</label>
+            <select data-id="675" id="bank-import-cat" class="w-full bg-inputBg border border-stroke rounded-lg px-3 py-2 text-sm text-white">
+              <option data-id="676">Marketing</option><option data-id="677">Supplies</option><option data-id="678">Software</option><option data-id="679">Travel</option><option data-id="680">Utilities</option><option data-id="681">Meals</option><option data-id="682">Other</option>
+            </select>
+          </div>
+        </div>
+        <div data-id="683" class="flex items-center gap-3"><label data-id="684" class="text-sm text-white font-medium">Tax Deductible</label><div data-id="685" id="bank-import-tax-toggle" class="toggle-track" role="switch" aria-checked="false" tabindex="0"><div data-id="686" class="toggle-knob"></div></div></div>
+      </div>
+      <div data-id="687" class="flex items-center justify-end gap-3 mt-6">
+        <button data-id="688" id="bank-import-cancel" class="px-4 py-2 text-sm text-muted hover:text-white transition">Cancel</button>
+        <button data-id="689" id="bank-import-confirm" class="bg-plaid text-base font-semibold text-sm px-6 py-2 rounded-lg hover:bg-green-400 transition-colors">Confirm Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HELP MODAL ==================== -->
+  <div data-id="690" id="help-modal-overlay" class="hidden fixed inset-0 z-[80] help-overlay flex items-start justify-center overflow-y-auto">
+    <div data-id="691" id="help-modal-content" class="w-full max-w-2xl mx-4 my-8 md:my-12 help-modal-enter">
+      <div data-id="692" class="bg-card rounded-t-2xl border border-stroke border-b-0 px-6 py-5 flex items-center justify-between sticky top-0 z-10">
+        <div data-id="693" class="flex items-center gap-3">
+          <div data-id="694" class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center"><i data-id="695" data-lucide="wallet" class="w-5 h-5 text-primary"></i></div>
+          <div data-id="696"><h2 data-id="697" class="text-lg font-bold text-white">How to Use ExpenseTrack</h2><p data-id="698" class="text-xs text-muted">Your complete guide</p></div>
+        </div>
+        <button data-id="699" id="help-close-btn" class="w-8 h-8 rounded-lg bg-inputBg flex items-center justify-center text-muted hover:text-white hover:bg-cardHover transition-colors"><i data-id="700" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="701" class="bg-card border-x border-stroke px-6 py-5">
+        <p data-id="702" class="text-sm text-muted leading-relaxed mb-6">ExpenseTrack helps you log, categorize, and analyze your business expenses in one place. Track spending by category, set monthly budgets, monitor tax-deductible expenses, scan receipts, manage recurring costs, connect your bank via Plaid, and generate reports — all from a clean, intuitive interface.</p>
+        <div data-id="703" class="space-y-3" id="help-accordion">
+          <div data-id="704" class="rounded-xl border border-stroke overflow-hidden"><button data-id="705" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-dashboard"><div data-id="706" class="flex items-center gap-3"><div data-id="707" class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><i data-id="708" data-lucide="layout-dashboard" class="w-4 h-4 text-primary"></i></div><span data-id="709" class="text-sm font-semibold text-white">Dashboard</span></div><i data-id="710" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-dashboard"></i></button><div data-id="711" class="accordion-content px-4" id="help-dashboard"><p data-id="712" class="text-xs text-muted mb-3">Your at-a-glance overview of spending, budgets, bank reconciliation, and trends.</p></div></div>
+          <div data-id="713" class="rounded-xl border border-stroke overflow-hidden"><button data-id="714" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-expenses"><div data-id="715" class="flex items-center gap-3"><div data-id="716" class="w-8 h-8 rounded-lg bg-[rgba(168,85,247,.15)] flex items-center justify-center flex-shrink-0"><i data-id="717" data-lucide="receipt" class="w-4 h-4 text-[#a855f7]"></i></div><span data-id="718" class="text-sm font-semibold text-white">Expenses</span></div><i data-id="719" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-expenses"></i></button><div data-id="720" class="accordion-content px-4" id="help-expenses"><p data-id="721" class="text-xs text-muted mb-3">A searchable, sortable table of every expense. Receipt-scanned items are locked for accuracy.</p></div></div>
+          <div data-id="722" class="rounded-xl border border-stroke overflow-hidden"><button data-id="723" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-receipts"><div data-id="724" class="flex items-center gap-3"><div data-id="725" class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><i data-id="726" data-lucide="scan-line" class="w-4 h-4 text-primary"></i></div><span data-id="727" class="text-sm font-semibold text-white">Receipts</span></div><i data-id="728" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-receipts"></i></button><div data-id="729" class="accordion-content px-4" id="help-receipts"><p data-id="730" class="text-xs text-muted mb-3">Scan physical receipts to automatically extract line items. Images are stored for IRS retention.</p></div></div>
+          <div data-id="731" class="rounded-xl border border-stroke overflow-hidden"><button data-id="732" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-recurring"><div data-id="733" class="flex items-center gap-3"><div data-id="734" class="w-8 h-8 rounded-lg bg-[rgba(56,189,248,.15)] flex items-center justify-center flex-shrink-0"><i data-id="735" data-lucide="repeat" class="w-4 h-4 text-recurBlue"></i></div><span data-id="736" class="text-sm font-semibold text-white">Recurring</span></div><i data-id="737" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-recurring"></i></button><div data-id="738" class="accordion-content px-4" id="help-recurring"><p data-id="739" class="text-xs text-muted mb-3">Manage auto-recurring expenses. Active items are auto-posted when due.</p></div></div>
+          <div data-id="740" class="rounded-xl border border-stroke overflow-hidden"><button data-id="741" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-bank"><div data-id="742" class="flex items-center gap-3"><div data-id="743" class="w-8 h-8 rounded-lg bg-[rgba(34,197,94,.15)] flex items-center justify-center flex-shrink-0"><i data-id="744" data-lucide="landmark" class="w-4 h-4 text-plaid"></i></div><span data-id="745" class="text-sm font-semibold text-white">Bank</span></div><i data-id="746" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-bank"></i></button><div data-id="747" class="accordion-content px-4" id="help-bank"><p data-id="748" class="text-xs text-muted mb-3">Connect your bank via Plaid to import transactions and reconcile spending.</p></div></div>
+          <div data-id="749" class="rounded-xl border border-stroke overflow-hidden"><button data-id="750" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-budget"><div data-id="751" class="flex items-center gap-3"><div data-id="752" class="w-8 h-8 rounded-lg bg-[rgba(59,130,246,.15)] flex items-center justify-center flex-shrink-0"><i data-id="753" data-lucide="piggy-bank" class="w-4 h-4 text-[#3b82f6]"></i></div><span data-id="754" class="text-sm font-semibold text-white">Budget</span></div><i data-id="755" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-budget"></i></button><div data-id="756" class="accordion-content px-4" id="help-budget"><p data-id="757" class="text-xs text-muted mb-3">Set and monitor monthly budgets — both overall and per-category.</p></div></div>
+          <div data-id="758" class="rounded-xl border border-stroke overflow-hidden"><button data-id="759" class="help-accordion-btn w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-cardHover transition-colors" data-section="help-reports"><div data-id="760" class="flex items-center gap-3"><div data-id="761" class="w-8 h-8 rounded-lg bg-[rgba(251,146,60,.15)] flex items-center justify-center flex-shrink-0"><i data-id="762" data-lucide="bar-chart-3" class="w-4 h-4 text-[#fb923c]"></i></div><span data-id="763" class="text-sm font-semibold text-white">Reports</span></div><i data-id="764" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chevron-help-reports"></i></button><div data-id="765" class="accordion-content px-4" id="help-reports"><p data-id="766" class="text-xs text-muted mb-3">Generate detailed spending summaries, category breakdowns, trends, and tax reports.</p></div></div>
+        </div>
+      </div>
+      <div data-id="767" class="bg-card rounded-b-2xl border border-stroke border-t-0 px-6 pt-2 pb-6">
+        <div data-id="768" class="border-t border-stroke pt-5">
+          <div data-id="769" class="flex items-center gap-2 mb-4"><div data-id="770" class="w-8 h-8 rounded-lg bg-[rgba(74,222,128,.15)] flex items-center justify-center flex-shrink-0"><i data-id="771" data-lucide="lightbulb" class="w-4 h-4 text-success"></i></div><h3 data-id="772" class="text-sm font-semibold text-white">Tips & Tricks</h3></div>
+          <div data-id="773" class="space-y-3">
+            <div data-id="774" class="flex gap-3 items-start bg-inputBg rounded-lg p-3"><span data-id="775" class="text-success font-bold text-sm mt-px flex-shrink-0"><i data-id="776" data-lucide="lightbulb" class="w-4 h-4"></i></span><p data-id="777" class="text-sm text-[#c8cad8]"><strong data-id="778" class="text-white">Tax time saver:</strong> Use the Reports tab's Tax Deductible Summary and export to CSV right before filing.</p></div>
+            <div data-id="779" class="flex gap-3 items-start bg-inputBg rounded-lg p-3"><span data-id="780" class="text-success font-bold text-sm mt-px flex-shrink-0"><i data-id="781" data-lucide="lightbulb" class="w-4 h-4"></i></span><p data-id="782" class="text-sm text-[#c8cad8]"><strong data-id="783" class="text-white">Bank reconciliation:</strong> Connect via Plaid in the Bank tab for automatic alignment between bank and tracked expenses.</p></div>
+            <div data-id="784" class="flex gap-3 items-start bg-inputBg rounded-lg p-3"><span data-id="785" class="text-success font-bold text-sm mt-px flex-shrink-0"><i data-id="786" data-lucide="lightbulb" class="w-4 h-4"></i></span><p data-id="787" class="text-sm text-[#c8cad8]"><strong data-id="788" class="text-white">Recurring expenses:</strong> Set them up once in the Recurring tab — they auto-post to your expenses when due.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CDI Suite Sticky Footer -->
+  <div data-id="789" id="cdi-suite-footer" class="cdi-footer">
+    <div data-id="790" class="cdi-left">
+      <i data-id="791" data-lucide="wallet" class="w-4 h-4 text-primary flex-shrink-0"></i>
+      <span data-id="792" class="text-xs font-semibold text-white cdi-label-full">CDI Business Suite</span>
+      <span data-id="793" class="text-xs font-semibold text-white cdi-label-short">CDI Suite</span>
+      <span data-id="794" class="text-[11px] text-muted hidden sm:inline"> · Part of 8 powerful business tools</span>
+    </div>
+    <a data-id="795" id="cdi-explore-link" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="cdi-explore-btn">✨ Explore All 8 Apps →</a>
+  </div>
+
+  <footer data-id="796" class="text-center text-xs text-muted py-6 border-t border-stroke mt-8">Made by Copilot</footer>
+
+  <script>
+    lucide.createIcons();
+
+    // ─── SUPABASE INIT ───
+    const SUPABASE_URL = 'https://lizbvlcogvjgycsyiqrc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si';
+    const db = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    let currentUser = null;
+
+    // ─── AUTH FUNCTIONS ───
+    function showAuthModal() {
+      document.getElementById('auth-modal-overlay').style.display = 'flex';
+      document.getElementById('app-main-content').style.display = 'none';
+      document.getElementById('header-nav-a1b2').style.display = 'none';
+      document.getElementById('cdi-suite-footer').style.display = 'none';
+      document.getElementById('nav-user-badge').classList.add('hidden');
+      document.getElementById('mobile-user-badge').classList.add('hidden');
+    }
+
+    function hideAuthModal() {
+      document.getElementById('auth-modal-overlay').style.display = 'none';
+      document.getElementById('app-main-content').style.display = '';
+      document.getElementById('header-nav-a1b2').style.display = '';
+      document.getElementById('cdi-suite-footer').style.display = '';
+      updateUserBadge();
+    }
+
+    function updateUserBadge() {
+      if (!currentUser) {
+        document.getElementById('nav-user-badge').classList.add('hidden');
+        document.getElementById('nav-user-badge').style.display = '';
+        document.getElementById('mobile-user-badge').classList.add('hidden');
+        return;
+      }
+      const email = currentUser.email || '';
+      const initial = email.charAt(0).toUpperCase() || '?';
+      document.getElementById('nav-user-avatar').textContent = initial;
+      document.getElementById('nav-user-email').textContent = email;
+      document.getElementById('nav-user-badge').classList.remove('hidden');
+      document.getElementById('nav-user-badge').style.display = 'flex';
+      document.getElementById('mobile-user-avatar').textContent = initial;
+      document.getElementById('mobile-user-email').textContent = email;
+      document.getElementById('mobile-user-badge').classList.remove('hidden');
+    }
+
+    function showAuthError(msg) {
+      document.getElementById('auth-error-container').innerHTML = '<div class="auth-error-pill">' + msg + '</div>';
+      document.getElementById('auth-success-container').innerHTML = '';
+    }
+
+    function showAuthSuccess(msg) {
+      document.getElementById('auth-success-container').innerHTML = '<div class="auth-success-pill">' + msg + '</div>';
+      document.getElementById('auth-error-container').innerHTML = '';
+    }
+
+    function clearAuthMessages() {
+      document.getElementById('auth-error-container').innerHTML = '';
+      document.getElementById('auth-success-container').innerHTML = '';
+    }
+
+    async function signIn(email, password) {
+      if (!db) { showAuthError('Database connection unavailable.'); return; }
+      const btn = document.getElementById('auth-signin-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="auth-loading-spinner"></span> Signing in...';
+      try {
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) showAuthError(error.message);
+      } catch (e) {
+        showAuthError('Connection failed. Please try again.');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+
+    async function signUp(email, password, businessName) {
+      if (!db) { showAuthError('Database connection unavailable.'); return; }
+      const btn = document.getElementById('auth-signup-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="auth-loading-spinner"></span> Creating account...';
+      try {
+        const { error } = await db.auth.signUp({
+          email,
+          password,
+          options: { data: { business_name: businessName } }
+        });
+        if (error) showAuthError(error.message);
+        else showAuthSuccess('Check your email to confirm your account!');
+      } catch (e) {
+        showAuthError('Connection failed. Please try again.');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    }
+
+    async function signOutUser() {
+      if (!db) return;
+      await db.auth.signOut();
+    }
+
+    async function resetPassword(email) {
+      if (!db) { showAuthError('Database connection unavailable.'); return; }
+      if (!email) { showAuthError('Please enter your email address first.'); return; }
+      try {
+        const { error } = await db.auth.resetPasswordForEmail(email);
+        if (error) showAuthError(error.message);
+        else showAuthSuccess('Password reset link sent! Check your email.');
+      } catch (e) {
+        showAuthError('Connection failed. Please try again.');
+      }
+    }
+
+    // Auth tab switching
+    document.getElementById('auth-tab-signin').addEventListener('click', function() {
+      this.className = 'flex-1 pb-3 text-sm font-semibold auth-tab-active transition-colors text-center';
+      document.getElementById('auth-tab-signup').className = 'flex-1 pb-3 text-sm font-semibold auth-tab-inactive transition-colors text-center';
+      document.getElementById('auth-signin-form').classList.remove('hidden');
+      document.getElementById('auth-signup-form').classList.add('hidden');
+      clearAuthMessages();
+    });
+
+    document.getElementById('auth-tab-signup').addEventListener('click', function() {
+      this.className = 'flex-1 pb-3 text-sm font-semibold auth-tab-active transition-colors text-center';
+      document.getElementById('auth-tab-signin').className = 'flex-1 pb-3 text-sm font-semibold auth-tab-inactive transition-colors text-center';
+      document.getElementById('auth-signup-form').classList.remove('hidden');
+      document.getElementById('auth-signin-form').classList.add('hidden');
+      clearAuthMessages();
+    });
+
+    document.getElementById('auth-signin-btn').addEventListener('click', function() {
+      const email = document.getElementById('auth-signin-email').value.trim();
+      const password = document.getElementById('auth-signin-password').value;
+      if (!email || !password) { showAuthError('Please enter both email and password.'); return; }
+      signIn(email, password);
+    });
+
+    document.getElementById('auth-signup-btn').addEventListener('click', function() {
+      const business = document.getElementById('auth-signup-business').value.trim();
+      const email = document.getElementById('auth-signup-email').value.trim();
+      const password = document.getElementById('auth-signup-password').value;
+      const confirm = document.getElementById('auth-signup-confirm').value;
+      if (!email || !password) { showAuthError('Please fill in all required fields.'); return; }
+      if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+      if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+      signUp(email, password, business);
+    });
+
+    document.getElementById('auth-forgot-btn').addEventListener('click', function() {
+      const email = document.getElementById('auth-signin-email').value.trim();
+      resetPassword(email);
+    });
+
+    // Allow Enter key on auth forms
+    document.getElementById('auth-signin-password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+    });
+    document.getElementById('auth-signin-email').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+    });
+    document.getElementById('auth-signup-confirm').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('auth-signup-btn').click();
+    });
+
+    // Sign out buttons
+    document.getElementById('nav-signout-btn').addEventListener('click', signOutUser);
+    document.getElementById('mobile-signout-btn').addEventListener('click', signOutUser);
+
+    // ─── DATA ───
+    const CATEGORIES = ['Marketing','Supplies','Software','Travel','Utilities','Meals','Other'];
+    const CAT_COLORS = {Marketing:'#2dd4bf',Software:'#a855f7',Travel:'#3b82f6',Meals:'#fb923c',Supplies:'#34d399',Utilities:'#9ca3af',Other:'#8b8fa8'};
+    const CAT_CLASSES = {Marketing:'cat-marketing',Software:'cat-software',Travel:'cat-travel',Meals:'cat-meals',Supplies:'cat-supplies',Utilities:'cat-utilities',Other:'cat-other'};
+
+    let nextId = 20;
+    let expenses = [
+      {id:1,date:'2026-05-01',desc:'Google Ads Campaign',cat:'Marketing',amount:450,taxDed:true,notes:'Q2 campaign',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:2,date:'2026-05-02',desc:'Printer Paper & Toner',cat:'Supplies',amount:89.50,taxDed:true,notes:'',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:3,date:'2026-05-03',desc:'Adobe Creative Cloud',cat:'Software',amount:54.99,taxDed:true,notes:'Monthly sub',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:4,date:'2026-05-05',desc:'Client Lunch Meeting',cat:'Meals',amount:78.25,taxDed:true,notes:'With Acme Corp',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:5,date:'2026-05-06',desc:'Flight to Chicago',cat:'Travel',amount:312,taxDed:true,notes:'Conference travel',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:6,date:'2026-05-07',desc:'Electric Bill',cat:'Utilities',amount:145.60,taxDed:false,notes:'Office space',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:7,date:'2026-05-08',desc:'Facebook Ads',cat:'Marketing',amount:275,taxDed:true,notes:'',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:8,date:'2026-05-10',desc:'Slack Subscription',cat:'Software',amount:32.50,taxDed:true,notes:'Team plan',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:9,date:'2026-05-11',desc:'Office Chairs x2',cat:'Supplies',amount:420,taxDed:true,notes:'Ergonomic',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:10,date:'2026-05-12',desc:'Team Dinner',cat:'Meals',amount:135.80,taxDed:false,notes:'Monthly team event',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:11,date:'2026-05-13',desc:'Uber to Airport',cat:'Travel',amount:45,taxDed:true,notes:'',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:12,date:'2026-05-14',desc:'Internet Service',cat:'Utilities',amount:79.99,taxDed:false,notes:'Business internet',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:13,date:'2026-05-15',desc:'SEO Tools',cat:'Marketing',amount:199,taxDed:true,notes:'Ahrefs annual',receipt:true,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:14,date:'2026-05-16',desc:'Notepads & Pens',cat:'Supplies',amount:24.99,taxDed:true,notes:'',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+      {id:15,date:'2026-05-10',desc:'Misc Parking Fees',cat:'Other',amount:18,taxDed:false,notes:'Downtown parking',receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false},
+    ];
+
+    const lastMonthExpenses = [{cat:'Marketing',amount:680},{cat:'Supplies',amount:310},{cat:'Software',amount:120},{cat:'Travel',amount:520},{cat:'Utilities',amount:200},{cat:'Meals',amount:180},{cat:'Other',amount:45}];
+    const monthlyTrend = [1820,2105,1950,2340,1780,2560,2210,1900,2450,2080,2055,0];
+
+    let budgets = {Marketing:800,Supplies:600,Software:300,Travel:500,Utilities:400,Meals:400,Other:200};
+    let totalBudget = 5000;
+    let editingExpenseId = null;
+    let editingBudgetCat = null;
+    let selectedIds = new Set();
+    let sortCol = 'date', sortDir = 'desc';
+    let reportRange = 'this-month';
+    let reportStart = null, reportEnd = null;
+    let trendChart = null;
+
+    let scannedReceipts = [
+      {id:1,storeName:'Office Depot',date:'2026-05-12',receiptNumber:'OD-44821',lineItems:[{description:'Hammermill Paper 10-Ream',qty:1,unitPrice:54.99,total:54.99,category:'Supplies'},{description:'Sharpie Markers 24-Pack',qty:1,unitPrice:18.79,total:18.79,category:'Supplies'},{description:'Desk Organizer Tray',qty:2,unitPrice:12.49,total:24.98,category:'Supplies'}],subtotal:98.76,taxAmount:7.41,grandTotal:106.17,scannedAt:'2026-05-12T14:22:00',savedAs:'itemized'},
+      {id:2,storeName:'Panera Bread',date:'2026-05-14',receiptNumber:'PB-90173',lineItems:[{description:'Broccoli Cheddar Soup (Bread Bowl)',qty:2,unitPrice:9.79,total:19.58,category:'Meals'},{description:'Mediterranean Veggie Sandwich',qty:1,unitPrice:10.49,total:10.49,category:'Meals'},{description:'Iced Green Tea',qty:3,unitPrice:3.29,total:9.87,category:'Meals'}],subtotal:39.94,taxAmount:2.80,grandTotal:42.74,scannedAt:'2026-05-14T12:05:00',savedAs:'single'}
+    ];
+    let nextReceiptId = 3;
+    let currentScanData = null;
+    let expandedReceiptIds = new Set();
+
+    let recurringItems = [
+      {id:1,name:'Canva Pro',amount:12.99,cat:'Marketing',freq:'Monthly',startDate:'2026-01-20',nextDue:'2026-05-20',notes:'Design tool',taxDed:true,active:true,lastPosted:null},
+      {id:2,name:'Adobe Creative Cloud',amount:54.99,cat:'Software',freq:'Monthly',startDate:'2026-01-05',nextDue:'2026-05-05',notes:'Creative suite',taxDed:true,active:true,lastPosted:'2026-05-05'},
+      {id:3,name:'Office Lease',amount:1200,cat:'Utilities',freq:'Monthly',startDate:'2026-01-01',nextDue:'2026-05-01',notes:'Office space rent',taxDed:true,active:true,lastPosted:'2026-05-01'},
+      {id:4,name:'Verizon Business Line',amount:85,cat:'Utilities',freq:'Monthly',startDate:'2026-01-15',nextDue:'2026-05-15',notes:'Business phone',taxDed:false,active:true,lastPosted:'2026-05-15'},
+      {id:5,name:'QuickBooks Online',amount:30,cat:'Software',freq:'Monthly',startDate:'2026-01-22',nextDue:'2026-05-22',notes:'Accounting software',taxDed:true,active:true,lastPosted:null},
+    ];
+    let nextRecurringId = 6;
+    let editingRecurringId = null;
+
+    let bankConnected = false;
+    let bankInfo = {name:'Chase',accountType:'Business Checking',masked:'4521',balance:12847.33,available:12647.33,lastSync:'Today at 4:08 PM'};
+
+    let bankTransactions = [
+      {id:1,date:'2026-05-16',merchant:'Staples',amount:-47.23,cat:'Supplies',imported:true,type:'expense'},
+      {id:2,date:'2026-05-15',merchant:'Adobe',amount:-54.99,cat:'Software',imported:true,type:'expense'},
+      {id:3,date:'2026-05-15',merchant:'Client Payment - Acme',amount:2500,cat:'',imported:false,type:'deposit'},
+      {id:4,date:'2026-05-14',merchant:'Verizon',amount:-85.00,cat:'Utilities',imported:true,type:'expense'},
+      {id:5,date:'2026-05-14',merchant:'Restaurant Depot',amount:-34.50,cat:'Meals',imported:false,type:'expense'},
+      {id:6,date:'2026-05-13',merchant:'Shell Gas Station',amount:-62.00,cat:'Travel',imported:false,type:'expense'},
+      {id:7,date:'2026-05-12',merchant:'Client Payment - Beta LLC',amount:1800,cat:'',imported:false,type:'deposit'},
+      {id:8,date:'2026-05-12',merchant:'Amazon Business',amount:-129.99,cat:'Supplies',imported:true,type:'expense'},
+      {id:9,date:'2026-05-11',merchant:'FedEx',amount:-18.75,cat:'Supplies',imported:false,type:'expense'},
+      {id:10,date:'2026-05-10',merchant:'Zoom',amount:-15.99,cat:'Software',imported:false,type:'expense'},
+      {id:11,date:'2026-05-09',merchant:'Interest Payment',amount:4.21,cat:'',imported:false,type:'deposit'},
+      {id:12,date:'2026-05-08',merchant:'Canva',amount:-12.99,cat:'Marketing',imported:false,type:'expense'},
+      {id:13,date:'2026-05-07',merchant:'Refund - Amazon',amount:22.50,cat:'',imported:false,type:'deposit'},
+      {id:14,date:'2026-05-05',merchant:'Office Depot',amount:-88.40,cat:'Supplies',imported:false,type:'expense'},
+      {id:15,date:'2026-05-04',merchant:'Transfer In',amount:500,cat:'',imported:false,type:'deposit'},
+    ];
+    let importedBankIds = new Set([1,2,4,8]);
+    let importingTxnId = null;
+
+    const RECEIPT_SCENARIOS = [
+      {storeName:'Staples Office Supply',items:[{description:'HP 61 Ink Cartridge Black',qty:2,unitPrice:24.99,category:'Supplies'},{description:'Copy Paper 500-Sheet Ream',qty:3,unitPrice:7.49,category:'Supplies'},{description:'Manila Folders 100-Pack',qty:1,unitPrice:12.99,category:'Supplies'},{description:'Bic Round Stic Pens 12pk',qty:2,unitPrice:3.49,category:'Supplies'}]},
+      {storeName:'The Capital Grille',items:[{description:'Dry Aged NY Strip Steak',qty:1,unitPrice:56.00,category:'Meals'},{description:'Pan-Seared Sea Bass',qty:1,unitPrice:44.00,category:'Meals'},{description:'Caesar Salad',qty:2,unitPrice:14.50,category:'Meals'}]},
+      {storeName:'Best Buy Electronics',items:[{description:'Anker USB-C Hub 7-in-1',qty:1,unitPrice:35.99,category:'Supplies'},{description:'Logitech MX Master 3S Mouse',qty:1,unitPrice:99.99,category:'Supplies'},{description:'USB-C to Lightning Cable 6ft',qty:2,unitPrice:14.99,category:'Supplies'}]},
+      {storeName:'Shell Gas Station',items:[{description:'Regular Unleaded 12.4 gal',qty:1,unitPrice:42.16,category:'Travel'},{description:'Windshield Washer Fluid',qty:1,unitPrice:4.99,category:'Travel'}]},
+      {storeName:'FastPrint Solutions',items:[{description:'Business Cards 500ct Premium',qty:1,unitPrice:45.00,category:'Marketing'},{description:'Flyer Printing 8.5x11 (250)',qty:1,unitPrice:89.00,category:'Marketing'},{description:'Banner Vinyl 3x6ft',qty:1,unitPrice:65.00,category:'Marketing'}]},
+      {storeName:'Costco Wholesale',items:[{description:'Kirkland Coffee K-Cups 120ct',qty:1,unitPrice:33.99,category:'Supplies'},{description:'Paper Towels 12-Roll',qty:1,unitPrice:22.99,category:'Supplies'},{description:'AA Batteries 48-Pack',qty:1,unitPrice:15.99,category:'Supplies'}]}
+    ];
+
+    // ─── HELPERS ───
+    const $ = id => document.getElementById(id);
+    const fmt = n => '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const fmtDate = d => {const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});};
+    const today = '2026-05-19';
+    const thisMonth = '2026-05';
+
+    function showToast(msg, duration=3000) {
+      const t = document.createElement('div');
+      t.className = 'toast-msg';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(() => t.remove(), 300); }, duration);
+    }
+
+    function getThisMonthExpenses() { return expenses.filter(e => e.date.startsWith(thisMonth)); }
+    function getCatSpent(cat, list) { return list.filter(e => e.cat === cat).reduce((s,e) => s+e.amount, 0); }
+
+    function addRetentionDate(dateStr) {
+      const d = new Date(dateStr);
+      d.setFullYear(d.getFullYear()+3);
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }
+
+    function daysBetween(d1,d2) {
+      const a = new Date(d1+'T00:00:00'), b = new Date(d2+'T00:00:00');
+      return Math.round((b-a)/(1000*60*60*24));
+    }
+
+    function getNextDueDate(currentDue, freq) {
+      const d = new Date(currentDue+'T00:00:00');
+      if (freq==='Weekly') d.setDate(d.getDate()+7);
+      else if (freq==='Monthly') d.setMonth(d.getMonth()+1);
+      else if (freq==='Quarterly') d.setMonth(d.getMonth()+3);
+      else if (freq==='Annual') d.setFullYear(d.getFullYear()+1);
+      return d.toISOString().split('T')[0];
+    }
+
+    // ─── SUPABASE DATA OPERATIONS ───
+    async function dbSaveExpense(expense) {
+      if (!db || !currentUser) return;
+      try {
+        const payload = {
+          user_id: currentUser.id,
+          expense_date: expense.date,
+          description: expense.desc,
+          category: expense.cat,
+          amount: expense.amount,
+          tax_deductible: expense.taxDed,
+          notes: expense.notes || '',
+          has_receipt: expense.receipt || false,
+          from_receipt: expense.fromReceipt || false,
+          from_recurring: expense.fromRecurring || false,
+          from_bank: expense.fromBank || false
+        };
+        if (expense.dbId) {
+          await db.from('et_expenses').update(payload).eq('id', expense.dbId);
+        } else {
+          const { data } = await db.from('et_expenses').insert(payload).select().single();
+          if (data) expense.dbId = data.id;
+        }
+      } catch (e) { console.warn('DB save expense error:', e); }
+    }
+
+    async function dbDeleteExpense(expense) {
+      if (!db || !currentUser || !expense.dbId) return;
+      try { await db.from('et_expenses').delete().eq('id', expense.dbId); } catch (e) { console.warn('DB delete expense error:', e); }
+    }
+
+    async function dbSaveReceipt(receipt) {
+      if (!db || !currentUser) return;
+      try {
+        const payload = {
+          user_id: currentUser.id,
+          store_name: receipt.storeName,
+          receipt_date: receipt.date,
+          receipt_number: receipt.receiptNumber,
+          subtotal: receipt.subtotal,
+          tax_amount: receipt.taxAmount,
+          grand_total: receipt.grandTotal,
+          saved_as: receipt.savedAs,
+          scanned_at: receipt.scannedAt
+        };
+        let receiptDbId = receipt.dbId;
+        if (receiptDbId) {
+          await db.from('et_receipts').update(payload).eq('id', receiptDbId);
+          await db.from('et_receipt_items').delete().eq('receipt_id', receiptDbId);
+        } else {
+          const { data } = await db.from('et_receipts').insert(payload).select().single();
+          if (data) { receiptDbId = data.id; receipt.dbId = data.id; }
+        }
+        if (receiptDbId && receipt.lineItems && receipt.lineItems.length) {
+          const items = receipt.lineItems.map(i => ({
+            receipt_id: receiptDbId,
+            description: i.description,
+            qty: i.qty,
+            unit_price: i.unitPrice,
+            total: i.total,
+            category: i.category
+          }));
+          await db.from('et_receipt_items').insert(items);
+        }
+      } catch (e) { console.warn('DB save receipt error:', e); }
+    }
+
+    async function dbDeleteReceipt(receipt) {
+      if (!db || !currentUser || !receipt.dbId) return;
+      try {
+        await db.from('et_receipt_items').delete().eq('receipt_id', receipt.dbId);
+        await db.from('et_receipts').delete().eq('id', receipt.dbId);
+      } catch (e) { console.warn('DB delete receipt error:', e); }
+    }
+
+    async function dbSaveRecurring(item) {
+      if (!db || !currentUser) return;
+      try {
+        const payload = {
+          user_id: currentUser.id,
+          name: item.name,
+          amount: item.amount,
+          category: item.cat,
+          frequency: item.freq,
+          start_date: item.startDate,
+          next_due_date: item.nextDue,
+          notes: item.notes || '',
+          tax_deductible: item.taxDed,
+          is_active: item.active,
+          last_posted: item.lastPosted || null
+        };
+        if (item.dbId) {
+          await db.from('et_recurring_expenses').update(payload).eq('id', item.dbId);
+        } else {
+          const { data } = await db.from('et_recurring_expenses').insert(payload).select().single();
+          if (data) item.dbId = data.id;
+        }
+      } catch (e) { console.warn('DB save recurring error:', e); }
+    }
+
+    async function dbDeleteRecurring(item) {
+      if (!db || !currentUser || !item.dbId) return;
+      try { await db.from('et_recurring_expenses').delete().eq('id', item.dbId); } catch (e) { console.warn('DB delete recurring error:', e); }
+    }
+
+    async function loadAllData() {
+      if (!db || !currentUser) return;
+      try {
+        const { data: dbExpenses } = await db.from('et_expenses')
+          .select('*').eq('user_id', currentUser.id).order('expense_date', { ascending: false });
+        if (dbExpenses && dbExpenses.length > 0) {
+          expenses = dbExpenses.map((e, i) => ({
+            id: i + 1,
+            dbId: e.id,
+            date: e.expense_date,
+            desc: e.description,
+            cat: e.category,
+            amount: parseFloat(e.amount),
+            taxDed: e.tax_deductible,
+            notes: e.notes || '',
+            receipt: e.has_receipt || false,
+            fromReceipt: e.from_receipt || false,
+            fromRecurring: e.from_recurring || false,
+            fromBank: e.from_bank || false
+          }));
+          nextId = expenses.length + 1;
+        }
+
+        const { data: dbReceipts } = await db.from('et_receipts')
+          .select('*, et_receipt_items(*)').eq('user_id', currentUser.id).order('receipt_date', { ascending: false });
+        if (dbReceipts && dbReceipts.length > 0) {
+          scannedReceipts = dbReceipts.map((r, i) => ({
+            id: i + 1,
+            dbId: r.id,
+            storeName: r.store_name,
+            date: r.receipt_date,
+            receiptNumber: r.receipt_number,
+            lineItems: (r.et_receipt_items || []).map(it => ({
+              description: it.description,
+              qty: it.qty,
+              unitPrice: parseFloat(it.unit_price),
+              total: parseFloat(it.total),
+              category: it.category
+            })),
+            subtotal: parseFloat(r.subtotal),
+            taxAmount: parseFloat(r.tax_amount),
+            grandTotal: parseFloat(r.grand_total),
+            scannedAt: r.scanned_at,
+            savedAs: r.saved_as
+          }));
+          nextReceiptId = scannedReceipts.length + 1;
+        }
+
+        const { data: dbRecurring } = await db.from('et_recurring_expenses')
+          .select('*').eq('user_id', currentUser.id).order('next_due_date', { ascending: true });
+        if (dbRecurring && dbRecurring.length > 0) {
+          recurringItems = dbRecurring.map((r, i) => ({
+            id: i + 1,
+            dbId: r.id,
+            name: r.name,
+            amount: parseFloat(r.amount),
+            cat: r.category,
+            freq: r.frequency,
+            startDate: r.start_date,
+            nextDue: r.next_due_date,
+            notes: r.notes || '',
+            taxDed: r.tax_deductible,
+            active: r.is_active,
+            lastPosted: r.last_posted || null
+          }));
+          nextRecurringId = recurringItems.length + 1;
+        }
+      } catch (e) {
+        console.warn('Load data error:', e);
+      }
+
+      renderAll();
+    }
+
+    function renderAll() {
+      autoPostRecurring();
+      renderDashboard();
+      renderExpensesTable();
+      updateReceiptBadge();
+    }
+
+    // ─── RECEIPT NAV BADGE ───
+    function updateReceiptBadge() {
+      const count = scannedReceipts.length;
+      const badge = $('receipt-nav-badge');
+      const badgeMobile = $('receipt-nav-badge-mobile');
+      if (count > 0) { badge.textContent=count; badge.classList.remove('hidden'); badgeMobile.textContent=count; badgeMobile.classList.remove('hidden'); }
+      else { badge.classList.add('hidden'); badgeMobile.classList.add('hidden'); }
+    }
+
+    // ─── PAIRING BANNERS ───
+    let dismissedBanners = new Set();
+
+    async function loadDismissedBanners() {
+      try {
+        if (window.AppSDK) {
+          const doc = await AppSDK.get('dismissed_banners', 'all');
+          if (doc && doc.data && doc.data.ids) {
+            dismissedBanners = new Set(doc.data.ids);
+          }
+        }
+      } catch(e) {}
+      applyDismissedBanners();
+    }
+
+    async function saveDismissedBanners() {
+      try {
+        if (window.AppSDK) {
+          await AppSDK.upsert('dismissed_banners', 'all', { ids: [...dismissedBanners] });
+        }
+      } catch(e) {}
+    }
+
+    function applyDismissedBanners() {
+      dismissedBanners.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('dismissed');
+      });
+    }
+
+    document.querySelectorAll('.btn-dismiss-banner').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const bannerId = this.dataset.bannerId;
+        const bannerEl = document.getElementById(bannerId);
+        if (bannerEl) bannerEl.classList.add('dismissed');
+        dismissedBanners.add(bannerId);
+        saveDismissedBanners();
+      });
+    });
+
+    document.querySelectorAll('.banner-link-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        window.open('https://shopreneur.constructivedesignsinc.org', '_blank', 'noopener,noreferrer');
+      });
+    });
+
+    // ─── HELP MODAL ───
+    function openHelpModal() { const o=$('help-modal-overlay'),c=$('help-modal-content'); o.classList.remove('hidden'); c.classList.remove('help-modal-exit'); c.classList.add('help-modal-enter'); lucide.createIcons(); }
+    function closeHelpModal() { const o=$('help-modal-overlay'),c=$('help-modal-content'); c.classList.remove('help-modal-enter'); c.classList.add('help-modal-exit'); setTimeout(()=>{o.classList.add('hidden');c.classList.remove('help-modal-exit');},200); }
+    $('help-btn').addEventListener('click', openHelpModal);
+    $('help-close-btn').addEventListener('click', closeHelpModal);
+    $('help-modal-overlay').addEventListener('click', function(e) { if(e.target===this) closeHelpModal(); });
+    document.querySelectorAll('.help-accordion-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const sId = this.dataset.section, content = $(sId), chevron = $('chevron-'+sId), isOpen = content.classList.contains('open');
+        document.querySelectorAll('.accordion-content').forEach(ac => ac.classList.remove('open'));
+        document.querySelectorAll('.accordion-chevron').forEach(ch => ch.classList.remove('open'));
+        if (!isOpen) { content.classList.add('open'); chevron.classList.add('open'); }
+      });
+    });
+
+    // ─── NAVIGATION ───
+    const navTabs = document.querySelectorAll('.nav-tab');
+    const mobileTabs = document.querySelectorAll('.mobile-nav-tab');
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
+      $('tab-'+name).classList.remove('hidden');
+      navTabs.forEach(t => { t.className = t.className.replace(/tab-active|tab-inactive/g,'').trim(); t.classList.add(t.dataset.nav===name?'tab-active':'tab-inactive'); });
+      mobileTabs.forEach(t => { if(t.dataset.nav===name){t.classList.add('bg-card','text-white');t.classList.remove('text-muted');}else{t.classList.remove('bg-card','text-white');t.classList.add('text-muted');} });
+      $('mobile-menu-i9j0').classList.add('hidden');
+      if(name==='reports') renderReports();
+      if(name==='dashboard') renderDashboard();
+      if(name==='expenses') renderExpensesTable();
+      if(name==='budget') renderBudget();
+      if(name==='receipts') renderReceiptHistory();
+      if(name==='recurring') renderRecurring();
+      if(name==='bank') renderBank();
+    }
+
+    navTabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.nav)));
+    mobileTabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.nav)));
+    $('mobile-menu-btn-g7h8').addEventListener('click', () => { $('mobile-menu-i9j0').classList.remove('hidden'); lucide.createIcons(); });
+    $('mobile-menu-close-k1l2').addEventListener('click', () => $('mobile-menu-i9j0').classList.add('hidden'));
+
+    // ─── DASHBOARD ───
+    function renderDashboard() {
+      const thisM = getThisMonthExpenses();
+      const totalSpent = thisM.reduce((s,e) => s+e.amount, 0);
+      const taxDed = thisM.filter(e => e.taxDed).reduce((s,e) => s+e.amount, 0);
+      const largest = thisM.length ? thisM.reduce((a,b) => a.amount>b.amount?a:b) : null;
+      const remaining = totalBudget - totalSpent;
+
+      $('stat-total-q7r8').textContent = fmt(totalSpent);
+      $('stat-remaining-s9t0').textContent = fmt(Math.max(0,remaining));
+      $('stat-remaining-s9t0').className = 'text-2xl md:text-3xl font-bold tabular-nums '+(remaining<0?'text-danger':'text-success');
+      $('stat-largest-u1v2').textContent = largest?fmt(largest.amount):'$0';
+      $('stat-largest-label-w3x4').textContent = largest?largest.desc:'—';
+      $('stat-tax-y5z6').textContent = fmt(taxDed);
+
+      if (bankConnected) {
+        $('dash-bank-value').textContent = fmt(bankInfo.balance);
+        $('dash-bank-sub').textContent = 'via Plaid • '+bankInfo.name;
+        const unimported = bankTransactions.filter(t => t.type==='expense' && !importedBankIds.has(t.id)).length;
+        if (unimported > 0) {
+          $('dash-recon-value').innerHTML = '<span class="text-warning"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>'+unimported+' untracked transaction'+(unimported!==1?'s':'')+'</span>';
+        } else {
+          $('dash-recon-value').innerHTML = '<span class="text-success"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>Accounts are well-aligned</span>';
+        }
+      } else {
+        $('dash-bank-value').textContent = '—';
+        $('dash-bank-sub').textContent = 'Connect Bank →';
+        $('dash-recon-value').textContent = 'Connect bank to reconcile';
+      }
+
+      const maxCat = Math.max(...CATEGORIES.map(c => getCatSpent(c,thisM)),1);
+      $('cat-bars-a2b3').innerHTML = CATEGORIES.map(c => {
+        const spent = getCatSpent(c,thisM), pct = (spent/maxCat)*100;
+        return `<div class="flex items-center gap-3"><div class="w-20 text-xs text-muted font-medium text-right">${c}</div><div class="flex-1 bg-inputBg rounded h-[18px] overflow-hidden"><div class="chart-bar-h" style="width:${pct}%;background:${CAT_COLORS[c]}"></div></div><div class="w-20 text-xs text-white tabular-nums text-right">${fmt(spent)}</div></div>`;
+      }).join('');
+
+      const lmMap = {}; lastMonthExpenses.forEach(e => lmMap[e.cat]=e.amount);
+      const maxMom = Math.max(...CATEGORIES.map(c => Math.max(getCatSpent(c,thisM),lmMap[c]||0)),1);
+      $('mom-bars-c4d5').innerHTML = CATEGORIES.map(c => {
+        const thisAmt=getCatSpent(c,thisM),lastAmt=lmMap[c]||0;
+        return `<div><div class="text-xs text-muted mb-1 font-medium">${c}</div><div class="flex items-center gap-2 mb-1"><div class="flex-1 bg-inputBg rounded h-3 overflow-hidden"><div class="h-3 rounded bg-primary progress-bar" style="width:${(thisAmt/maxMom)*100}%"></div></div><span class="text-xs text-white tabular-nums w-16 text-right">${fmt(thisAmt)}</span></div><div class="flex items-center gap-2"><div class="flex-1 bg-inputBg rounded h-3 overflow-hidden"><div class="h-3 rounded bg-muted progress-bar" style="width:${(lastAmt/maxMom)*100}%"></div></div><span class="text-xs text-muted tabular-nums w-16 text-right">${fmt(lastAmt)}</span></div></div>`;
+      }).join('');
+
+      const recent = [...thisM].sort((a,b) => b.date.localeCompare(a.date)||b.id-a.id).slice(0,8);
+      $('recent-list-e6f7').innerHTML = recent.map(e => {
+        let badges = '';
+        if (e.fromReceipt) badges += '<span class="receipt-badge">Receipt</span>';
+        if (e.fromRecurring) badges += '<span class="recurring-badge">Recurring</span>';
+        if (e.fromBank) badges += '<span class="bank-badge">Bank Import</span>';
+        return `<div class="flex items-center justify-between py-3 gap-3"><div class="flex items-center gap-3 min-w-0 flex-1"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:${CAT_COLORS[e.cat]}22"><div class="w-2 h-2 rounded-full" style="background:${CAT_COLORS[e.cat]}"></div></div><div class="min-w-0"><div class="text-sm text-white font-medium truncate flex items-center gap-2">${e.desc} ${badges}</div><div class="text-xs text-muted">${fmtDate(e.date)}</div></div></div><div class="flex items-center gap-3 flex-shrink-0"><span class="badge ${CAT_CLASSES[e.cat]}">${e.cat}</span><span class="text-sm font-semibold text-white tabular-nums">${fmt(e.amount)}</span></div></div>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // ─── EXPENSES TABLE ───
+    function getFilteredExpenses() {
+      let list = [...expenses];
+      const q = $('expense-search-g8h9').value.toLowerCase();
+      const catF = $('filter-cat-i0j1').value;
+      const taxF = $('filter-tax-k2l3').value;
+      const fromF = $('filter-from-m4n5').value;
+      const toF = $('filter-to-o6p7').value;
+      if(q) list = list.filter(e => e.desc.toLowerCase().includes(q)||e.cat.toLowerCase().includes(q)||e.notes.toLowerCase().includes(q));
+      if(catF) list = list.filter(e => e.cat===catF);
+      if(taxF==='yes') list = list.filter(e => e.taxDed);
+      if(taxF==='no') list = list.filter(e => !e.taxDed);
+      if(fromF) list = list.filter(e => e.date>=fromF);
+      if(toF) list = list.filter(e => e.date<=toF);
+      list.sort((a,b) => { let va=a[sortCol],vb=b[sortCol]; if(sortCol==='amount'){va=Number(va);vb=Number(vb);} if(va<vb) return sortDir==='asc'?-1:1; if(va>vb) return sortDir==='asc'?1:-1; return 0; });
+      return list;
+    }
+
+    function renderExpensesTable() {
+      const list = getFilteredExpenses();
+      $('expense-count-q8r9').textContent = list.length+' expense'+(list.length!==1?'s':'');
+      const tbody = $('expenses-tbody-w4x5');
+      tbody.innerHTML = list.map(e => {
+        const isLocked = e.fromReceipt;
+        let badges = '';
+        if (e.fromReceipt) badges += '<span class="receipt-badge">Receipt</span>';
+        if (e.fromRecurring) badges += '<span class="recurring-badge">Recurring</span>';
+        if (e.fromBank) badges += '<span class="bank-badge">Bank Import</span>';
+        const lockHtml = isLocked ? '<i data-lucide="lock" class="w-3 h-3 lock-icon inline ml-1" title="Scanned from receipt — locked for accuracy"></i>' : '';
+        const editClass = isLocked ? 'p-1.5 text-muted/40 cursor-not-allowed' : 'edit-btn p-1.5 text-muted hover:text-primary transition';
+        return `<tr class="hover:bg-cardHover transition-colors ${selectedIds.has(e.id)?'bg-cardHover':''}" data-id="${e.id}">
+          <td class="px-4 py-3"><input type="checkbox" class="row-chk accent-primary rounded" data-id="${e.id}" ${selectedIds.has(e.id)?'checked':''} /></td>
+          <td class="px-4 py-3 text-white text-xs tabular-nums whitespace-nowrap">${fmtDate(e.date)}</td>
+          <td class="px-4 py-3 text-white text-sm font-medium"><span class="flex items-center gap-2 flex-wrap">${e.desc} ${badges}</span></td>
+          <td class="px-4 py-3"><span class="badge ${CAT_CLASSES[e.cat]}">${e.cat}</span></td>
+          <td class="px-4 py-3 text-right text-white font-semibold tabular-nums">${fmt(e.amount)}${lockHtml}</td>
+          <td class="px-4 py-3 text-center">${e.taxDed?'<i data-lucide="check-circle" class="w-4 h-4 text-success inline"></i>':'<i data-lucide="circle" class="w-4 h-4 text-muted inline"></i>'}</td>
+          <td class="px-4 py-3 text-center">${e.receipt?'<i data-lucide="paperclip" class="w-4 h-4 text-primary inline"></i>':'<span class="text-muted text-xs">—</span>'}</td>
+          <td class="px-4 py-3 text-muted text-xs max-w-[120px] truncate">${e.notes||'—'}</td>
+          <td class="px-4 py-3 text-center"><div class="flex items-center justify-center gap-1">
+            <button class="${editClass}" data-id="${e.id}" ${isLocked?'data-locked="true"':''}><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+            <button class="delete-btn p-1.5 text-muted hover:text-danger transition" data-id="${e.id}"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          </div></td></tr>`;
+      }).join('');
+      lucide.createIcons();
+      tbody.querySelectorAll('.row-chk').forEach(chk => { chk.addEventListener('change',()=>{const id=Number(chk.dataset.id);if(chk.checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkUI();}); });
+      tbody.querySelectorAll('.edit-btn').forEach(btn => { btn.addEventListener('click',()=>{if(btn.dataset.locked){showToast('Receipt-scanned items are locked. Delete and re-scan to correct.');return;}openEditExpense(Number(btn.dataset.id));}); });
+      tbody.querySelectorAll('button[data-locked="true"]').forEach(btn => { btn.addEventListener('click',()=>showToast('Receipt-scanned items are locked. Delete and re-scan to correct.')); });
+      tbody.querySelectorAll('.delete-btn').forEach(btn => { btn.addEventListener('click',()=>{const id=Number(btn.dataset.id);if(confirm('Delete this expense?')){const exp=expenses.find(e=>e.id===id); dbDeleteExpense(exp); expenses=expenses.filter(e=>e.id!==id);selectedIds.delete(id);renderExpensesTable();renderDashboard();}}); });
+    }
+
+    function updateBulkUI() {
+      const btn = $('bulk-delete-btn-s0t1');
+      if(selectedIds.size>0){btn.classList.remove('hidden');btn.classList.add('flex');btn.innerHTML=`<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete ${selectedIds.size} Selected`;lucide.createIcons();}
+      else{btn.classList.add('hidden');btn.classList.remove('flex');}
+    }
+
+    $('select-all-chk-u2v3').addEventListener('change',function(){const list=getFilteredExpenses();if(this.checked)list.forEach(e=>selectedIds.add(e.id));else selectedIds.clear();renderExpensesTable();updateBulkUI();});
+    $('bulk-delete-btn-s0t1').addEventListener('click',()=>{if(selectedIds.size&&confirm(`Delete ${selectedIds.size} expenses?`)){expenses.filter(e=>selectedIds.has(e.id)).forEach(e=>dbDeleteExpense(e));expenses=expenses.filter(e=>!selectedIds.has(e.id));selectedIds.clear();renderExpensesTable();renderDashboard();updateBulkUI();}});
+    document.querySelectorAll('th[data-sort]').forEach(th=>{th.addEventListener('click',()=>{sortDir=(sortCol===th.dataset.sort)?(sortDir==='asc'?'desc':'asc'):'desc';sortCol=th.dataset.sort;renderExpensesTable();});});
+    $('expense-search-g8h9').addEventListener('input',renderExpensesTable);
+    ['filter-cat-i0j1','filter-tax-k2l3','filter-from-m4n5','filter-to-o6p7'].forEach(id=>$(id).addEventListener('change',renderExpensesTable));
+
+    // ─── EXPENSE MODAL ───
+    function openModal(editId) {
+      editingExpenseId = editId||null;
+      $('expense-modal-i2j3').classList.remove('hidden');
+      if(editId){const e=expenses.find(x=>x.id===editId);$('modal-title-k4l5').textContent='Edit Expense';$('modal-date-o8p9').value=e.date;$('modal-amount-q0r1').value=e.amount;$('modal-desc-s2t3').value=e.desc;$('modal-cat-u4v5').value=e.cat;$('modal-notes-y8z9').value=e.notes;const tg=$('modal-tax-toggle-w6x7');if(e.taxDed){tg.classList.add('active');tg.setAttribute('aria-checked','true');}else{tg.classList.remove('active');tg.setAttribute('aria-checked','false');}}
+      else{$('modal-title-k4l5').textContent='Log Expense';$('modal-date-o8p9').value=today;$('modal-amount-q0r1').value='';$('modal-desc-s2t3').value='';$('modal-cat-u4v5').value='';$('modal-notes-y8z9').value='';const tg=$('modal-tax-toggle-w6x7');tg.classList.remove('active');tg.setAttribute('aria-checked','false');}
+      lucide.createIcons();
+    }
+    function openEditExpense(id){openModal(id);}
+    function closeModal(){$('expense-modal-i2j3').classList.add('hidden');editingExpenseId=null;}
+    $('log-expense-btn-e5f6').addEventListener('click',()=>openModal());
+    $('mobile-log-btn-m3n4').addEventListener('click',()=>{$('mobile-menu-i9j0').classList.add('hidden');openModal();});
+    $('modal-close-m6n7').addEventListener('click',closeModal);
+    $('modal-cancel-c2d3').addEventListener('click',closeModal);
+    $('modal-tax-toggle-w6x7').addEventListener('click',function(){this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'));});
+    $('modal-save-e4f5').addEventListener('click',()=>{
+      const date=$('modal-date-o8p9').value,amount=parseFloat($('modal-amount-q0r1').value),desc=$('modal-desc-s2t3').value.trim(),cat=$('modal-cat-u4v5').value,notes=$('modal-notes-y8z9').value.trim(),taxDed=$('modal-tax-toggle-w6x7').classList.contains('active');
+      if(!date||!desc||!cat||isNaN(amount)||amount<=0){alert('Please fill in all required fields.');return;}
+      if(editingExpenseId){const e=expenses.find(x=>x.id===editingExpenseId);e.date=date;e.amount=amount;e.desc=desc;e.cat=cat;e.notes=notes;e.taxDed=taxDed;dbSaveExpense(e);}
+      else{const newExp={id:nextId++,date,desc,cat,amount,taxDed,notes,receipt:false,fromReceipt:false,fromRecurring:false,fromBank:false};expenses.push(newExp);dbSaveExpense(newExp);}
+      closeModal();renderDashboard();renderExpensesTable();
+    });
+
+    // ─── BUDGET ───
+    function renderBudget() {
+      const thisM=getThisMonthExpenses(),totalSpent=thisM.reduce((s,e)=>s+e.amount,0),totalBudgeted=Object.values(budgets).reduce((s,v)=>s+v,0);
+      const pct=totalBudgeted>0?Math.round((totalSpent/totalBudgeted)*100):0,rem=totalBudgeted-totalSpent;
+      $('budget-total-a8b9').textContent=fmt(totalBudgeted);$('budget-spent-c0d1').textContent=fmt(totalSpent);
+      $('budget-pct-e2f3').textContent=pct+'%';$('budget-pct-e2f3').className='text-xl font-bold tabular-nums '+(pct>100?'text-danger':pct>80?'text-warning':'text-white');
+      $('budget-rem-g4h5').textContent=fmt(Math.max(0,rem));$('budget-rem-g4h5').className='text-xl font-bold tabular-nums '+(rem<0?'text-danger':'text-success');
+      const bar=$('budget-bar-i6j7');bar.style.width=Math.min(pct,100)+'%';bar.className='h-3 rounded-full progress-bar '+(pct>100?'bg-danger':pct>80?'bg-warning':'bg-primary');
+      $('total-budget-input-k8l9').value=totalBudget;
+      $('budget-cards-o2p3').innerHTML=CATEGORIES.map(c=>{
+        const budgeted=budgets[c]||0,spent=getCatSpent(c,thisM),catPct=budgeted>0?Math.round((spent/budgeted)*100):0,catRem=budgeted-spent;
+        const barColor=catPct>100?'bg-danger':catPct>80?'bg-warning':'bg-primary';
+        return `<div class="bg-card rounded-xl p-5 border border-stroke"><div class="flex items-center justify-between mb-3"><div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:${CAT_COLORS[c]}"></div><span class="text-sm font-semibold text-white">${c}</span>${catPct>100?'<span class="badge bg-danger/20 text-danger ml-2">OVER</span>':''}</div><button class="edit-budget-btn text-xs text-primary hover:text-secondary font-medium" data-cat="${c}">Edit</button></div><div class="flex items-center justify-between text-xs text-muted mb-2"><span>Spent: <span class="text-white font-medium tabular-nums">${fmt(spent)}</span></span><span>Budget: <span class="text-white font-medium tabular-nums">${fmt(budgeted)}</span></span></div><div class="w-full bg-inputBg rounded-full h-2.5 overflow-hidden mb-2"><div class="h-2.5 rounded-full ${barColor} progress-bar" style="width:${Math.min(catPct,100)}%"></div></div><div class="flex items-center justify-between text-xs"><span class="text-muted">${catPct}% used</span><span class="${catRem<0?'text-danger':'text-success'} font-medium tabular-nums">${catRem<0?'-':''}${fmt(Math.abs(catRem))} ${catRem<0?'over':'left'}</span></div></div>`;
+      }).join('');
+      document.querySelectorAll('.edit-budget-btn').forEach(btn=>{btn.addEventListener('click',()=>{editingBudgetCat=btn.dataset.cat;$('budget-modal-cat-k0l1').textContent=editingBudgetCat;$('budget-modal-amount-m2n3').value=budgets[editingBudgetCat]||0;$('budget-modal-g6h7').classList.remove('hidden');});});
+    }
+    $('save-total-budget-m0n1').addEventListener('click',()=>{totalBudget=parseFloat($('total-budget-input-k8l9').value)||0;renderBudget();renderDashboard();});
+    $('budget-modal-close-i8j9').addEventListener('click',()=>$('budget-modal-g6h7').classList.add('hidden'));
+    $('budget-modal-cancel-o4p5').addEventListener('click',()=>$('budget-modal-g6h7').classList.add('hidden'));
+    $('budget-modal-save-q6r7').addEventListener('click',()=>{budgets[editingBudgetCat]=parseFloat($('budget-modal-amount-m2n3').value)||0;$('budget-modal-g6h7').classList.add('hidden');renderBudget();});
+
+    // ─── REPORTS ───
+    function getReportDates(){
+      if(reportRange==='this-month')return{start:'2026-05-01',end:'2026-05-31'};if(reportRange==='last-month')return{start:'2026-04-01',end:'2026-04-30'};if(reportRange==='last-3')return{start:'2026-03-01',end:'2026-05-31'};if(reportRange==='this-year')return{start:'2026-01-01',end:'2026-12-31'};if(reportRange==='custom'&&reportStart&&reportEnd)return{start:reportStart,end:reportEnd};return{start:'2026-05-01',end:'2026-05-31'};
+    }
+    function getReportExpenses(){const{start,end}=getReportDates();return expenses.filter(e=>e.date>=start&&e.date<=end);}
+    function renderReports(){
+      const list=getReportExpenses(),total=list.reduce((s,e)=>s+e.amount,0),taxDed=list.filter(e=>e.taxDed).reduce((s,e)=>s+e.amount,0),nonDed=total-taxDed;
+      $('report-summary-y2z3').innerHTML=`<div class="flex justify-between items-center"><span class="text-sm text-muted">Total Expenses</span><span class="text-lg font-bold text-white tabular-nums">${fmt(total)}</span></div><div class="flex justify-between items-center"><span class="text-sm text-muted">Number of Expenses</span><span class="text-sm font-semibold text-white">${list.length}</span></div><div class="border-t border-stroke my-2"></div><div class="flex justify-between items-center"><span class="text-sm text-primary">Tax Deductible</span><span class="text-sm font-semibold text-primary tabular-nums">${fmt(taxDed)}</span></div><div class="flex justify-between items-center"><span class="text-sm text-muted">Non-Deductible</span><span class="text-sm font-semibold text-muted tabular-nums">${fmt(nonDed)}</span></div>`;
+      const catData=CATEGORIES.map(c=>({cat:c,total:list.filter(e=>e.cat===c).reduce((s,e)=>s+e.amount,0),count:list.filter(e=>e.cat===c).length})).filter(c=>c.total>0);
+      $('report-cat-table-a4b5').innerHTML=`<table class="w-full text-sm"><thead><tr class="text-xs text-muted uppercase tracking-wide"><th class="text-left py-2">Category</th><th class="text-right py-2">Amount</th><th class="text-right py-2">Count</th><th class="text-right py-2">% of Total</th></tr></thead><tbody>${catData.map(c=>`<tr class="border-t border-stroke"><td class="py-2"><span class="badge ${CAT_CLASSES[c.cat]}">${c.cat}</span></td><td class="py-2 text-right text-white font-medium tabular-nums">${fmt(c.total)}</td><td class="py-2 text-right text-muted">${c.count}</td><td class="py-2 text-right text-muted tabular-nums">${total>0?Math.round((c.total/total)*100):0}%</td></tr>`).join('')}</tbody></table>`;
+      const thisMonthTotal=getThisMonthExpenses().reduce((s,e)=>s+e.amount,0);
+      const trendData=[...monthlyTrend.slice(0,11),thisMonthTotal];
+      const trendLabels=['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'];
+      const ctx=$('trend-chart-c6d7').getContext('2d');
+      if(trendChart)trendChart.destroy();
+      trendChart=new Chart(ctx,{type:'bar',data:{labels:trendLabels,datasets:[{label:'Spending',data:trendData,backgroundColor:trendLabels.map((_,i)=>i===11?'#2dd4bf':'rgba(45,212,191,0.3)'),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1d2e',titleColor:'#fff',bodyColor:'#8b8fa8',borderColor:'rgba(255,255,255,0.08)',borderWidth:1,padding:10,callbacks:{label:ctx=>fmt(ctx.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{color:'#8b8fa8',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b8fa8',font:{size:11},callback:v=>'$'+(v/1000).toFixed(1)+'k'}}}}});
+      const taxItems=list.filter(e=>e.taxDed);
+      const taxByCat=CATEGORIES.map(c=>({cat:c,total:taxItems.filter(e=>e.cat===c).reduce((s,e)=>s+e.amount,0),count:taxItems.filter(e=>e.cat===c).length})).filter(c=>c.total>0);
+      $('tax-summary-g0h1').innerHTML=`<table class="w-full text-sm"><thead><tr class="text-xs text-muted uppercase tracking-wide"><th class="text-left py-2">Category</th><th class="text-right py-2">Deductible Amount</th><th class="text-right py-2"># Items</th></tr></thead><tbody>${taxByCat.map(c=>`<tr class="border-t border-stroke"><td class="py-2"><span class="badge ${CAT_CLASSES[c.cat]}">${c.cat}</span></td><td class="py-2 text-right text-primary font-medium tabular-nums">${fmt(c.total)}</td><td class="py-2 text-right text-muted">${c.count}</td></tr>`).join('')}<tr class="border-t-2 border-primary/30"><td class="py-2 font-semibold text-white">Total</td><td class="py-2 text-right font-bold text-primary tabular-nums">${fmt(taxDed)}</td><td class="py-2 text-right text-muted font-semibold">${taxItems.length}</td></tr></tbody></table>`;
+    }
+    document.querySelectorAll('.range-btn').forEach(btn=>{btn.addEventListener('click',()=>{reportRange=btn.dataset.range;document.querySelectorAll('.range-btn').forEach(b=>{b.className='range-btn bg-inputBg text-muted text-xs font-medium px-3 py-1.5 rounded-lg hover:text-white transition';});btn.className='range-btn bg-primary text-base text-xs font-semibold px-3 py-1.5 rounded-lg';if(reportRange==='custom'){$('custom-range-q4r5').classList.remove('hidden');}else{$('custom-range-q4r5').classList.add('hidden');renderReports();}});});
+    $('apply-custom-w0x1').addEventListener('click',()=>{reportStart=$('report-from-s6t7').value;reportEnd=$('report-to-u8v9').value;if(reportStart&&reportEnd)renderReports();});
+    $('export-csv-btn-e8f9').addEventListener('click',()=>{const list=getReportExpenses();const headers=['Date','Description','Category','Amount','Tax Deductible','Notes'];const rows=list.map(e=>[e.date,`"${e.desc}"`,e.cat,e.amount.toFixed(2),e.taxDed?'Yes':'No',`"${e.notes}"`]);const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ExpenseTrack_Report.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);});
+
+    // ─── RECEIPT SCANNER ───
+    function generateReceiptNumber(){const ch='ABCDEFGHIJKLMNOPQRSTUVWXYZ';return ch[Math.floor(Math.random()*26)]+ch[Math.floor(Math.random()*26)]+'-'+Math.floor(10000+Math.random()*90000);}
+    function generateMockReceiptData(){const sc=RECEIPT_SCENARIOS[Math.floor(Math.random()*RECEIPT_SCENARIOS.length)];const n=Math.min(sc.items.length,3+Math.floor(Math.random()*(sc.items.length-2)));const shuffled=[...sc.items].sort(()=>Math.random()-.5).slice(0,n);const lineItems=shuffled.map(item=>{const total=+(item.qty*item.unitPrice).toFixed(2);return{description:item.description,qty:item.qty,unitPrice:item.unitPrice,total,category:item.category};});const subtotal=+lineItems.reduce((s,i)=>s+i.total,0).toFixed(2);const taxAmount=+(subtotal*(0.07+Math.random()*0.015)).toFixed(2);return{storeName:sc.storeName,date:today,receiptNumber:generateReceiptNumber(),lineItems,subtotal,taxAmount,grandTotal:+(subtotal+taxAmount).toFixed(2)};}
+
+    function handleFileSelected(file){
+      if(!file)return;
+      currentScanData=generateMockReceiptData();
+      const scanModal=$('scanning-modal-overlay');scanModal.classList.remove('hidden');
+      const previewImg=$('scan-preview-img');
+      try{const url=URL.createObjectURL(file);previewImg.src=url;previewImg.classList.remove('hidden');}catch(e){previewImg.classList.add('hidden');}
+      for(let i=1;i<=5;i++){const step=$('scan-step-'+i),spin=$('scan-spin-'+i);step.classList.remove('active','done');step.querySelector('span').style.color='';spin.classList.add('hidden');const ce=step.querySelector('.scan-check-icon');if(ce)ce.remove();}
+      lucide.createIcons();
+      const stepDelay=550;
+      for(let i=1;i<=5;i++){setTimeout(()=>{const step=$('scan-step-'+i),spin=$('scan-spin-'+i);step.classList.add('active');spin.classList.remove('hidden');if(i>1){const ps=$('scan-step-'+(i-1)),psp=$('scan-spin-'+(i-1));ps.classList.add('done');psp.classList.add('hidden');psp.parentElement.innerHTML='<i data-lucide="check-circle" class="w-5 h-5 text-success scan-check-icon"></i>';lucide.createIcons();}},stepDelay*(i-1));}
+      setTimeout(()=>{const ls=$('scan-step-5'),lsp=$('scan-spin-5');ls.classList.add('done');lsp.classList.add('hidden');lsp.parentElement.innerHTML='<i data-lucide="check-circle" class="w-5 h-5 text-success scan-check-icon"></i>';lucide.createIcons();setTimeout(()=>{scanModal.classList.add('hidden');openReviewModal(currentScanData);},400);},stepDelay*5);
+    }
+    $('take-photo-btn').addEventListener('click',()=>$('receipt-capture-input').click());
+    $('upload-img-btn').addEventListener('click',()=>$('receipt-upload-input').click());
+    $('receipt-capture-input').addEventListener('change',function(){if(this.files&&this.files[0])handleFileSelected(this.files[0]);this.value='';});
+    $('receipt-upload-input').addEventListener('change',function(){if(this.files&&this.files[0])handleFileSelected(this.files[0]);this.value='';});
+
+    // ─── REVIEW MODAL ───
+    let reviewLineItems=[];
+    function openReviewModal(data){$('review-modal-overlay').classList.remove('hidden');$('review-store-name').value=data.storeName;$('review-date').value=data.date;$('review-receipt-num').value=data.receiptNumber;$('review-tax-amount').value=data.taxAmount.toFixed(2);reviewLineItems=data.lineItems.map((item,i)=>({...item,_id:i}));renderReviewItems();lucide.createIcons();}
+    function renderReviewItems(){
+      const tbody=$('review-items-tbody'),catOptions=CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+      tbody.innerHTML=reviewLineItems.map((item,idx)=>`<tr class="hover:bg-cardHover transition-colors"><td class="px-3 py-2"><input type="text" value="${item.description}" class="review-item-desc bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-sm text-white w-full" data-idx="${idx}" /></td><td class="px-3 py-2 text-center"><input type="number" value="${item.qty}" min="1" class="review-item-qty bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-sm text-white w-14 text-center tabular-nums" data-idx="${idx}" /></td><td class="px-3 py-2 text-right"><input type="number" value="${item.unitPrice.toFixed(2)}" min="0" step="0.01" class="review-item-price bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-sm text-white w-20 text-right tabular-nums" data-idx="${idx}" /></td><td class="px-3 py-2 text-right text-white font-medium tabular-nums review-item-total" data-idx="${idx}">${fmt(item.total)}</td><td class="px-3 py-2"><select class="review-item-cat bg-inputBg border border-stroke rounded-lg px-2 py-1.5 text-sm text-white w-full" data-idx="${idx}">${catOptions}</select></td><td class="px-3 py-2 text-center"><button class="review-delete-item p-1 text-muted hover:text-danger transition" data-idx="${idx}"><i data-lucide="x" class="w-4 h-4"></i></button></td></tr>`).join('');
+      tbody.querySelectorAll('.review-item-cat').forEach(sel=>{sel.value=reviewLineItems[Number(sel.dataset.idx)].category;});
+      lucide.createIcons();
+      tbody.querySelectorAll('.review-item-desc').forEach(inp=>{inp.addEventListener('input',function(){reviewLineItems[Number(this.dataset.idx)].description=this.value;});});
+      tbody.querySelectorAll('.review-item-qty').forEach(inp=>{inp.addEventListener('input',function(){const idx=Number(this.dataset.idx),qty=parseInt(this.value)||1;reviewLineItems[idx].qty=qty;reviewLineItems[idx].total=+(qty*reviewLineItems[idx].unitPrice).toFixed(2);updateReviewTotals();});});
+      tbody.querySelectorAll('.review-item-price').forEach(inp=>{inp.addEventListener('input',function(){const idx=Number(this.dataset.idx),price=parseFloat(this.value)||0;reviewLineItems[idx].unitPrice=price;reviewLineItems[idx].total=+(reviewLineItems[idx].qty*price).toFixed(2);updateReviewTotals();});});
+      tbody.querySelectorAll('.review-item-cat').forEach(sel=>{sel.addEventListener('change',function(){reviewLineItems[Number(this.dataset.idx)].category=this.value;});});
+      tbody.querySelectorAll('.review-delete-item').forEach(btn=>{btn.addEventListener('click',function(){reviewLineItems.splice(Number(this.dataset.idx),1);renderReviewItems();});});
+      updateReviewTotals();
+    }
+    function updateReviewTotals(){const subtotal=reviewLineItems.reduce((s,i)=>s+i.total,0);$('review-subtotal').textContent=fmt(subtotal);document.querySelectorAll('.review-item-total').forEach(td=>{const idx=Number(td.dataset.idx);if(reviewLineItems[idx])td.textContent=fmt(reviewLineItems[idx].total);});const tax=parseFloat($('review-tax-amount').value)||0;$('review-grand-total').textContent=fmt(subtotal+tax);}
+    $('review-tax-amount').addEventListener('input',updateReviewTotals);
+    $('review-add-item-btn').addEventListener('click',()=>{reviewLineItems.push({description:'',qty:1,unitPrice:0,total:0,category:'Other',_id:Date.now()});renderReviewItems();});
+    function closeReviewModal(){$('review-modal-overlay').classList.add('hidden');reviewLineItems=[];currentScanData=null;}
+    $('review-close-btn').addEventListener('click',closeReviewModal);
+    $('review-cancel-btn').addEventListener('click',closeReviewModal);
+    $('review-modal-overlay').addEventListener('click',function(e){if(e.target===this)closeReviewModal();});
+
+    $('review-save-all-btn').addEventListener('click',()=>{
+      if(!reviewLineItems.length){alert('No items to save.');return;}
+      const storeName=$('review-store-name').value.trim()||'Unknown Store',date=$('review-date').value||today,receiptNum=$('review-receipt-num').value.trim(),taxAmount=parseFloat($('review-tax-amount').value)||0,subtotal=reviewLineItems.reduce((s,i)=>s+i.total,0),grandTotal=+(subtotal+taxAmount).toFixed(2);
+      reviewLineItems.forEach(item=>{const newExp={id:nextId++,date,desc:item.description+' ('+storeName+')',cat:item.category,amount:item.total,taxDed:false,notes:'Receipt #'+receiptNum,receipt:true,fromReceipt:true,fromRecurring:false,fromBank:false};expenses.push(newExp);dbSaveExpense(newExp);});
+      const newReceipt={id:nextReceiptId++,storeName,date,receiptNumber:receiptNum,lineItems:reviewLineItems.map(i=>({description:i.description,qty:i.qty,unitPrice:i.unitPrice,total:i.total,category:i.category})),subtotal:+subtotal.toFixed(2),taxAmount,grandTotal,scannedAt:new Date().toISOString(),savedAs:'itemized'};
+      scannedReceipts.push(newReceipt);dbSaveReceipt(newReceipt);
+      closeReviewModal();updateReceiptBadge();renderReceiptHistory();renderDashboard();renderExpensesTable();
+    });
+
+    $('review-save-single-btn').addEventListener('click',()=>{
+      const storeName=$('review-store-name').value.trim()||'Unknown Store',date=$('review-date').value||today,receiptNum=$('review-receipt-num').value.trim(),taxAmount=parseFloat($('review-tax-amount').value)||0,subtotal=reviewLineItems.reduce((s,i)=>s+i.total,0),grandTotal=+(subtotal+taxAmount).toFixed(2);
+      const catCounts={};reviewLineItems.forEach(i=>{catCounts[i.category]=(catCounts[i.category]||0)+1;});const primaryCat=Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'Other';
+      const newExp={id:nextId++,date,desc:storeName,cat:primaryCat,amount:grandTotal,taxDed:false,notes:'Receipt #'+receiptNum+' ('+reviewLineItems.length+' items)',receipt:true,fromReceipt:true,fromRecurring:false,fromBank:false};
+      expenses.push(newExp);dbSaveExpense(newExp);
+      const newReceipt={id:nextReceiptId++,storeName,date,receiptNumber:receiptNum,lineItems:reviewLineItems.map(i=>({description:i.description,qty:i.qty,unitPrice:i.unitPrice,total:i.total,category:i.category})),subtotal:+subtotal.toFixed(2),taxAmount,grandTotal,scannedAt:new Date().toISOString(),savedAs:'single'};
+      scannedReceipts.push(newReceipt);dbSaveReceipt(newReceipt);
+      closeReviewModal();updateReceiptBadge();renderReceiptHistory();renderDashboard();renderExpensesTable();
+    });
+
+    // ─── RECEIPT HISTORY ───
+    function getFilteredReceipts(){
+      let list=[...scannedReceipts];const q=$('rcpt-search-input').value.toLowerCase(),catF=$('rcpt-filter-cat').value,fromF=$('rcpt-filter-from').value,toF=$('rcpt-filter-to').value;
+      if(q)list=list.filter(r=>r.storeName.toLowerCase().includes(q));if(catF)list=list.filter(r=>r.lineItems.some(i=>i.category===catF));if(fromF)list=list.filter(r=>r.date>=fromF);if(toF)list=list.filter(r=>r.date<=toF);
+      return list.sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+    }
+    function renderReceiptHistory(){
+      const list=getFilteredReceipts(),container=$('rcpt-list-container'),empty=$('rcpt-empty-state');
+      if(!list.length){container.innerHTML='';empty.classList.remove('hidden');return;}
+      empty.classList.add('hidden');
+      container.innerHTML=list.map(r=>{
+        const cats=[...new Set(r.lineItems.map(i=>i.category))],catBadges=cats.map(c=>`<span class="badge ${CAT_CLASSES[c]}">${c}</span>`).join(' ');
+        const isExpanded=expandedReceiptIds.has(r.id);
+        const retainDate=addRetentionDate(r.date);
+        let expandedHTML='';
+        if(isExpanded){
+          expandedHTML=`<div class="mt-3 pt-3 border-t border-stroke"><table class="w-full text-xs"><thead class="text-[11px] text-muted uppercase tracking-wide"><tr><th class="text-left py-1.5">Item</th><th class="text-center py-1.5 w-12">Qty</th><th class="text-right py-1.5 w-20">Price</th><th class="text-right py-1.5 w-20">Total</th><th class="text-left py-1.5 w-24">Category</th></tr></thead><tbody class="divide-y divide-stroke">${r.lineItems.map(item=>`<tr><td class="py-1.5 text-white">${item.description}</td><td class="py-1.5 text-center text-muted tabular-nums">${item.qty}</td><td class="py-1.5 text-right text-muted tabular-nums">${fmt(item.unitPrice)}</td><td class="py-1.5 text-right text-white font-medium tabular-nums">${fmt(item.total)}</td><td class="py-1.5"><span class="badge ${CAT_CLASSES[item.category]}">${item.category}</span></td></tr>`).join('')}</tbody></table><div class="flex justify-end gap-4 mt-2 pt-2 border-t border-stroke text-xs"><span class="text-muted">Subtotal: <span class="text-white font-medium tabular-nums">${fmt(r.subtotal)}</span></span><span class="text-muted">Tax: <span class="text-white font-medium tabular-nums">${fmt(r.taxAmount)}</span></span><span class="text-primary font-semibold tabular-nums">Total: ${fmt(r.grandTotal)}</span></div><div class="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-muted"><span>Saved as: <span class="text-white font-medium">${r.savedAs==='itemized'?'Individual items':'Single total'}</span></span><span>|</span><button class="rcpt-export-csv text-primary hover:text-secondary font-semibold" data-id="${r.id}">Export Line Items (CSV)</button></div></div>`;
+        }
+        return `<div class="bg-inputBg rounded-xl p-4 receipt-history-item border border-stroke/50" data-receipt-id="${r.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex items-center gap-3 min-w-0 flex-1"><div class="w-10 h-10 rounded-xl bg-card border border-stroke flex items-center justify-center flex-shrink-0"><i data-lucide="camera" class="w-4 h-4 text-muted"></i></div><div class="min-w-0"><div class="text-sm text-white font-semibold truncate">${r.storeName}</div><div class="text-xs text-muted flex flex-wrap items-center gap-2 mt-0.5"><span>${fmtDate(r.date)}</span><span class="text-stroke">•</span><span>${r.lineItems.length} item${r.lineItems.length!==1?'s':''}</span><span class="text-stroke">•</span><span class="text-white font-medium tabular-nums">${fmt(r.grandTotal)}</span></div><div class="text-[10px] text-primary/60 mt-0.5">Retain until: ${retainDate}</div><div class="flex flex-wrap items-center gap-1 mt-1.5">${catBadges}</div></div></div><div class="flex items-center gap-2 flex-shrink-0"><button class="rcpt-view-btn text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${isExpanded?'bg-primary text-base':'bg-card border border-stroke text-muted hover:text-white'}" data-id="${r.id}">${isExpanded?'Hide Items':'View Items'}</button><button class="rcpt-delete-btn p-1.5 text-muted hover:text-danger transition" data-id="${r.id}"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>${expandedHTML}</div>`;
+      }).join('');
+      lucide.createIcons();
+      container.querySelectorAll('.rcpt-view-btn').forEach(btn=>{btn.addEventListener('click',function(){const id=Number(this.dataset.id);if(expandedReceiptIds.has(id))expandedReceiptIds.delete(id);else expandedReceiptIds.add(id);renderReceiptHistory();});});
+      container.querySelectorAll('.rcpt-delete-btn').forEach(btn=>{btn.addEventListener('click',function(){const id=Number(this.dataset.id);if(confirm('Delete this scanned receipt?')){const rcpt=scannedReceipts.find(r=>r.id===id);dbDeleteReceipt(rcpt);scannedReceipts=scannedReceipts.filter(r=>r.id!==id);expandedReceiptIds.delete(id);updateReceiptBadge();renderReceiptHistory();}});});
+      container.querySelectorAll('.rcpt-export-csv').forEach(btn=>{btn.addEventListener('click',function(){const id=Number(this.dataset.id),r=scannedReceipts.find(x=>x.id===id);if(!r)return;const headers=['Item','Qty','Unit Price','Total','Category'];const rows=r.lineItems.map(i=>[`"${i.description}"`,i.qty,i.unitPrice.toFixed(2),i.total.toFixed(2),i.category]);const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=r.storeName.replace(/\s+/g,'_')+'_receipt.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);});});
+    }
+    $('rcpt-search-input').addEventListener('input',renderReceiptHistory);
+    $('rcpt-filter-cat').addEventListener('change',renderReceiptHistory);
+    $('rcpt-filter-from').addEventListener('change',renderReceiptHistory);
+    $('rcpt-filter-to').addEventListener('change',renderReceiptHistory);
+    $('dismiss-storage-banner').addEventListener('click',()=>{$('receipt-storage-banner').classList.add('hidden');});
+
+    // ─── RECURRING ───
+    function renderRecurring(){
+      const active=recurringItems.filter(r=>r.active);
+      const monthlyTotal=active.reduce((s,r)=>{
+        if(r.freq==='Monthly')return s+r.amount;if(r.freq==='Weekly')return s+r.amount*4.33;if(r.freq==='Quarterly')return s+r.amount/3;if(r.freq==='Annual')return s+r.amount/12;return s;
+      },0);
+      $('recur-total').textContent=fmt(monthlyTotal);
+      $('recur-count').textContent=active.length;
+      $('recur-annual').textContent=fmt(monthlyTotal*12);
+      const sorted=[...active].sort((a,b)=>a.nextDue.localeCompare(b.nextDue));
+      if(sorted.length){$('recur-next').textContent=fmtDate(sorted[0].nextDue);$('recur-next-name').textContent=sorted[0].name;}
+      else{$('recur-next').textContent='—';$('recur-next-name').textContent='—';}
+
+      $('recurring-list').innerHTML=recurringItems.map(r=>{
+        const days=daysBetween(today,r.nextDue);
+        let dueColor='text-success',dueText='Due in '+days+' days';
+        if(days<0){dueColor='text-danger';dueText='Overdue by '+Math.abs(days)+' day'+(Math.abs(days)!==1?'s':'');}
+        else if(days===0){dueColor='text-warning';dueText='Due today';}
+        else if(days<=3){dueColor='text-danger';dueText='Due in '+days+' day'+(days!==1?'s':'');}
+        else if(days<=7){dueColor='text-warning';dueText='Due in '+days+' days';}
+        const freqBadge = r.freq==='Monthly'?'bg-recurBlue/15 text-recurBlue':r.freq==='Weekly'?'bg-plaid/15 text-plaid':r.freq==='Quarterly'?'bg-[rgba(168,85,247,.15)] text-[#a855f7]':'bg-warning/15 text-warning';
+        return `<div class="bg-card rounded-xl p-5 border border-stroke ${!r.active?'opacity-60':''}">
+          <div class="flex items-center justify-between mb-3"><div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:${CAT_COLORS[r.cat]}"></div><span class="text-sm font-semibold text-white">${r.name}</span></div><span class="badge ${freqBadge}">${r.freq}</span></div>
+          <div class="text-2xl font-bold text-white tabular-nums mb-2">${fmt(r.amount)}</div>
+          <div class="flex items-center gap-2 mb-2"><span class="badge ${CAT_CLASSES[r.cat]}">${r.cat}</span>${r.taxDed?'<i data-lucide="check-circle" class="w-3.5 h-3.5 text-success" title="Tax deductible"></i>':''}</div>
+          <div class="text-xs ${dueColor} font-medium mb-1">${r.active?dueText:'Paused'}</div>
+          ${r.lastPosted?'<div class="text-[10px] text-muted">Last posted: '+fmtDate(r.lastPosted)+'</div>':''}
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-stroke">
+            <div class="flex items-center gap-2"><label class="text-xs text-muted">${r.active?'Active':'Paused'}</label><div class="recur-status-toggle toggle-track ${r.active?'active':''}" data-id="${r.id}" role="switch" tabindex="0"><div class="toggle-knob"></div></div></div>
+            <div class="flex items-center gap-1"><button class="recur-edit-btn p-1.5 text-muted hover:text-primary transition" data-id="${r.id}"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button><button class="recur-delete-btn p-1.5 text-muted hover:text-danger transition" data-id="${r.id}"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div>
+          </div></div>`;
+      }).join('');
+      lucide.createIcons();
+      document.querySelectorAll('.recur-status-toggle').forEach(tg=>{tg.addEventListener('click',function(){const id=Number(this.dataset.id),item=recurringItems.find(r=>r.id===id);if(item){item.active=!item.active;dbSaveRecurring(item);renderRecurring();}});});
+      document.querySelectorAll('.recur-edit-btn').forEach(btn=>{btn.addEventListener('click',function(){openRecurringModal(Number(this.dataset.id));});});
+      document.querySelectorAll('.recur-delete-btn').forEach(btn=>{btn.addEventListener('click',function(){const id=Number(this.dataset.id);if(confirm('Delete this recurring expense?')){const item=recurringItems.find(r=>r.id===id);dbDeleteRecurring(item);recurringItems=recurringItems.filter(r=>r.id!==id);renderRecurring();}});});
+    }
+
+    function openRecurringModal(editId){
+      editingRecurringId=editId||null;
+      $('recurring-modal-overlay').classList.remove('hidden');
+      if(editId){
+        const r=recurringItems.find(x=>x.id===editId);
+        $('recurring-modal-title').textContent='Edit Recurring Expense';
+        $('recur-name-input').value=r.name;$('recur-amount-input').value=r.amount;$('recur-cat-input').value=r.cat;$('recur-freq-input').value=r.freq;$('recur-start-input').value=r.startDate;$('recur-next-input').value=r.nextDue;$('recur-notes-input').value=r.notes||'';
+        const tt=$('recur-tax-toggle'),at=$('recur-active-toggle');
+        if(r.taxDed){tt.classList.add('active');tt.setAttribute('aria-checked','true');}else{tt.classList.remove('active');tt.setAttribute('aria-checked','false');}
+        if(r.active){at.classList.add('active');at.setAttribute('aria-checked','true');}else{at.classList.remove('active');at.setAttribute('aria-checked','false');}
+      }else{
+        $('recurring-modal-title').textContent='Add Recurring Expense';
+        $('recur-name-input').value='';$('recur-amount-input').value='';$('recur-cat-input').value='';$('recur-freq-input').value='Monthly';$('recur-start-input').value=today;$('recur-next-input').value=today;$('recur-notes-input').value='';
+        const tt=$('recur-tax-toggle'),at=$('recur-active-toggle');
+        tt.classList.remove('active');tt.setAttribute('aria-checked','false');at.classList.add('active');at.setAttribute('aria-checked','true');
+      }
+      lucide.createIcons();
+    }
+    function closeRecurringModal(){$('recurring-modal-overlay').classList.add('hidden');editingRecurringId=null;}
+    $('add-recurring-btn').addEventListener('click',()=>openRecurringModal());
+    $('recurring-modal-close').addEventListener('click',closeRecurringModal);
+    $('recurring-modal-cancel').addEventListener('click',closeRecurringModal);
+    $('recur-tax-toggle').addEventListener('click',function(){this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'));});
+    $('recur-active-toggle').addEventListener('click',function(){this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'));});
+    $('recurring-modal-save').addEventListener('click',()=>{
+      const name=$('recur-name-input').value.trim(),amount=parseFloat($('recur-amount-input').value),cat=$('recur-cat-input').value,freq=$('recur-freq-input').value,startDate=$('recur-start-input').value,nextDue=$('recur-next-input').value,notes=$('recur-notes-input').value.trim(),taxDed=$('recur-tax-toggle').classList.contains('active'),active=$('recur-active-toggle').classList.contains('active');
+      if(!name||!cat||isNaN(amount)||amount<=0){alert('Please fill in all required fields.');return;}
+      if(editingRecurringId){const r=recurringItems.find(x=>x.id===editingRecurringId);r.name=name;r.amount=amount;r.cat=cat;r.freq=freq;r.startDate=startDate;r.nextDue=nextDue;r.notes=notes;r.taxDed=taxDed;r.active=active;dbSaveRecurring(r);}
+      else{const newItem={id:nextRecurringId++,name,amount,cat,freq,startDate,nextDue,notes,taxDed,active,lastPosted:null};recurringItems.push(newItem);dbSaveRecurring(newItem);}
+      closeRecurringModal();renderRecurring();
+    });
+
+    // Auto-post recurring
+    function autoPostRecurring(){
+      let posted=0;
+      recurringItems.forEach(r=>{
+        if(!r.active)return;
+        while(r.nextDue<=today){
+          const newExp={id:nextId++,date:r.nextDue,desc:r.name,cat:r.cat,amount:r.amount,taxDed:r.taxDed,notes:'Recurring: '+r.freq,receipt:false,fromReceipt:false,fromRecurring:true,fromBank:false};
+          expenses.push(newExp);
+          dbSaveExpense(newExp);
+          r.lastPosted=r.nextDue;
+          r.nextDue=getNextDueDate(r.nextDue,r.freq);
+          posted++;
+        }
+        if(posted>0) dbSaveRecurring(r);
+      });
+      if(posted>0){
+        $('recurring-notif-banner').classList.remove('hidden');
+        $('recurring-notif-text').textContent=posted+' recurring expense'+(posted!==1?'s were':' was')+' automatically added for May 2026';
+        lucide.createIcons();
+      }
+    }
+    $('dismiss-recurring-notif').addEventListener('click',()=>$('recurring-notif-banner').classList.add('hidden'));
+
+    // ─── BANK TAB ───
+    function renderBank(){
+      if(!bankConnected){$('bank-disconnected').classList.remove('hidden');$('bank-connected').classList.add('hidden');return;}
+      $('bank-disconnected').classList.add('hidden');$('bank-connected').classList.remove('hidden');
+      $('bank-acct-name').textContent=bankInfo.name+' '+bankInfo.accountType+' ••'+bankInfo.masked;
+      $('bank-last-sync').textContent='Last synced: '+bankInfo.lastSync;
+      $('bank-balance-val').textContent=fmt(bankInfo.balance);
+      $('bank-avail-val').textContent=fmt(bankInfo.available);
+      $('recon-bank').textContent=fmt(bankInfo.balance);
+      const tracked=getThisMonthExpenses().reduce((s,e)=>s+e.amount,0);
+      $('recon-tracked').textContent=fmt(tracked);
+      const unimported=bankTransactions.filter(t=>t.type==='expense'&&!importedBankIds.has(t.id)).length;
+      if(unimported<=2){$('recon-status').innerHTML='<span class="text-success"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>Accounts are well-aligned</span>';}
+      else{$('recon-status').innerHTML='<span class="text-warning"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>'+unimported+' untracked transactions — consider reviewing</span>';}
+      renderBankTxns();
+      renderImportHistory();
+      lucide.createIcons();
+    }
+
+    function renderBankTxns(){
+      const filter=$('bank-txn-filter').value;
+      let list=[...bankTransactions];
+      if(filter==='expenses')list=list.filter(t=>t.type==='expense');
+      else if(filter==='deposits')list=list.filter(t=>t.type==='deposit');
+      else if(filter==='unimported')list=list.filter(t=>t.type==='expense'&&!importedBankIds.has(t.id));
+
+      $('bank-txn-list').innerHTML=list.map(t=>{
+        const isImported=importedBankIds.has(t.id);
+        const isExpense=t.type==='expense';
+        return `<div class="flex items-center justify-between py-3 gap-3"><div class="flex items-center gap-3 min-w-0 flex-1"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isExpense?'bg-danger/10':'bg-plaid/10'}"><i data-lucide="${isExpense?'arrow-up-right':'arrow-down-left'}" class="w-4 h-4 ${isExpense?'text-danger':'text-plaid'}"></i></div><div class="min-w-0"><div class="text-sm text-white font-medium truncate">${t.merchant}</div><div class="text-xs text-muted">${fmtDate(t.date)}${t.cat?' • '+t.cat:''}</div></div></div><div class="flex items-center gap-3 flex-shrink-0"><span class="text-sm font-semibold tabular-nums ${isExpense?'text-white':'text-plaid'}">${isExpense?'-':'+'} ${fmt(Math.abs(t.amount))}</span>${isImported?'<span class="badge bg-plaid/15 text-plaid">Imported</span>':isExpense?'<button class="bank-import-single-btn bg-plaid/15 text-plaid text-xs font-semibold px-3 py-1 rounded-lg hover:bg-plaid/25 transition" data-id="'+t.id+'">Import</button>':''}</div></div>`;
+      }).join('');
+      lucide.createIcons();
+      document.querySelectorAll('.bank-import-single-btn').forEach(btn=>{btn.addEventListener('click',function(){const id=Number(this.dataset.id);openBankImportModal(id);});});
+    }
+
+    function renderImportHistory(){
+      const imported=bankTransactions.filter(t=>importedBankIds.has(t.id));
+      $('import-hist-list').innerHTML=imported.length?imported.map(t=>`<div class="flex items-center justify-between py-2 gap-3 text-xs"><span class="text-muted">${fmtDate(t.date)}</span><span class="text-white font-medium flex-1 ml-3">${t.merchant}</span><span class="text-white tabular-nums">${fmt(Math.abs(t.amount))}</span><span class="badge ${CAT_CLASSES[t.cat]||'cat-other'}">${t.cat||'Other'}</span></div>`).join(''):'<p class="text-xs text-muted py-2">No imported transactions yet.</p>';
+    }
+
+    $('bank-txn-filter').addEventListener('change',renderBankTxns);
+    $('import-history-toggle').addEventListener('click',()=>{const c=$('import-hist-content'),ch=$('import-hist-chevron');c.classList.toggle('open');ch.classList.toggle('open');});
+
+    // Plaid flow
+    const BANKS=[{name:'Chase',color:'#0B6FCE'},{name:'Bank of America',color:'#E31837'},{name:'Wells Fargo',color:'#CD1409'},{name:'US Bank',color:'#0C2340'},{name:'PNC',color:'#F58220'},{name:'TD Bank',color:'#00A651'},{name:'Citizens',color:'#00875A'},{name:'KeyBank',color:'#E71A28'}];
+    let plaidStep=1,selectedBank=null;
+
+    function openPlaidModal(){$('plaid-modal-overlay').classList.remove('hidden');plaidStep=1;renderPlaidStep();lucide.createIcons();}
+    function closePlaidModal(){$('plaid-modal-overlay').classList.add('hidden');plaidStep=1;}
+    $('connect-plaid-btn').addEventListener('click',openPlaidModal);
+    $('plaid-modal-close').addEventListener('click',closePlaidModal);
+    $('plaid-modal-overlay').addEventListener('click',function(e){if(e.target===this)closePlaidModal();});
+
+    function renderPlaidStep(){
+      const container=$('plaid-step-content');
+      if(plaidStep===1){
+        $('plaid-modal-title').textContent='Search for your bank';
+        container.innerHTML=`<div class="relative mb-4"><i data-lucide="search" class="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2"></i><input id="plaid-bank-search" type="text" placeholder="Search banks..." class="w-full bg-inputBg border border-stroke rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-muted" /></div><div id="plaid-bank-list" class="space-y-2"></div>`;
+        renderPlaidBanks('');
+        lucide.createIcons();
+        $('plaid-bank-search').addEventListener('input',function(){renderPlaidBanks(this.value.toLowerCase());});
+      }else if(plaidStep===2){
+        $('plaid-modal-title').textContent='Sign in to '+selectedBank.name;
+        container.innerHTML=`<div class="plaid-step"><div class="bg-inputBg rounded-xl p-4 mb-4 text-center"><div class="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center text-white font-bold text-lg" style="background:${selectedBank.color}">${selectedBank.name.charAt(0)}</div><p class="text-sm text-white font-semibold">${selectedBank.name}</p></div><div class="space-y-3 mb-4"><div><label class="block text-xs text-muted mb-1 font-medium">Username</label><input type

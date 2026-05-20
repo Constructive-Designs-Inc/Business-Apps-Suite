@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>ProposalPro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: { 900: '#0f1117', 800: '#151722', 700: '#1a1d2e', 600: '#222640', 500: '#2a2f48' },
+                        accent: { 400: '#f472b6', 500: '#ec4899', 600: '#db2777' },
+                        secondary: { 400: '#fb7185', 500: '#f43f5e' },
+                        success: { 400: '#4ade80', 500: '#22c55e' },
+                        muted: { 400: '#8b8fa8', 300: '#6b6f88' },
+                        stroke: { 100: 'rgba(255,255,255,0.08)', 200: 'rgba(255,255,255,0.12)' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-base: #0f1117;
+            --bg-card: #1a1d2e;
+            --bg-elevated: #222640;
+            --accent: #f472b6;
+            --accent-hover: #ec4899;
+            --secondary: #fb7185;
+            --success: #4ade80;
+            --muted: #8b8fa8;
+            --border: rgba(255,255,255,0.08);
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-base); color: #e2e4ed; font-family: 'Inter', system-ui, sans-serif; margin: 0; padding-bottom: 44px; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .transition-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .badge { padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px; }
+        .badge-draft { background: rgba(148,163,184,0.15); color: #94a3b8; }
+        .badge-sent { background: rgba(96,165,250,0.15); color: #60a5fa; }
+        .badge-viewed { background: rgba(251,191,36,0.15); color: #fbbf24; }
+        .badge-accepted { background: rgba(52,211,153,0.15); color: #34d399; }
+        .badge-declined { background: rgba(248,113,113,0.15); color: #f87171; }
+        .badge-expired { background: rgba(148,163,184,0.1); color: #64748b; }
+        .badge-invoice { background: rgba(52,211,153,0.1); color: #34d399; font-size: 0.65rem; text-transform: none; letter-spacing: 0; }
+        input, textarea, select {
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            color: #e2e4ed;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(244,114,182,0.15);
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: #fff;
+            font-weight: 600;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: #e2e4ed;
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.35rem;
+        }
+        .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+        .nav-tab {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--muted);
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+        }
+        .nav-tab:hover { color: #e2e4ed; }
+        .nav-tab.active { color: var(--accent); background: rgba(244,114,182,0.1); }
+        .stat-card { position: relative; overflow: hidden; }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--secondary));
+            border-radius: 1rem 1rem 0 0;
+        }
+        .donut-container { position: relative; width: 160px; height: 160px; }
+        .donut-ring { fill: transparent; stroke: #2a2f48; stroke-width: 16; }
+        .donut-segment { fill: transparent; stroke-width: 16; stroke-linecap: round; transition: stroke-dasharray 1s ease; }
+        .preview-panel { background: #fff; color: #1a1a2e; border-radius: 0.75rem; padding: 2rem; }
+        .preview-panel h1 { color: #0f1117; }
+        .preview-panel h2 { color: #1a1d2e; border-bottom: 2px solid var(--accent); padding-bottom: 0.25rem; }
+        .preview-panel table { border-collapse: collapse; width: 100%; }
+        .preview-panel th { background: #f0f0f5; text-align: left; padding: 0.5rem; font-size: 0.75rem; text-transform: uppercase; }
+        .preview-panel td { padding: 0.5rem; border-bottom: 1px solid #e5e5ea; font-size: 0.85rem; }
+        .filter-btn {
+            padding: 0.3rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(244,114,182,0.08); }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2a2f48; border-radius: 3px; }
+
+        .help-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+            display: flex; align-items: flex-start; justify-content: center;
+            overflow-y: auto; padding: 2rem 1rem;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .help-overlay.open { opacity: 1; visibility: visible; }
+        .help-modal {
+            background: var(--bg-base); border: 1px solid var(--border); border-radius: 1.25rem;
+            max-width: 720px; width: 100%; padding: 0;
+            transform: translateY(20px) scale(0.97); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); position: relative;
+        }
+        .help-overlay.open .help-modal { transform: translateY(0) scale(1); }
+        .help-accordion-header {
+            display: flex; align-items: center; justify-content: space-between; width: 100%;
+            background: none; border: none; color: #e2e4ed;
+            padding: 1rem 1.25rem; cursor: pointer; font-family: 'Inter', sans-serif;
+            font-size: 0.95rem; font-weight: 600; text-align: left;
+            border-radius: 0.75rem; transition: background 0.2s;
+        }
+        .help-accordion-header:hover { background: rgba(244,114,182,0.06); }
+        .help-accordion-header .chevron-icon { transition: transform 0.3s ease; flex-shrink: 0; }
+        .help-accordion-header.expanded .chevron-icon { transform: rotate(180deg); }
+        .help-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), padding 0.25s ease; padding: 0 1.25rem; }
+        .help-accordion-body.open { max-height: 600px; padding: 0 1.25rem 1rem; }
+        .help-step { display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.5rem; }
+        .help-step-num {
+            width: 24px; height: 24px; min-width: 24px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: #fff; font-size: 0.7rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; margin-top: 1px;
+        }
+        .help-btn {
+            width: 36px; height: 36px; min-width: 36px; min-height: 36px; border-radius: 50%;
+            border: 1px solid var(--border); background: var(--bg-elevated); color: var(--muted);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; font-size: 1rem; font-weight: 700;
+            font-family: 'Inter', sans-serif; line-height: 1;
+        }
+        .help-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(244,114,182,0.1); }
+        .tip-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem;
+            padding: 0.875rem 1rem; margin-bottom: 0.5rem; display: flex; gap: 0.75rem; align-items: flex-start;
+        }
+        .tip-icon {
+            width: 28px; height: 28px; min-width: 28px; border-radius: 0.5rem;
+            background: rgba(244,114,182,0.12); display: flex; align-items: center; justify-content: center; margin-top: 1px;
+        }
+        .signature-pad {
+            border: 2px dashed rgba(255,255,255,0.15); border-radius: 0.5rem; height: 80px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            color: var(--muted); font-size: 0.8rem; transition: border-color 0.2s; position: relative; overflow: hidden;
+        }
+        .signature-pad:hover { border-color: var(--accent); }
+        .signature-pad canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        .confirm-overlay {
+            position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+        }
+        .confirm-overlay.open { opacity: 1; visibility: visible; }
+
+        .invoice-overlay {
+            position: fixed; inset: 0; z-index: 210; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+        }
+        .invoice-overlay.open { opacity: 1; visibility: visible; }
+
+        .inv-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); margin-bottom: 0.5rem; opacity: 0; transform: translateY(10px); transition: opacity 0.4s, transform 0.4s; }
+        .inv-step.visible { opacity: 1; transform: translateY(0); }
+        .inv-step .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        .inv-step .checkmark { color: #4ade80; display: none; }
+        .inv-step.done .spinner { display: none; }
+        .inv-step.done .checkmark { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulseCheck { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .pulse-check { animation: pulseCheck 0.4s ease; }
+
+        .pairing-banner {
+            border-radius: 1rem; padding: 1.25rem 1.5rem; position: relative;
+            border: 1px solid var(--border); overflow: hidden;
+            animation: slideDown 0.4s ease;
+        }
+        .pairing-banner .dismiss-btn {
+            position: absolute; top: 0.75rem; right: 0.75rem;
+            background: none; border: none; color: var(--muted); cursor: pointer;
+            padding: 0.25rem; border-radius: 0.25rem; transition: color 0.2s;
+        }
+        .pairing-banner .dismiss-btn:hover { color: #fff; }
+        @keyframes slideDown { from { opacity: 0; max-height: 0; margin-top: 0; padding: 0 1.5rem; } to { opacity: 1; max-height: 200px; } }
+        .banner-dismiss-anim { animation: slideUp 0.35s ease forwards; }
+        @keyframes slideUp { from { opacity: 1; max-height: 200px; } to { opacity: 0; max-height: 0; margin: 0; padding: 0 1.5rem; border-width: 0; } }
+
+        .cdi-footer {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 90; height: 44px;
+            background: linear-gradient(90deg, #1a1d2e, #0f1117);
+            border-top: 1px solid rgba(244,114,182,0.2);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 1rem;
+        }
+        .cdi-footer .cdi-explore-btn {
+            background: linear-gradient(135deg, #f472b6, #fb7185);
+            color: #0f1117; font-weight: 600; font-size: 0.7rem;
+            padding: 0.35rem 1rem; border-radius: 9999px; border: none;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 0.3rem;
+        }
+        .cdi-footer .cdi-explore-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+        .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #2a2f48; border-radius: 999px; transition: 0.3s;
+        }
+        .toggle-slider::before {
+            content: ''; position: absolute; height: 16px; width: 16px;
+            left: 3px; bottom: 3px; background: #e2e4ed;
+            border-radius: 50%; transition: 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: #4ade80; }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+        /* AUTH MODAL */
+        .auth-overlay {
+            position: fixed; inset: 0; z-index: 300;
+            background: #0f1117;
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+            opacity: 1; visibility: visible;
+            transition: opacity 0.4s, visibility 0.4s;
+        }
+        .auth-overlay.hidden-auth { opacity: 0; visibility: hidden; pointer-events: none; }
+        .auth-card {
+            background: #1a1d2e;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.25rem;
+            max-width: 420px;
+            width: 100%;
+            padding: 2.5rem 2rem 2rem;
+            position: relative;
+        }
+        .auth-tab-btn {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .auth-tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .auth-tab-btn:hover:not(.active) { color: #e2e4ed; }
+        .auth-input {
+            background: #0f1117;
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e4ed;
+            border-radius: 0.5rem;
+            padding: 0.65rem 0.85rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(244,114,182,0.15);
+        }
+        .auth-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #f472b6, #fb7185);
+            color: #fff;
+            font-weight: 600;
+            padding: 0.7rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .auth-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .auth-error {
+            background: rgba(248,113,113,0.12);
+            color: #f87171;
+            padding: 0.5rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-align: center;
+            margin-top: 0.75rem;
+            display: none;
+        }
+        .auth-error.visible { display: block; }
+        .auth-success {
+            background: rgba(74,222,128,0.12);
+            color: #4ade80;
+            padding: 0.5rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-align: center;
+            margin-top: 0.75rem;
+            display: none;
+        }
+        .auth-success.visible { display: block; }
+        .auth-forgot {
+            background: none; border: none; color: var(--muted);
+            font-size: 0.78rem; cursor: pointer; font-family: 'Inter', sans-serif;
+            transition: color 0.2s; padding: 0; margin-top: 0.5rem;
+        }
+        .auth-forgot:hover { color: var(--accent); }
+
+        .user-badge { display: flex; align-items: center; gap: 0.5rem; }
+        .user-avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: rgba(244,114,182,0.15);
+            display: flex; align-items: center; justify-content: center;
+            color: #f472b6; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;
+        }
+        .user-email-text {
+            color: var(--muted); font-size: 0.72rem;
+            max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .signout-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--muted); padding: 0.3rem 0.5rem; border-radius: 0.375rem;
+            cursor: pointer; font-size: 0.7rem; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            font-family: 'Inter', sans-serif;
+        }
+        .signout-btn:hover { border-color: #f87171; color: #f87171; }
+
+        .data-loading-overlay {
+            position: fixed; inset: 0; z-index: 250;
+            background: rgba(15,17,23,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+        }
+        .data-loading-overlay.hidden-load { display: none; }
+        .loading-spinner-lg {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.08);
+            border-top-color: #f472b6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* ============================================================ */
+        /* AI GENERATOR MODAL                                           */
+        /* ============================================================ */
+        .ai-gen-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+            display: flex; align-items: flex-start; justify-content: center;
+            overflow-y: auto; padding: 1rem;
+            opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0.35s;
+        }
+        .ai-gen-overlay.open { opacity: 1; visibility: visible; }
+        @media (max-width: 767px) {
+            .ai-gen-overlay { padding: 0; }
+            .ai-gen-modal { border-radius: 0 !important; min-height: 100vh; max-width: 100% !important; }
+        }
+        .ai-gen-modal {
+            background: #1a1d2e; border: 1px solid var(--border); border-radius: 1.25rem;
+            max-width: 760px; width: 100%; position: relative;
+            transform: translateY(20px) scale(0.97); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+            display: flex; flex-direction: column; max-height: 95vh;
+        }
+        .ai-gen-overlay.open .ai-gen-modal { transform: translateY(0) scale(1); }
+        .ai-gen-modal-body { flex: 1; overflow-y: auto; padding: 0 1.5rem 1rem; }
+        .ai-gen-modal-footer {
+            border-top: 1px solid var(--border); padding: 1rem 1.5rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-shrink: 0;
+        }
+        .ai-tab-btn {
+            flex: 1; padding: 0.6rem 0.5rem; border: none; background: transparent;
+            color: var(--muted); font-family: 'Inter', sans-serif; font-size: 0.82rem;
+            font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+            transition: all 0.2s; text-align: center; white-space: nowrap;
+        }
+        .ai-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .ai-tab-btn:hover:not(.active) { color: #e2e4ed; }
+        .contractor-pill {
+            padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+            border: 1px solid var(--border); background: transparent; color: var(--muted);
+            cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
+        }
+        .contractor-pill:hover, .contractor-pill.active {
+            border-color: var(--accent); color: var(--accent); background: rgba(244,114,182,0.08);
+        }
+        .ai-dropzone {
+            border: 2px dashed rgba(255,255,255,0.15); border-radius: 0.75rem;
+            padding: 2.5rem 1rem; text-align: center; cursor: pointer;
+            transition: border-color 0.2s, background 0.2s; background: var(--bg-elevated);
+        }
+        .ai-dropzone:hover, .ai-dropzone.dragover {
+            border-color: var(--accent); background: rgba(244,114,182,0.05);
+        }
+        .ai-photo-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+        }
+        @media (max-width: 500px) { .ai-photo-grid { grid-template-columns: repeat(2, 1fr); } }
+        .ai-photo-thumb {
+            position: relative; border-radius: 0.5rem; overflow: hidden; aspect-ratio: 1;
+            border: 1px solid var(--border);
+        }
+        .ai-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .ai-photo-thumb .remove-photo {
+            position: absolute; top: 4px; right: 4px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: rgba(0,0,0,0.7); border: none; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.7rem; font-weight: 700; line-height: 1;
+        }
+        .ai-camera-feed {
+            width: 100%; border-radius: 0.75rem; background: #000;
+            aspect-ratio: 16/9; object-fit: cover;
+        }
+        .ai-gen-btn {
+            background: linear-gradient(135deg, #f472b6, #fb7185);
+            color: #fff; font-weight: 700; padding: 0.7rem 1.75rem;
+            border-radius: 0.5rem; border: none; cursor: pointer;
+            font-size: 0.9rem; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            font-family: 'Inter', sans-serif; white-space: nowrap;
+        }
+        .ai-gen-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .ai-gen-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .ai-loading-ring {
+            width: 64px; height: 64px; border: 4px solid rgba(244,114,182,0.15);
+            border-top-color: #f472b6; border-radius: 50%;
+            animation: spin 0.9s linear infinite; margin: 0 auto 1.5rem;
+        }
+        .ai-status-msg {
+            opacity: 0; transform: translateY(8px);
+            transition: opacity 0.4s, transform 0.4s;
+            font-size: 0.9rem; text-align: center; padding: 0.3rem 0;
+        }
+        .ai-status-msg.visible { opacity: 1; transform: translateY(0); }
+        .ai-result-card {
+            background: var(--bg-base); border: 1px solid var(--border);
+            border-radius: 0.75rem; padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        }
+        .ai-result-toggle {
+            display: flex; align-items: center; justify-content: space-between; width: 100%;
+            background: none; border: none; color: #e2e4ed; cursor: pointer;
+            font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 600; text-align: left; padding: 0;
+        }
+        .ai-result-toggle .chev { transition: transform 0.3s; flex-shrink: 0; }
+        .ai-result-toggle.expanded .chev { transform: rotate(180deg); }
+        .ai-result-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+        .ai-result-body.open { max-height: 2000px; }
+    </style>
+</head>
+<body data-id="0" class="min-h-screen">
+    <app-icon data-id="1" hidden data-icon="file-signature" data-palette="Red"></app-icon>
+
+    <!-- AUTH MODAL -->
+    <div data-id="2" id="auth-overlay" class="auth-overlay">
+        <div data-id="3" class="auth-card">
+            <div data-id="4" class="text-center mb-6">
+                <div data-id="5" class="flex items-center justify-center gap-2 mb-1">
+                    <i data-id="6" data-lucide="file-signature" class="w-7 h-7 text-accent-400"></i>
+                    <span data-id="7" class="font-bold text-xl tracking-tight">Proposal<span data-id="8" class="text-accent-400">Pro</span></span>
+                </div>
+                <p data-id="9" class="text-xs text-muted-300 mt-1">by Constructive Designs Inc.</p>
+            </div>
+            <div data-id="10" class="flex border-b border-stroke-100 mb-5">
+                <button data-id="11" class="auth-tab-btn active" id="auth-tab-signin">Sign In</button>
+                <button data-id="12" class="auth-tab-btn" id="auth-tab-signup">Sign Up</button>
+            </div>
+            <div data-id="13" id="auth-signin-form">
+                <div data-id="14" class="space-y-3">
+                    <div data-id="15"><label data-id="16" class="text-xs text-muted-400 mb-1 block">Email</label><input data-id="17" id="auth-email" type="email" class="auth-input" placeholder="you@example.com" /></div>
+                    <div data-id="18"><label data-id="19" class="text-xs text-muted-400 mb-1 block">Password</label><input data-id="20" id="auth-password" type="password" class="auth-input" placeholder="Your password" /></div>
+                </div>
+                <button data-id="21" id="auth-signin-btn" class="auth-btn mt-5">Sign In</button>
+                <div data-id="22" class="text-center"><button data-id="23" id="auth-forgot-btn" class="auth-forgot">Forgot password?</button></div>
+            </div>
+            <div data-id="24" id="auth-signup-form" class="hidden">
+                <div data-id="25" class="space-y-3">
+                    <div data-id="26"><label data-id="27" class="text-xs text-muted-400 mb-1 block">Business Name</label><input data-id="28" id="auth-biz-name" type="text" class="auth-input" placeholder="Your business name" /></div>
+                    <div data-id="29"><label data-id="30" class="text-xs text-muted-400 mb-1 block">Email</label><input data-id="31" id="auth-signup-email" type="email" class="auth-input" placeholder="you@example.com" /></div>
+                    <div data-id="32"><label data-id="33" class="text-xs text-muted-400 mb-1 block">Password</label><input data-id="34" id="auth-signup-password" type="password" class="auth-input" placeholder="Min 6 characters" /></div>
+                    <div data-id="35"><label data-id="36" class="text-xs text-muted-400 mb-1 block">Confirm Password</label><input data-id="37" id="auth-signup-confirm" type="password" class="auth-input" placeholder="Confirm password" /></div>
+                </div>
+                <button data-id="38" id="auth-signup-btn" class="auth-btn mt-5">Create Account</button>
+            </div>
+            <div data-id="39" id="auth-error" class="auth-error"></div>
+            <div data-id="40" id="auth-success" class="auth-success"></div>
+        </div>
+    </div>
+
+    <!-- DATA LOADING OVERLAY -->
+    <div data-id="41" id="data-loading-overlay" class="data-loading-overlay hidden-load">
+        <div data-id="42" class="loading-spinner-lg"></div>
+        <p data-id="43" class="text-sm text-muted-400">Loading your data...</p>
+    </div>
+
+    <!-- STICKY NAV -->
+    <header data-id="44" class="sticky top-0 z-50 bg-bg-900/90 backdrop-blur-md border-b border-stroke-100">
+        <div data-id="45" class="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between h-14">
+            <div data-id="46" class="flex items-center gap-2">
+                <i data-id="47" data-lucide="file-signature" class="w-6 h-6 text-accent-400"></i>
+                <span data-id="48" class="font-bold text-lg tracking-tight">Proposal<span data-id="49" class="text-accent-400">Pro</span></span>
+            </div>
+            <nav data-id="50" id="desktop-nav-g8k2" class="hidden md:flex items-center gap-1">
+                <button data-id="51" class="nav-tab active" data-nav="dashboard">Dashboard</button>
+                <button data-id="52" class="nav-tab" data-nav="proposals">Proposals</button>
+                <button data-id="53" class="nav-tab" data-nav="templates">Templates</button>
+                <button data-id="54" class="nav-tab" data-nav="clients">Clients</button>
+                <button data-id="55" class="nav-tab" data-nav="settings">Settings</button>
+            </nav>
+            <div data-id="56" class="flex items-center gap-3">
+                <div data-id="57" id="user-badge-container" class="user-badge hidden">
+                    <div data-id="58" id="user-avatar" class="user-avatar hidden md:flex">H</div>
+                    <span data-id="59" id="user-email-display" class="user-email-text hidden md:inline"></span>
+                    <button data-id="60" id="signout-btn" class="signout-btn">
+                        <i data-id="61" data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span data-id="62" class="hidden sm:inline">Sign Out</span>
+                    </button>
+                </div>
+                <button data-id="63" id="help-trigger-btn" class="help-btn" aria-label="Help">?</button>
+                <button data-id="64" id="new-proposal-btn-a3f1" class="btn-primary text-sm hidden md:inline-flex">
+                    <i data-id="65" data-lucide="plus" class="w-4 h-4"></i> New Proposal
+                </button>
+                <button data-id="66" id="mobile-menu-btn-x7r2" class="md:hidden p-2 text-muted-400 hover:text-white">
+                    <i data-id="67" data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- HELP MODAL OVERLAY -->
+    <div data-id="68" id="help-overlay" class="help-overlay">
+        <div data-id="69" class="help-modal" id="help-modal">
+            <div data-id="70" class="flex items-center justify-between px-6 pt-6 pb-2">
+                <div data-id="71" class="flex items-center gap-3">
+                    <div data-id="72" class="w-10 h-10 rounded-xl bg-accent-400/10 flex items-center justify-center"><i data-id="73" data-lucide="file-signature" class="w-5 h-5 text-accent-400"></i></div>
+                    <div data-id="74"><h2 data-id="75" class="text-lg font-bold">How to Use Proposal<span data-id="76" class="text-accent-400">Pro</span></h2></div>
+                </div>
+                <button data-id="77" id="help-close-btn" class="w-9 h-9 rounded-lg flex items-center justify-center text-muted-400 hover:text-white hover:bg-bg-600 transition-smooth" aria-label="Close help"><i data-id="78" data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div data-id="79" class="px-6 pb-4 pt-2"><p data-id="80" class="text-sm text-muted-400 leading-relaxed">ProposalPro helps you create, send, and track professional business proposals from start to finish.</p></div>
+            <div data-id="81" class="px-4 pb-2 space-y-1" id="help-accordions">
+                <div data-id="82" class="rounded-xl bg-bg-700 border border-stroke-100"><button data-id="83" class="help-accordion-header" data-help-section="dashboard"><span data-id="84" class="flex items-center gap-2.5"><i data-id="85" data-lucide="layout-dashboard" class="w-4 h-4 text-accent-400"></i> Dashboard</span><i data-id="86" data-lucide="chevron-down" class="w-4 h-4 chevron-icon"></i></button><div data-id="87" class="help-accordion-body" id="help-section-dashboard"><p data-id="88" class="text-xs text-muted-400 mb-3">Your command center.</p><div data-id="89" class="space-y-2"><div data-id="90" class="help-step"><span data-id="91" class="help-step-num">1</span><p data-id="92" class="text-sm">View total proposals, accepted count, pending responses, and total value.</p></div><div data-id="93" class="help-step"><span data-id="94" class="help-step-num">2</span><p data-id="95" class="text-sm">Check the <strong data-id="96">Win Rate</strong> donut chart.</p></div><div data-id="97" class="help-step"><span data-id="98" class="help-step-num">3</span><p data-id="99" class="text-sm">Browse <strong data-id="100">Recent Proposals</strong>.</p></div><div data-id="101" class="help-step"><span data-id="102" class="help-step-num">4</span><p data-id="103" class="text-sm">Click any proposal to view its full detail.</p></div></div></div></div>
+                <div data-id="104" class="rounded-xl bg-bg-700 border border-stroke-100"><button data-id="105" class="help-accordion-header" data-help-section="proposals"><span data-id="106" class="flex items-center gap-2.5"><i data-id="107" data-lucide="file-text" class="w-4 h-4 text-accent-400"></i> Proposals</span><i data-id="108" data-lucide="chevron-down" class="w-4 h-4 chevron-icon"></i></button><div data-id="109" class="help-accordion-body" id="help-section-proposals"><p data-id="110" class="text-xs text-muted-400 mb-3">Create, edit, send, and manage all your proposals.</p><div data-id="111" class="space-y-2"><div data-id="112" class="help-step"><span data-id="113" class="help-step-num">1</span><p data-id="114" class="text-sm">Click <strong data-id="115">New Proposal</strong> to open the builder.</p></div><div data-id="116" class="help-step"><span data-id="117" class="help-step-num">2</span><p data-id="118" class="text-sm">Add line items with service names, quantities, and unit prices.</p></div><div data-id="119" class="help-step"><span data-id="120" class="help-step-num">3</span><p data-id="121" class="text-sm">Use the live preview panel.</p></div><div data-id="122" class="help-step"><span data-id="123" class="help-step-num">4</span><p data-id="124" class="text-sm">Save as Draft or <strong data-id="125">Mark as Sent</strong>.</p></div><div data-id="126" class="help-step"><span data-id="127" class="help-step-num">5</span><p data-id="128" class="text-sm">Use the <strong data-id="129">filter bar</strong> and <strong data-id="130">search</strong>.</p></div></div></div></div>
+                <div data-id="131" class="rounded-xl bg-bg-700 border border-stroke-100"><button data-id="132" class="help-accordion-header" data-help-section="templates"><span data-id="133" class="flex items-center gap-2.5"><i data-id="134" data-lucide="layout-template" class="w-4 h-4 text-accent-400"></i> Templates</span><i data-id="135" data-lucide="chevron-down" class="w-4 h-4 chevron-icon"></i></button><div data-id="136" class="help-accordion-body" id="help-section-templates"><p data-id="137" class="text-xs text-muted-400 mb-3">Jumpstart new proposals with pre-built structures.</p><div data-id="138" class="space-y-2"><div data-id="139" class="help-step"><span data-id="140" class="help-step-num">1</span><p data-id="141" class="text-sm">Browse the template gallery.</p></div><div data-id="142" class="help-step"><span data-id="143" class="help-step-num">2</span><p data-id="144" class="text-sm">Click <strong data-id="145">Use Template</strong> to pre-fill the builder.</p></div><div data-id="146" class="help-step"><span data-id="147" class="help-step-num">3</span><p data-id="148" class="text-sm">Customize the pre-filled content.</p></div><div data-id="149" class="help-step"><span data-id="150" class="help-step-num">4</span><p data-id="151" class="text-sm">Duplicate templates with the copy icon.</p></div></div></div></div>
+                <div data-id="152" class="rounded-xl bg-bg-700 border border-stroke-100"><button data-id="153" class="help-accordion-header" data-help-section="clients"><span data-id="154" class="flex items-center gap-2.5"><i data-id="155" data-lucide="users" class="w-4 h-4 text-accent-400"></i> Clients</span><i data-id="156" data-lucide="chevron-down" class="w-4 h-4 chevron-icon"></i></button><div data-id="157" class="help-accordion-body" id="help-section-clients"><p data-id="158" class="text-xs text-muted-400 mb-3">Manage your client directory.</p><div data-id="159" class="space-y-2"><div data-id="160" class="help-step"><span data-id="161" class="help-step-num">1</span><p data-id="162" class="text-sm">Click <strong data-id="163">Add Client</strong> to create a new client.</p></div><div data-id="164" class="help-step"><span data-id="165" class="help-step-num">2</span><p data-id="166" class="text-sm">The client table shows proposal count and total value.</p></div><div data-id="167" class="help-step"><span data-id="168" class="help-step-num">3</span><p data-id="169" class="text-sm">Click the edit icon to update a client.</p></div><div data-id="170" class="help-step"><span data-id="171" class="help-step-num">4</span><p data-id="172" class="text-sm">Clients appear in the proposal builder dropdown.</p></div></div></div></div>
+            </div>
+            <div data-id="173" class="px-6 pt-3 pb-6">
+                <h3 data-id="174" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="175" data-lucide="lightbulb" class="w-4 h-4 text-yellow-400"></i> Tips & Tricks</h3>
+                <div data-id="176" class="space-y-2">
+                    <div data-id="177" class="tip-card"><div data-id="178" class="tip-icon"><i data-id="179" data-lucide="copy" class="w-3.5 h-3.5 text-accent-400"></i></div><div data-id="180"><p data-id="181" class="text-sm font-medium mb-0.5">Duplicate to iterate</p><p data-id="182" class="text-xs text-muted-400">Use the duplicate button on any proposal.</p></div></div>
+                    <div data-id="183" class="tip-card"><div data-id="184" class="tip-icon"><i data-id="185" data-lucide="timer" class="w-3.5 h-3.5 text-accent-400"></i></div><div data-id="186"><p data-id="187" class="text-sm font-medium mb-0.5">Watch the expiry countdown</p><p data-id="188" class="text-xs text-muted-400">Sent and Viewed proposals show a live countdown.</p></div></div>
+                    <div data-id="189" class="tip-card"><div data-id="190" class="tip-icon"><i data-id="191" data-lucide="pen-tool" class="w-3.5 h-3.5 text-accent-400"></i></div><div data-id="192"><p data-id="193" class="text-sm font-medium mb-0.5">E-signature ready</p><p data-id="194" class="text-xs text-muted-400">Use the built-in signature pad.</p></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACCEPT CONFIRMATION MODAL -->
+    <div data-id="195" id="accept-confirm-overlay" class="confirm-overlay">
+        <div data-id="196" class="card max-w-sm w-full text-center" id="accept-confirm-modal">
+            <div data-id="197" class="w-12 h-12 rounded-full bg-success-400/15 flex items-center justify-center mx-auto mb-4"><i data-id="198" data-lucide="check-circle-2" class="w-6 h-6 text-success-400"></i></div>
+            <h3 data-id="199" class="font-bold text-lg mb-2">Mark this proposal as Accepted?</h3>
+            <div data-id="200" id="accept-confirm-info" class="text-sm text-muted-400 mb-5"></div>
+            <div data-id="201" class="flex gap-3 justify-center">
+                <button data-id="202" id="accept-confirm-cancel" class="btn-secondary">Cancel</button>
+                <button data-id="203" id="accept-confirm-yes" class="btn-primary" style="background:linear-gradient(135deg,#4ade80,#22c55e);color:#0f1117;"><i data-id="204" data-lucide="check" class="w-4 h-4"></i> Yes, Accept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INVOICE ANIMATION MODAL -->
+    <div data-id="205" id="invoice-anim-overlay" class="invoice-overlay">
+        <div data-id="206" class="card max-w-md w-full" id="invoice-anim-modal">
+            <div data-id="207" class="text-center mb-5">
+                <div data-id="208" class="w-14 h-14 rounded-full bg-success-400/15 flex items-center justify-center mx-auto mb-3"><i data-id="209" data-lucide="check-circle-2" class="w-8 h-8 text-success-400 pulse-check"></i></div>
+                <h3 data-id="210" class="font-bold text-xl mb-1">Proposal Accepted!</h3>
+                <p data-id="211" class="text-sm text-muted-400">Creating your invoice in InvoiceReady...</p>
+            </div>
+            <div data-id="212" id="invoice-steps" class="space-y-2 mb-5">
+                <div data-id="213" class="inv-step" id="inv-step-1"><div data-id="214" class="spinner"></div><i data-id="215" data-lucide="check-circle-2" class="w-5 h-5 checkmark pulse-check"></i><span data-id="216" class="text-sm" id="inv-step-1-text">Creating client record...</span></div>
+                <div data-id="217" class="inv-step" id="inv-step-2"><div data-id="218" class="spinner"></div><i data-id="219" data-lucide="check-circle-2" class="w-5 h-5 checkmark pulse-check"></i><span data-id="220" class="text-sm" id="inv-step-2-text">Building invoice from proposal...</span></div>
+                <div data-id="221" class="inv-step" id="inv-step-3"><div data-id="222" class="spinner"></div><i data-id="223" data-lucide="check-circle-2" class="w-5 h-5 checkmark pulse-check"></i><span data-id="224" class="text-sm" id="inv-step-3-text">Invoice is ready!</span></div>
+            </div>
+            <div data-id="225" id="invoice-summary-card" class="rounded-xl bg-bg-800/60 border border-stroke-100 p-4 mb-5 text-sm space-y-2 hidden"></div>
+            <div data-id="226" id="invoice-anim-btns" class="flex gap-3 justify-center hidden">
+                <button data-id="227" id="inv-view-btn" class="btn-primary" style="background:linear-gradient(135deg,#4ade80,#22c55e);color:#0f1117;">View in InvoiceReady <i data-id="228" data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                <button data-id="229" id="inv-done-btn" class="btn-secondary">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE NAV -->
+    <nav data-id="230" id="mobile-menu-p4s9" class="hidden fixed inset-0 bg-bg-900 z-[60] flex flex-col p-6">
+        <div data-id="231" class="flex items-center justify-between mb-8">
+            <div data-id="232" class="flex items-center gap-2"><i data-id="233" data-lucide="file-signature" class="w-6 h-6 text-accent-400"></i><span data-id="234" class="font-bold text-lg">Proposal<span data-id="235" class="text-accent-400">Pro</span></span></div>
+            <button data-id="236" id="mobile-menu-close-k3m8" class="p-2 text-muted-400 hover:text-white"><i data-id="237" data-lucide="x" class="w-6 h-6"></i></button>
+        </div>
+        <div data-id="238" class="flex flex-col gap-2">
+            <button data-id="239" class="nav-tab active text-left text-base py-3" data-nav="dashboard">Dashboard</button>
+            <button data-id="240" class="nav-tab text-left text-base py-3" data-nav="proposals">Proposals</button>
+            <button data-id="241" class="nav-tab text-left text-base py-3" data-nav="templates">Templates</button>
+            <button data-id="242" class="nav-tab text-left text-base py-3" data-nav="clients">Clients</button>
+            <button data-id="243" class="nav-tab text-left text-base py-3" data-nav="settings">Settings</button>
+        </div>
+        <button data-id="244" id="mobile-new-proposal-btn-r4q7" class="btn-primary mt-6 justify-center text-base py-3"><i data-id="245" data-lucide="plus" class="w-5 h-5"></i> New Proposal</button>
+    </nav>
+
+    <!-- ============================================================ -->
+    <!-- AI GENERATOR MODAL                                           -->
+    <!-- ============================================================ -->
+    <div data-id="246" id="ai-gen-overlay" class="ai-gen-overlay">
+        <div data-id="247" class="ai-gen-modal">
+            <!-- Header -->
+            <div data-id="248" class="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
+                <div data-id="249">
+                    <h2 data-id="250" class="text-xl font-bold flex items-center gap-2"><i data-id="251" data-lucide="sparkles" class="w-5 h-5 text-accent-400"></i> AI Proposal Generator</h2>
+                    <p data-id="252" class="text-xs text-muted-400 mt-1">Describe your project, upload photos, or use your camera — AI builds the proposal for you</p>
+                </div>
+                <button data-id="253" id="ai-gen-close-btn" class="w-9 h-9 rounded-lg flex items-center justify-center text-muted-400 hover:text-white hover:bg-bg-600 transition-smooth flex-shrink-0 ml-3" aria-label="Close"><i data-id="254" data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <!-- Input Method Tabs -->
+            <div data-id="255" class="flex border-b border-stroke-100 mx-6 flex-shrink-0" id="ai-input-tabs">
+                <button data-id="256" class="ai-tab-btn active" data-ai-tab="describe">📝 Describe</button>
+                <button data-id="257" class="ai-tab-btn" data-ai-tab="photos">📸 Upload Photos</button>
+                <button data-id="258" class="ai-tab-btn" data-ai-tab="camera">🎥 Live Camera</button>
+            </div>
+            <!-- Modal Body -->
+            <div data-id="259" class="ai-gen-modal-body" id="ai-gen-modal-body">
+                <!-- DESCRIBE TAB -->
+                <div data-id="260" id="ai-tab-describe" class="pt-5 space-y-5">
+                    <!-- Contractor Type -->
+                    <div data-id="261">
+                        <label data-id="262" class="text-xs text-muted-400 mb-2 block font-medium">Contractor Type</label>
+                        <div data-id="263" class="flex flex-wrap gap-2" id="ai-contractor-types">
+                            <button data-id="264" class="contractor-pill active" data-ctype="General Contractor">General Contractor</button>
+                            <button data-id="265" class="contractor-pill" data-ctype="Handyman">Handyman</button>
+                            <button data-id="266" class="contractor-pill" data-ctype="Electrician">Electrician</button>
+                            <button data-id="267" class="contractor-pill" data-ctype="Plumber">Plumber</button>
+                            <button data-id="268" class="contractor-pill" data-ctype="HVAC/Mechanical">HVAC/Mechanical</button>
+                            <button data-id="269" class="contractor-pill" data-ctype="Painter">Painter</button>
+                            <button data-id="270" class="contractor-pill" data-ctype="Roofer">Roofer</button>
+                            <button data-id="271" class="contractor-pill" data-ctype="Flooring">Flooring</button>
+                            <button data-id="272" class="contractor-pill" data-ctype="Landscaper">Landscaper</button>
+                            <button data-id="273" class="contractor-pill" data-ctype="Kitchen & Bath">Kitchen & Bath</button>
+                            <button data-id="274" class="contractor-pill" data-ctype="Concrete">Concrete</button>
+                            <button data-id="275" class="contractor-pill" data-ctype="Custom">Custom</button>
+                        </div>
+                    </div>
+                    <!-- Project Description -->
+                    <div data-id="276">
+                        <label data-id="277" class="text-xs text-muted-400 mb-1 block font-medium">Project Description *</label>
+                        <textarea data-id="278" id="ai-description" rows="5" style="min-height:120px;" placeholder="Describe the project in as much detail as possible. For example: 'Full kitchen remodel — remove existing cabinets, install new 42&quot; upper cabinets and base cabinets, granite countertops, tile backsplash, under-cabinet lighting, new sink and faucet. Kitchen is approximately 180 sq ft. Client wants white Shaker-style cabinets with brushed nickel hardware.'"></textarea>
+                    </div>
+                    <!-- Budget & Location -->
+                    <div data-id="279" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div data-id="280">
+                            <label data-id="281" class="text-xs text-muted-400 mb-1 block font-medium">Budget Range</label>
+                            <div data-id="282" class="flex items-center gap-2">
+                                <div data-id="283" class="relative flex-1"><span data-id="284" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-300 text-sm">$</span><input data-id="285" id="ai-budget-min" type="number" class="pl-7" placeholder="e.g. 8500" /></div>
+                                <span data-id="286" class="text-muted-300 text-xs flex-shrink-0">to</span>
+                                <div data-id="287" class="relative flex-1"><span data-id="288" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-300 text-sm">$</span><input data-id="289" id="ai-budget-max" type="number" class="pl-7" placeholder="e.g. 12000" /></div>
+                            </div>
+                        </div>
+                        <div data-id="290">
+                            <label data-id="291" class="text-xs text-muted-400 mb-1 block font-medium">Project Location</label>
+                            <input data-id="292" id="ai-location" type="text" placeholder="City, State (for material cost context)" value="Trotwood, OH" />
+                        </div>
+                    </div>
+                    <!-- Advanced Options -->
+                    <div data-id="293">
+                        <button data-id="294" id="ai-advanced-toggle" class="text-xs text-accent-400 font-medium flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0" style="font-family:'Inter',sans-serif;">
+                            <i data-id="295" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform" id="ai-adv-chev"></i> Advanced Options
+                        </button>
+                        <div data-id="296" id="ai-advanced-body" class="hidden mt-3 space-y-3">
+                            <div data-id="297"><label data-id="298" class="text-xs text-muted-400 mb-1 block">Timeline expectations</label><input data-id="299" id="ai-timeline" type="text" placeholder="e.g. 2-3 weeks" /></div>
+                            <div data-id="300"><label data-id="301" class="text-xs text-muted-400 mb-1 block">Special requirements / notes</label><textarea data-id="302" id="ai-notes" rows="2" placeholder="Any special requirements, materials, or constraints..."></textarea></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- UPLOAD PHOTOS TAB -->
+                <div data-id="303" id="ai-tab-photos" class="pt-5 space-y-4 hidden">
+                    <div data-id="304" id="ai-dropzone" class="ai-dropzone">
+                        <div data-id="305" class="text-3xl mb-2">📸</div>
+                        <p data-id="306" class="text-sm text-muted-400 font-medium">Drop project photos here or click to browse</p>
+                        <p data-id="307" class="text-xs text-muted-300 mt-1">Accepts images (JPG, PNG, WebP) · Max 8 photos</p>
+                        <input data-id="308" type="file" id="ai-file-input" accept="image/*" multiple class="hidden" />
+                    </div>
+                    <div data-id="309" id="ai-photo-grid" class="ai-photo-grid"></div>
+                    <div data-id="310" id="ai-photo-notes-wrap" class="hidden">
+                        <label data-id="311" class="text-xs text-muted-400 mb-1 block">Add notes about what's shown in these photos (optional)</label>
+                        <textarea data-id="312" id="ai-photo-notes" rows="2" placeholder="e.g. 'First two photos show the existing kitchen layout, last photo shows the bathroom that needs retiling...'"></textarea>
+                    </div>
+                </div>
+                <!-- LIVE CAMERA TAB -->
+                <div data-id="313" id="ai-tab-camera" class="pt-5 space-y-4 hidden">
+                    <div data-id="314" id="ai-camera-container">
+                        <video data-id="315" id="ai-camera-feed" class="ai-camera-feed" autoplay playsinline muted></video>
+                        <div data-id="316" class="flex items-center gap-3 mt-3">
+                            <button data-id="317" id="ai-capture-btn" class="ai-gen-btn flex-1 justify-center"><i data-id="318" data-lucide="camera" class="w-4 h-4"></i> Capture Frame</button>
+                            <button data-id="319" id="ai-switch-cam-btn" class="btn-secondary"><i data-id="320" data-lucide="refresh-cw" class="w-4 h-4"></i> Switch</button>
+                        </div>
+                    </div>
+                    <div data-id="321" id="ai-camera-denied" class="hidden text-center py-8">
+                        <div data-id="322" class="text-3xl mb-2">📷</div>
+                        <p data-id="323" class="text-sm text-muted-400 font-medium mb-2">Camera access denied</p>
+                        <p data-id="324" class="text-xs text-muted-300 mb-3">Try the Upload Photos tab instead</p>
+                        <button data-id="325" id="ai-cam-switch-to-photos" class="btn-secondary text-xs">Switch to Upload Photos</button>
+                    </div>
+                    <div data-id="326" id="ai-frames-grid" class="ai-photo-grid"></div>
+                    <div data-id="327" id="ai-camera-notes-wrap" class="hidden">
+                        <label data-id="328" class="text-xs text-muted-400 mb-1 block">What should the AI know about what it's seeing?</label>
+                        <textarea data-id="329" id="ai-camera-notes" rows="2" placeholder="Describe what the camera is pointed at..."></textarea>
+                    </div>
+                </div>
+                <!-- GENERATING STATE (hidden by default) -->
+                <div data-id="330" id="ai-generating-state" class="hidden py-12 text-center">
+                    <div data-id="331" class="ai-loading-ring"></div>
+                    <div data-id="332" id="ai-status-messages" class="space-y-1"></div>
+                </div>
+                <!-- RESULT STATE (hidden by default) -->
+                <div data-id="333" id="ai-result-state" class="hidden pt-5 space-y-4">
+                    <div data-id="334" class="flex items-center gap-3 flex-wrap">
+                        <span data-id="335" class="badge badge-accepted text-xs"><i data-id="336" data-lucide="check-circle-2" class="w-3 h-3"></i> Proposal Generated!</span>
+                        <span data-id="337" id="ai-result-type-badge" class="badge badge-sent text-xs"></span>
+                    </div>
+                    <h3 data-id="338" id="ai-result-title" class="text-lg font-bold"></h3>
+                    <div data-id="339" id="ai-result-total-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold" style="background:rgba(244,114,182,0.12);color:#f472b6;"></div>
+                    <div data-id="340" id="ai-result-sections" class="space-y-3 mt-4"></div>
+                </div>
+                <!-- ERROR STATE -->
+                <div data-id="341" id="ai-error-state" class="hidden py-12 text-center">
+                    <div data-id="342" class="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4"><i data-id="343" data-lucide="alert-circle" class="w-7 h-7 text-red-400"></i></div>
+                    <p data-id="344" class="text-sm text-red-400 font-medium mb-2" id="ai-error-msg">Something went wrong.</p>
+                    <button data-id="345" id="ai-error-retry" class="btn-secondary mt-2">Try Again</button>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div data-id="346" class="ai-gen-modal-footer" id="ai-gen-footer">
+                <div data-id="347" id="ai-media-count" class="text-xs text-muted-300"></div>
+                <button data-id="348" id="ai-generate-btn" class="ai-gen-btn"><i data-id="349" data-lucide="sparkles" class="w-4 h-4"></i> Generate Proposal</button>
+            </div>
+            <!-- Result Footer (hidden by default) -->
+            <div data-id="350" id="ai-result-footer" class="hidden border-t border-stroke-100 p-4 space-y-2 flex-shrink-0">
+                <button data-id="351" id="ai-edit-save-btn" class="ai-gen-btn w-full justify-center"><i data-id="352" data-lucide="pencil" class="w-4 h-4"></i> Edit & Save This Proposal</button>
+                <button data-id="353" id="ai-regenerate-btn" class="btn-secondary w-full justify-center"><i data-id="354" data-lucide="refresh-cw" class="w-4 h-4"></i> Regenerate</button>
+            </div>
+        </div>
+    </div>
+
+    <main data-id="355" class="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-16">
+        <!-- DASHBOARD TAB -->
+        <section data-id="356" id="tab-dashboard" class="tab-content fade-in">
+            <div data-id="357" class="mb-6">
+                <h1 data-id="358" class="text-xl md:text-2xl font-bold" id="dashboard-greeting">Welcome back, Heather</h1>
+                <p data-id="359" class="text-muted-400 text-sm mt-1">Here's how your proposals are performing</p>
+            </div>
+            <div data-id="360" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div data-id="361" class="card stat-card"><div data-id="362" class="flex items-center gap-2 mb-2"><div data-id="363" class="w-8 h-8 rounded-lg bg-accent-400/10 flex items-center justify-center"><i data-id="364" data-lucide="file-text" class="w-4 h-4 text-accent-400"></i></div></div><p data-id="365" id="stat-total-h7k3" class="text-2xl font-bold tabular-nums">4</p><p data-id="366" class="text-muted-400 text-xs mt-1">Total Proposals</p></div>
+                <div data-id="367" class="card stat-card"><div data-id="368" class="flex items-center gap-2 mb-2"><div data-id="369" class="w-8 h-8 rounded-lg bg-success-400/10 flex items-center justify-center"><i data-id="370" data-lucide="check-circle-2" class="w-4 h-4 text-success-400"></i></div></div><p data-id="371" id="stat-accepted-m2n5" class="text-2xl font-bold tabular-nums">1</p><p data-id="372" class="text-muted-400 text-xs mt-1">Accepted</p></div>
+                <div data-id="373" class="card stat-card"><div data-id="374" class="flex items-center gap-2 mb-2"><div data-id="375" class="w-8 h-8 rounded-lg bg-[rgba(251,191,36,0.1)] flex items-center justify-center"><i data-id="376" data-lucide="clock" class="w-4 h-4 text-yellow-400"></i></div></div><p data-id="377" id="stat-pending-p8q1" class="text-2xl font-bold tabular-nums">2</p><p data-id="378" class="text-muted-400 text-xs mt-1">Pending Response</p></div>
+                <div data-id="379" class="card stat-card"><div data-id="380" class="flex items-center gap-2 mb-2"><div data-id="381" class="w-8 h-8 rounded-lg bg-secondary-400/10 flex items-center justify-center"><i data-id="382" data-lucide="dollar-sign" class="w-4 h-4 text-secondary-400"></i></div></div><p data-id="383" id="stat-value-v4w9" class="text-2xl font-bold tabular-nums">$0</p><p data-id="384" class="text-muted-400 text-xs mt-1">Total Value Sent</p></div>
+            </div>
+            <div data-id="385" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div data-id="386" class="card lg:col-span-1">
+                    <h3 data-id="387" class="text-sm font-semibold mb-4">Win Rate</h3>
+                    <div data-id="388" class="flex flex-col items-center">
+                        <div data-id="389" class="donut-container">
+                            <svg data-id="390" viewBox="0 0 160 160" id="donut-chart-d5e2">
+                                <circle data-id="391" cx="80" cy="80" r="60" class="donut-ring" />
+                                <circle data-id="392" cx="80" cy="80" r="60" class="donut-segment" stroke="#4ade80" stroke-dasharray="0 377" transform="rotate(-90 80 80)" id="donut-accepted-s9r4" />
+                                <circle data-id="393" cx="80" cy="80" r="60" class="donut-segment" stroke="#fbbf24" stroke-dasharray="0 377" id="donut-pending-t2u6" />
+                                <circle data-id="394" cx="80" cy="80" r="60" class="donut-segment" stroke="#f87171" stroke-dasharray="0 377" id="donut-declined-v3w8" />
+                            </svg>
+                            <div data-id="395" class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span data-id="396" id="win-rate-pct-z1x4" class="text-2xl font-bold tabular-nums">0%</span>
+                                <span data-id="397" class="text-muted-400 text-xs">Win Rate</span>
+                            </div>
+                        </div>
+                        <div data-id="398" class="flex gap-4 mt-4 text-xs">
+                            <div data-id="399" class="flex items-center gap-1"><span data-id="400" class="w-2 h-2 rounded-full bg-success-400"></span> Accepted</div>
+                            <div data-id="401" class="flex items-center gap-1"><span data-id="402" class="w-2 h-2 rounded-full bg-yellow-400"></span> Pending</div>
+                            <div data-id="403" class="flex items-center gap-1"><span data-id="404" class="w-2 h-2 rounded-full bg-red-400"></span> Declined</div>
+                        </div>
+                    </div>
+                </div>
+                <div data-id="405" class="card lg:col-span-2">
+                    <h3 data-id="406" class="text-sm font-semibold mb-4">Recent Proposals</h3>
+                    <div data-id="407" id="recent-proposals-list-b6c3" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PROPOSALS TAB -->
+        <section data-id="408" id="tab-proposals" class="tab-content hidden fade-in">
+            <div data-id="409" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h1 data-id="410" class="text-xl md:text-2xl font-bold">All Proposals</h1>
+                <div data-id="411" class="flex items-center gap-3 flex-wrap">
+                    <div data-id="412" class="relative flex-1 md:w-64 min-w-[180px]">
+                        <i data-id="413" data-lucide="search" class="w-4 h-4 text-muted-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        <input data-id="414" id="proposal-search-f2g5" type="text" placeholder="Search proposals..." class="pl-9 py-2 text-sm" />
+                    </div>
+                    <button data-id="415" id="ai-gen-trigger-btn" class="ai-gen-btn text-sm" style="padding:0.5rem 1.1rem; border-radius:9999px; font-size:0.82rem;">
+                        <i data-id="416" data-lucide="sparkles" class="w-4 h-4"></i> Generate with AI
+                    </button>
+                </div>
+            </div>
+            <div data-id="417" class="flex flex-wrap gap-2 mb-4" id="filter-bar-h4j7">
+                <button data-id="418" class="filter-btn active" data-filter="all">All</button>
+                <button data-id="419" class="filter-btn" data-filter="Draft">Draft</button>
+                <button data-id="420" class="filter-btn" data-filter="Sent">Sent</button>
+                <button data-id="421" class="filter-btn" data-filter="Viewed">Viewed</button>
+                <button data-id="422" class="filter-btn" data-filter="Accepted">Accepted</button>
+                <button data-id="423" class="filter-btn" data-filter="Declined">Declined</button>
+                <button data-id="424" class="filter-btn" data-filter="Expired">Expired</button>
+            </div>
+            <div data-id="425" id="proposals-list-k5l8" class="space-y-3"></div>
+            <div data-id="426" id="invoiceready-banner" class="mt-6 hidden"></div>
+        </section>
+
+        <!-- PROPOSAL DETAIL VIEW -->
+        <section data-id="427" id="tab-proposal-detail" class="tab-content hidden fade-in">
+            <div data-id="428" class="flex items-center gap-3 mb-6">
+                <button data-id="429" id="detail-back-btn-m6n0" class="btn-secondary"><i data-id="430" data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                <h1 data-id="431" class="text-xl font-bold" id="detail-title-p7q2">Proposal Detail</h1>
+            </div>
+            <div data-id="432" id="detail-actions-bar" class="mb-4 flex items-center gap-3 flex-wrap"></div>
+            <div data-id="433" id="detail-preview-container-r8s3" class="preview-panel max-w-3xl mx-auto shadow-lg"></div>
+        </section>
+
+        <!-- PROPOSAL BUILDER -->
+        <section data-id="434" id="tab-builder" class="tab-content hidden fade-in">
+            <div data-id="435" class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <div data-id="436" class="flex items-center gap-3">
+                    <button data-id="437" id="builder-back-btn-t9u4" class="btn-secondary"><i data-id="438" data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <h1 data-id="439" class="text-lg md:text-xl font-bold" id="builder-title-w1x5">New Proposal</h1>
+                </div>
+                <div data-id="440" class="flex items-center gap-2">
+                    <button data-id="441" id="preview-toggle-btn-y2z6" class="btn-secondary md:hidden"><i data-id="442" data-lucide="eye" class="w-4 h-4"></i> Preview</button>
+                    <button data-id="443" id="save-draft-btn-a3b7" class="btn-secondary"><i data-id="444" data-lucide="save" class="w-4 h-4"></i> Save Draft</button>
+                    <button data-id="445" id="mark-sent-btn-c4d8" class="btn-primary"><i data-id="446" data-lucide="send" class="w-4 h-4"></i> Mark as Sent</button>
+                </div>
+            </div>
+            <div data-id="447" class="flex flex-col lg:flex-row gap-6">
+                <div data-id="448" id="builder-form-panel-e5f9" class="flex-1 space-y-5 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto lg:pr-2">
+                    <div data-id="449" class="card"><h3 data-id="450" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="451" data-lucide="file-text" class="w-4 h-4 text-accent-400"></i> Proposal Header</h3><div data-id="452" class="grid grid-cols-1 md:grid-cols-2 gap-3"><div data-id="453"><label data-id="454" class="text-xs text-muted-400 mb-1 block">Your Business Name</label><input data-id="455" id="b-biz-name-g6h0" type="text" placeholder="Heather's Business" /></div><div data-id="456"><label data-id="457" class="text-xs text-muted-400 mb-1 block">Client Name *</label><select data-id="458" id="b-client-select-i7j1"><option data-id="459" value="">Select a client...</option></select></div><div data-id="460" class="md:col-span-2"><label data-id="461" class="text-xs text-muted-400 mb-1 block">Proposal Title *</label><input data-id="462" id="b-title-k8l2" type="text" placeholder="e.g. Website Redesign Proposal" /></div><div data-id="463"><label data-id="464" class="text-xs text-muted-400 mb-1 block">Date</label><input data-id="465" id="b-date-m9n3" type="date" /></div><div data-id="466"><label data-id="467" class="text-xs text-muted-400 mb-1 block">Expiry Date</label><input data-id="468" id="b-expiry-o0p4" type="date" /></div></div></div>
+                    <div data-id="469" class="card"><h3 data-id="470" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="471" data-lucide="align-left" class="w-4 h-4 text-accent-400"></i> Executive Summary</h3><textarea data-id="472" id="b-summary-q1r5" rows="4" placeholder="Introduce your proposal and highlight the key value you'll deliver..."></textarea></div>
+                    <div data-id="473" class="card"><h3 data-id="474" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="475" data-lucide="list-checks" class="w-4 h-4 text-accent-400"></i> Services / Scope of Work</h3><div data-id="476" id="line-items-container-s2t6" class="space-y-3"></div><button data-id="477" id="add-line-item-btn-u3v7" class="btn-secondary mt-3 text-xs"><i data-id="478" data-lucide="plus" class="w-3 h-3"></i> Add Line Item</button></div>
+                    <div data-id="479" class="card"><h3 data-id="480" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="481" data-lucide="calendar-days" class="w-4 h-4 text-accent-400"></i> Timeline / Milestones</h3><div data-id="482" id="milestones-container-w4x8" class="space-y-3"></div><button data-id="483" id="add-milestone-btn-y5z9" class="btn-secondary mt-3 text-xs"><i data-id="484" data-lucide="plus" class="w-3 h-3"></i> Add Milestone</button></div>
+                    <div data-id="485" class="card"><h3 data-id="486" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="487" data-lucide="calculator" class="w-4 h-4 text-accent-400"></i> Pricing Summary</h3><div data-id="488" class="space-y-3"><div data-id="489" class="flex justify-between text-sm"><span data-id="490" class="text-muted-400">Subtotal</span><span data-id="491" id="b-subtotal-a6b0" class="tabular-nums font-medium">$0.00</span></div><div data-id="492" class="grid grid-cols-2 gap-3"><div data-id="493"><label data-id="494" class="text-xs text-muted-400 mb-1 block">Discount %</label><input data-id="495" id="b-discount-c7d1" type="number" value="0" min="0" max="100" /></div><div data-id="496"><label data-id="497" class="text-xs text-muted-400 mb-1 block">Tax %</label><input data-id="498" id="b-tax-e8f2" type="number" value="0" min="0" max="100" /></div></div><div data-id="499" class="border-t border-stroke-100 pt-3 flex justify-between items-center"><span data-id="500" class="text-sm font-semibold">Total</span><span data-id="501" id="b-total-g9h3" class="text-xl font-bold text-accent-400 tabular-nums">$0.00</span></div></div></div>
+                    <div data-id="502" class="card"><h3 data-id="503" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="504" data-lucide="scale" class="w-4 h-4 text-accent-400"></i> Terms & Conditions</h3><textarea data-id="505" id="b-terms-i0j4" rows="5">1. Payment is due within 30 days of invoice date.
+2. A 50% deposit is required before work begins.
+3. Any changes to the scope of work may result in additional charges.
+4. All intellectual property created will be transferred upon full payment.
+5. Either party may terminate with 14 days written notice.
+6. This proposal is valid for 30 days from the date of issue.</textarea></div>
+                    <div data-id="506" class="card"><h3 data-id="507" class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-id="508" data-lucide="pen-tool" class="w-4 h-4 text-accent-400"></i> Signature Block</h3><div data-id="509" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3"><div data-id="510"><label data-id="511" class="text-xs text-muted-400 mb-1 block">Client Signatory Name</label><input data-id="512" id="b-sig-name-k1l5" type="text" placeholder="Full name" /></div><div data-id="513"><label data-id="514" class="text-xs text-muted-400 mb-1 block">Signature Date</label><input data-id="515" id="b-sig-date-m2n6" type="date" /></div></div><label data-id="516" class="text-xs text-muted-400 mb-1 block">E-Signature</label><div data-id="517" class="signature-pad" id="sig-pad-o3p7"><canvas data-id="518" id="sig-canvas-q4r8"></canvas><span data-id="519" id="sig-placeholder-s5t9" class="text-xs z-10">Click and drag to sign</span></div><button data-id="520" id="clear-sig-btn-u6v0" class="text-xs text-muted-400 hover:text-accent-400 mt-1 cursor-pointer bg-transparent border-0">Clear signature</button></div>
+                </div>
+                <div data-id="521" id="builder-preview-panel-w7x1" class="hidden lg:block lg:w-[480px] lg:sticky lg:top-20 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
+                    <div data-id="522" class="preview-panel" id="live-preview-y8z2"><p data-id="523" class="text-center text-gray-400 py-12 text-sm">Start filling in the form to see a live preview</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TEMPLATES TAB -->
+        <section data-id="524" id="tab-templates" class="tab-content hidden fade-in">
+            <div data-id="525" class="mb-6"><h1 data-id="526" class="text-xl md:text-2xl font-bold">Proposal Templates</h1><p data-id="527" class="text-muted-400 text-sm mt-1">Get started quickly with a pre-built template</p></div>
+            <div data-id="528" id="templates-grid-a9b1" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <!-- CLIENTS TAB -->
+        <section data-id="529" id="tab-clients" class="tab-content hidden fade-in">
+            <div data-id="530" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6"><h1 data-id="531" class="text-xl md:text-2xl font-bold">Clients</h1><button data-id="532" id="add-client-btn-c0d2" class="btn-primary"><i data-id="533" data-lucide="user-plus" class="w-4 h-4"></i> Add Client</button></div>
+            <div data-id="534" id="clients-list-e1f3" class="space-y-3"></div>
+            <div data-id="535" id="clientflow-banner" class="mt-6 hidden"></div>
+            <div data-id="536" id="client-modal-g2h4" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                <div data-id="537" class="card max-w-md w-full"><div data-id="538" class="flex items-center justify-between mb-4"><h3 data-id="539" id="client-modal-title-i3j5" class="font-semibold">Add Client</h3><button data-id="540" id="client-modal-close-k4l6" class="text-muted-400 hover:text-white"><i data-id="541" data-lucide="x" class="w-5 h-5"></i></button></div><div data-id="542" class="space-y-3"><div data-id="543"><label data-id="544" class="text-xs text-muted-400 mb-1 block">Client Name *</label><input data-id="545" id="cf-name-m5n7" type="text" placeholder="Company or person name" /></div><div data-id="546"><label data-id="547" class="text-xs text-muted-400 mb-1 block">Email *</label><input data-id="548" id="cf-email-o6p8" type="email" placeholder="email@example.com" /></div><div data-id="549"><label data-id="550" class="text-xs text-muted-400 mb-1 block">Phone</label><input data-id="551" id="cf-phone-q7r9" type="tel" placeholder="(555) 123-4567" /></div><div data-id="552"><label data-id="553" class="text-xs text-muted-400 mb-1 block">Company</label><input data-id="554" id="cf-company-s8t0" type="text" placeholder="Company name" /></div></div><div data-id="555" class="flex justify-end gap-2 mt-5"><button data-id="556" id="cf-cancel-u9v1" class="btn-secondary">Cancel</button><button data-id="557" id="cf-save-w0x2" class="btn-primary">Save Client</button></div></div>
+            </div>
+        </section>
+
+        <!-- SETTINGS TAB -->
+        <section data-id="558" id="tab-settings" class="tab-content hidden fade-in">
+            <div data-id="559" class="mb-6"><h1 data-id="560" class="text-xl md:text-2xl font-bold">Settings</h1><p data-id="561" class="text-muted-400 text-sm mt-1">Manage integrations and app preferences</p></div>
+            <div data-id="562" class="card mb-6">
+                <h3 data-id="563" class="text-sm font-semibold mb-4 flex items-center gap-2"><i data-id="564" data-lucide="plug" class="w-4 h-4 text-accent-400"></i> Connected Apps</h3>
+                <div data-id="565" class="rounded-xl bg-bg-800/50 border border-stroke-100 p-4 mb-4">
+                    <div data-id="566" class="flex items-center justify-between flex-wrap gap-3 mb-4"><div data-id="567" class="flex items-center gap-3"><div data-id="568" class="w-10 h-10 rounded-xl bg-[rgba(74,222,128,0.1)] flex items-center justify-center"><i data-id="569" data-lucide="receipt" class="w-5 h-5 text-success-400"></i></div><div data-id="570"><span data-id="571" class="font-semibold">InvoiceReady</span><span data-id="572" class="badge badge-accepted ml-2 text-[0.6rem]">Auto-invoice on acceptance</span></div></div></div>
+                    <div data-id="573" class="space-y-3 mb-4"><div data-id="574" class="flex items-center justify-between"><span data-id="575" class="text-sm">Auto-create invoice when proposal is accepted</span><label data-id="576" class="toggle-switch"><input data-id="577" type="checkbox" id="toggle-auto-invoice" checked /><span data-id="578" class="toggle-slider"></span></label></div><div data-id="579" class="flex items-center justify-between"><span data-id="580" class="text-sm">Auto-create client record in InvoiceReady</span><label data-id="581" class="toggle-switch"><input data-id="582" type="checkbox" id="toggle-auto-client" checked /><span data-id="583" class="toggle-slider"></span></label></div></div>
+                    <div data-id="584" class="flex items-center gap-2 text-xs text-muted-400 mb-3"><i data-id="585" data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i><span data-id="586" id="settings-invoice-count">0 invoices auto-created this month</span></div>
+                    <div data-id="587" id="settings-recent-invoices" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer data-id="588" class="border-t border-stroke-100 py-6 text-center text-muted-300 text-xs"><p data-id="589">Made by Copilot</p></footer>
+
+    <!-- CDI SUITE STICKY FOOTER -->
+    <div data-id="590" class="cdi-footer" id="cdi-suite-footer">
+        <div data-id="591" class="flex items-center gap-2 min-w-0"><i data-id="592" data-lucide="sparkles" class="w-4 h-4 text-accent-400 flex-shrink-0"></i><span data-id="593" class="text-sm font-semibold whitespace-nowrap hidden sm:inline">CDI Business Suite</span><span data-id="594" class="text-sm font-semibold whitespace-nowrap sm:hidden">CDI Suite</span><span data-id="595" class="text-muted-300 hidden sm:inline"> · </span><span data-id="596" class="text-xs text-muted-300 truncate hidden sm:inline">Part of 8 powerful business tools</span></div>
+        <button data-id="597" id="cdi-explore-btn" class="cdi-explore-btn flex-shrink-0"><i data-id="598" data-lucide="sparkles" class="w-3 h-3"></i><span data-id="599" class="hidden sm:inline">Explore All 8 Apps</span><span data-id="600" class="sm:hidden">Explore</span><span data-id="601">&rarr;</span></button>
+    </div>
+
+    <script>
+    // ============================================================
+    // SUPABASE INITIALIZATION
+    // ============================================================
+    const SUPABASE_URL = 'https://lizbvlcogvjgycsyiqrc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si';
+    let db;
+    let currentUser = null;
+    try {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch(e) {
+        console.warn('Supabase SDK not available, falling back to local mode.');
+        db = null;
+    }
+
+    // ============================================================
+    // AUTH FUNCTIONS
+    // ============================================================
+    function showAuthModal() { document.getElementById('auth-overlay').classList.remove('hidden-auth'); }
+    function hideAuthModal() { document.getElementById('auth-overlay').classList.add('hidden-auth'); }
+    function showAuthError(msg) { const el = document.getElementById('auth-error'); el.textContent = msg; el.classList.add('visible'); document.getElementById('auth-success').classList.remove('visible'); }
+    function showAuthSuccess(msg) { const el = document.getElementById('auth-success'); el.textContent = msg; el.classList.add('visible'); document.getElementById('auth-error').classList.remove('visible'); }
+    function clearAuthMessages() { document.getElementById('auth-error').classList.remove('visible'); document.getElementById('auth-success').classList.remove('visible'); }
+
+    async function signIn(email, password) {
+        if (!db) { showAuthError('Database connection unavailable.'); return; }
+        const btn = document.getElementById('auth-signin-btn');
+        btn.disabled = true; btn.textContent = 'Signing in...';
+        try { const { error } = await db.auth.signInWithPassword({ email, password }); if (error) showAuthError(error.message); } catch(e) { showAuthError(e.message || 'Sign in failed.'); }
+        btn.disabled = false; btn.textContent = 'Sign In';
+    }
+    async function signUp(email, password, businessName) {
+        if (!db) { showAuthError('Database connection unavailable.'); return; }
+        const btn = document.getElementById('auth-signup-btn');
+        btn.disabled = true; btn.textContent = 'Creating account...';
+        try { const { error } = await db.auth.signUp({ email, password, options: { data: { business_name: businessName } } }); if (error) showAuthError(error.message); else showAuthSuccess('Check your email to confirm your account!'); } catch(e) { showAuthError(e.message || 'Sign up failed.'); }
+        btn.disabled = false; btn.textContent = 'Create Account';
+    }
+    async function signOut() { if (!db) return; await db.auth.signOut(); currentUser = null; showAuthModal(); document.getElementById('user-badge-container').classList.add('hidden'); }
+
+    function updateUserBadge() {
+        if (!currentUser) { document.getElementById('user-badge-container').classList.add('hidden'); return; }
+        document.getElementById('user-badge-container').classList.remove('hidden');
+        const email = currentUser.email || '';
+        document.getElementById('user-avatar').textContent = email.charAt(0).toUpperCase() || 'U';
+        document.getElementById('user-email-display').textContent = email.length > 20 ? email.substring(0, 20) + '…' : email;
+        const bizName = currentUser.user_metadata?.business_name || email.split('@')[0];
+        const greetEl = document.getElementById('dashboard-greeting');
+        if (greetEl) greetEl.textContent = 'Welcome back, ' + bizName;
+    }
+
+    async function initAuth() {
+        if (!db) { hideAuthModal(); loadLocalSeedData(); switchTab('dashboard'); return; }
+        try {
+            const { data: { session } } = await db.auth.getSession();
+            if (session) { currentUser = session.user; hideAuthModal(); updateUserBadge(); await loadAllDataFromSupabase(); }
+            else { showAuthModal(); }
+        } catch(e) { console.warn('Auth check failed:', e); hideAuthModal(); loadLocalSeedData(); switchTab('dashboard'); }
+        if (db) {
+            db.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) { currentUser = session.user; hideAuthModal(); updateUserBadge(); loadAllDataFromSupabase(); }
+                if (event === 'SIGNED_OUT') { currentUser = null; showAuthModal(); document.getElementById('user-badge-container').classList.add('hidden'); }
+            });
+        }
+    }
+
+    document.getElementById('auth-tab-signin').addEventListener('click', function() { this.classList.add('active'); document.getElementById('auth-tab-signup').classList.remove('active'); document.getElementById('auth-signin-form').classList.remove('hidden'); document.getElementById('auth-signup-form').classList.add('hidden'); clearAuthMessages(); });
+    document.getElementById('auth-tab-signup').addEventListener('click', function() { this.classList.add('active'); document.getElementById('auth-tab-signin').classList.remove('active'); document.getElementById('auth-signup-form').classList.remove('hidden'); document.getElementById('auth-signin-form').classList.add('hidden'); clearAuthMessages(); });
+    document.getElementById('auth-signin-btn').addEventListener('click', function() { const email = document.getElementById('auth-email').value.trim(); const password = document.getElementById('auth-password').value; if (!email || !password) { showAuthError('Please enter email and password.'); return; } signIn(email, password); });
+    document.getElementById('auth-signup-btn').addEventListener('click', function() { const bizName = document.getElementById('auth-biz-name').value.trim(); const email = document.getElementById('auth-signup-email').value.trim(); const password = document.getElementById('auth-signup-password').value; const confirm = document.getElementById('auth-signup-confirm').value; if (!email || !password) { showAuthError('Please fill in all required fields.'); return; } if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; } if (password !== confirm) { showAuthError('Passwords do not match.'); return; } signUp(email, password, bizName); });
+    document.getElementById('auth-forgot-btn').addEventListener('click', async function() { const email = document.getElementById('auth-email').value.trim(); if (!email) { showAuthError('Please enter your email address first.'); return; } if (!db) { showAuthError('Database connection unavailable.'); return; } try { const { error } = await db.auth.resetPasswordForEmail(email); if (error) showAuthError(error.message); else showAuthSuccess('Check your email for a reset link!'); } catch(e) { showAuthError(e.message || 'Failed to send reset email.'); } });
+    document.getElementById('auth-password').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('auth-signin-btn').click(); });
+    document.getElementById('auth-signup-confirm').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('auth-signup-btn').click(); });
+    document.getElementById('signout-btn').addEventListener('click', signOut);
+
+    // ============================================================
+    // DATA LAYER
+    // ============================================================
+    const NOW = new Date(2026, 4, 19, 10, 56);
+    const CDI_URL = 'https://shopreneur.constructivedesignsinc.org';
+
+    let clients = [];
+    let proposals = [];
+    let acceptedProposals = [];
+    let nextInvoiceNum = 1001;
+    let dismissedBanners = [];
+    let autoInvoice = true;
+    let autoClient = true;
+
+    let currentEditId = null;
+    let builderLineItems = [];
+    let builderMilestones = [];
+    let sigDrawing = false;
+    let sigCtx = null;
+    let sigHasContent = false;
+    let previewVisible = false;
+    let currentDetailId = null;
+
+    const templates = [
+        { id: 't1', name: 'Freelance Services', description: 'Perfect for freelancers offering design, development, writing, or consulting services.', sections: ['Executive Summary', 'Services & Deliverables', 'Timeline', 'Pricing', 'Terms & Conditions'], data: { summary: 'Thank you for considering me for this project. I am excited to bring my expertise and creativity to help you achieve your goals.', lineItems: [{ name: 'Service Name', desc: 'Description of service', qty: 1, price: 0 }], milestones: [{ name: 'Project Kickoff', date: '', deliverable: 'Initial meeting and requirements gathering' }], discount: 0, tax: 0 } },
+        { id: 't2', name: 'Consulting Engagement', description: 'Structured template for business consulting engagements with phased deliverables.', sections: ['Problem Statement', 'Approach & Methodology', 'Deliverables', 'Timeline', 'Investment'], data: { summary: 'Based on our initial discussions, I have prepared this consulting engagement proposal.', lineItems: [{ name: 'Discovery Phase', desc: 'Stakeholder interviews and data analysis', qty: 1, price: 0 }, { name: 'Strategy Development', desc: 'Strategic recommendations and roadmap', qty: 1, price: 0 }, { name: 'Implementation Support', desc: 'Hands-on guidance during execution', qty: 1, price: 0 }], milestones: [{ name: 'Discovery Complete', date: '', deliverable: 'Findings report' }, { name: 'Strategy Presentation', date: '', deliverable: 'Strategic roadmap' }, { name: 'Final Review', date: '', deliverable: 'Implementation review' }], discount: 0, tax: 0 } },
+        { id: 't3', name: 'Creative Project', description: 'Ideal for creative agencies and designers handling branding, video production, or multimedia.', sections: ['Creative Brief', 'Concept & Direction', 'Production Plan', 'Budget Breakdown', 'Usage Rights'], data: { summary: 'We are thrilled to present our creative vision for this project.', lineItems: [{ name: 'Creative Concept', desc: 'Mood boards, style guides, initial concepts', qty: 1, price: 0 }, { name: 'Production', desc: 'Full production and execution', qty: 1, price: 0 }, { name: 'Revisions', desc: 'Up to 3 rounds of revisions', qty: 3, price: 0 }], milestones: [{ name: 'Concept Approval', date: '', deliverable: '3 concept options' }, { name: 'Production Complete', date: '', deliverable: 'Final deliverables' }], discount: 0, tax: 0 } }
+    ];
+
+    // ============================================================
+    // LOCAL SEED DATA
+    // ============================================================
+    function loadLocalSeedData() {
+        clients = [
+            { id: 'c1', name: 'Apex Digital Agency', email: 'contact@apexdigital.com', phone: '(937) 555-0142', company: 'Apex Digital' },
+            { id: 'c2', name: 'GreenLeaf Organics', email: 'hello@greenleaf.co', phone: '(937) 555-0287', company: 'GreenLeaf Organics' },
+            { id: 'c3', name: 'Summit Construction LLC', email: 'info@summitconstruct.com', phone: '(937) 555-0319', company: 'Summit Construction' },
+            { id: 'c4', name: 'Bright Minds Academy', email: 'admin@brightminds.edu', phone: '(937) 555-0456', company: 'Bright Minds Academy' }
+        ];
+        proposals = [
+            { id: 'p1', title: 'Brand Identity Redesign', clientId: 'c1', status: 'Accepted', bizName: "Heather's Creative Studio", date: '2026-04-15', expiry: '2026-05-15', summary: 'A comprehensive brand identity redesign to modernize Apex Digital Agency\'s visual presence.', lineItems: [{ name: 'Logo Design', desc: 'Primary + secondary logo variants', qty: 1, price: 2500 }, { name: 'Brand Guidelines', desc: 'Comprehensive 20-page brand book', qty: 1, price: 1800 }, { name: 'Stationery Design', desc: 'Business cards, letterhead, envelope', qty: 1, price: 900 }], milestones: [{ name: 'Discovery & Research', date: '2026-04-20', deliverable: 'Brand audit report' }, { name: 'Concept Presentation', date: '2026-05-01', deliverable: '3 logo concepts' }, { name: 'Final Delivery', date: '2026-05-12', deliverable: 'Complete brand package' }], discount: 5, tax: 7.5, terms: 'Standard terms apply. 50% deposit required.', sigName: 'Marcus Chen', sigDate: '2026-04-16', sentAt: new Date(2026, 3, 15, 10, 0), viewedAt: new Date(2026, 3, 15, 14, 22), total: 5200, invoiceNumber: 'INV-1001', acceptedDate: '2026-04-16' },
+            { id: 'p2', title: 'E-Commerce Website Development', clientId: 'c2', status: 'Viewed', bizName: "Heather's Creative Studio", date: '2026-05-10', expiry: '2026-06-09', summary: 'Full-stack e-commerce platform development for GreenLeaf Organics.', lineItems: [{ name: 'UI/UX Design', desc: 'Responsive design for all pages', qty: 1, price: 4000 }, { name: 'Frontend Development', desc: 'React-based responsive frontend', qty: 1, price: 6000 }, { name: 'Backend & API', desc: 'Node.js backend with payment integration', qty: 1, price: 5500 }, { name: 'QA & Testing', desc: 'Comprehensive testing and bug fixes', qty: 40, price: 75 }], milestones: [{ name: 'Design Mockups', date: '2026-05-25', deliverable: 'Figma prototypes' }, { name: 'Beta Launch', date: '2026-06-20', deliverable: 'Staging site' }, { name: 'Go Live', date: '2026-07-05', deliverable: 'Production deployment' }], discount: 0, tax: 7.5, terms: 'Payment in 3 milestones. Hosting fees not included.', sigName: '', sigDate: '', sentAt: new Date(2026, 4, 10, 9, 30), viewedAt: new Date(2026, 4, 15, 11, 5), total: 18500 },
+            { id: 'p3', title: 'Marketing Strategy & Campaign', clientId: 'c3', status: 'Sent', bizName: "Heather's Creative Studio", date: '2026-05-14', expiry: '2026-06-13', summary: 'A 3-month integrated marketing strategy and campaign execution for Summit Construction.', lineItems: [{ name: 'Marketing Audit', desc: 'Current channels and competitor analysis', qty: 1, price: 1500 }, { name: 'Strategy Document', desc: '3-month marketing roadmap', qty: 1, price: 2000 }, { name: 'Social Media Management', desc: 'Monthly content creation and posting', qty: 3, price: 1200 }, { name: 'SEO Optimization', desc: 'Local SEO and Google Business Profile', qty: 1, price: 1800 }], milestones: [{ name: 'Audit Complete', date: '2026-05-28', deliverable: 'Audit report' }, { name: 'Campaign Launch', date: '2026-06-05', deliverable: 'First campaign live' }, { name: 'Monthly Review', date: '2026-07-01', deliverable: 'Performance report' }], discount: 10, tax: 7.5, terms: 'Monthly retainer after initial engagement.', sigName: '', sigDate: '', sentAt: new Date(2026, 4, 14, 16, 0), viewedAt: null, total: 8900 },
+            { id: 'p4', title: 'Staff Training Program Design', clientId: 'c4', status: 'Draft', bizName: "Heather's Creative Studio", date: '2026-05-16', expiry: '2026-06-15', summary: 'Design and development of a custom digital literacy training program for Bright Minds Academy staff.', lineItems: [{ name: 'Needs Assessment', desc: 'Staff interviews and skills gap analysis', qty: 1, price: 1200 }, { name: 'Curriculum Design', desc: '8-module training curriculum', qty: 1, price: 3000 }, { name: 'Workshop Facilitation', desc: 'On-site training delivery', qty: 4, price: 500 }], milestones: [{ name: 'Assessment Phase', date: '2026-06-01', deliverable: 'Needs report' }, { name: 'Curriculum Draft', date: '2026-06-15', deliverable: 'Draft modules' }, { name: 'Training Delivery', date: '2026-07-01', deliverable: 'Completed workshops' }], discount: 0, tax: 7.5, terms: 'Travel expenses billed separately.', sigName: '', sigDate: '', sentAt: null, viewedAt: null, total: 6200 }
+        ];
+        acceptedProposals = [{ id: 'ap1', proposalTitle: 'Brand Identity Redesign', clientName: 'Apex Digital Agency', clientEmail: 'contact@apexdigital.com', clientPhone: '(937) 555-0142', clientCompany: 'Apex Digital', invoiceNumber: 'INV-1001', lineItems: proposals[0].lineItems, subtotal: 5200, tax: 7.5, total: calcProposalTotalSimple(proposals[0]), acceptedDate: '2026-04-16', status: 'invoice_created', proposalId: 'p1' }];
+        nextInvoiceNum = 1002;
+        proposals.forEach(p => { p.total = calcProposalTotal(p).total; });
+    }
+
+    // ============================================================
+    // SUPABASE DATA LOADING
+    // ============================================================
+    async function loadAllDataFromSupabase() {
+        if (!db || !currentUser) { loadLocalSeedData(); switchTab('dashboard'); return; }
+        const loadingEl = document.getElementById('data-loading-overlay');
+        loadingEl.classList.remove('hidden-load');
+        try {
+            const { data: dbClients } = await db.from('pp_clients').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            const { data: dbProposals } = await db.from('pp_proposals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            const { data: dbAccepted } = await db.from('pp_accepted_proposals').select('*').eq('user_id', currentUser.id);
+            if (dbClients && dbClients.length > 0) clients = dbClients.map(c => ({ id: c.id, name: c.name, email: c.email, phone: c.phone || '', company: c.company || '' }));
+            if (dbProposals && dbProposals.length > 0) { proposals = dbProposals.map(p => ({ id: p.id, title: p.title, clientId: p.client_id, status: p.status, bizName: p.biz_name || "Heather's Creative Studio", date: p.proposal_date, expiry: p.expiry_date, summary: p.summary || '', lineItems: p.line_items || [], milestones: p.milestones || [], discount: p.discount || 0, tax: p.tax || 0, terms: p.terms || '', sigName: p.sig_name || '', sigDate: p.sig_date || '', sentAt: p.sent_at ? new Date(p.sent_at) : null, viewedAt: p.viewed_at ? new Date(p.viewed_at) : null, total: p.total || 0, invoiceNumber: p.invoice_number || null, acceptedDate: p.accepted_date || null })); proposals.forEach(p => { p.total = calcProposalTotal(p).total; }); }
+            if (dbAccepted && dbAccepted.length > 0) { acceptedProposals = dbAccepted.map(a => ({ id: a.id, proposalTitle: a.proposal_title, clientName: a.client_name, clientEmail: a.client_email, clientPhone: a.client_phone || '', clientCompany: a.client_company || '', invoiceNumber: a.invoice_number, lineItems: a.line_items || [], subtotal: a.subtotal || 0, tax: a.tax || 0, total: a.total || 0, acceptedDate: a.accepted_date, status: a.status || 'invoice_created', proposalId: a.proposal_id })); acceptedProposals.forEach(ap => { const num = parseInt((ap.invoiceNumber || '').replace('INV-', '')); if (num >= nextInvoiceNum) nextInvoiceNum = num + 1; }); }
+            if ((!dbClients || dbClients.length === 0) && (!dbProposals || dbProposals.length === 0)) { loadLocalSeedData(); await seedSupabaseData(); }
+        } catch(e) { console.warn('Failed to load from Supabase:', e); loadLocalSeedData(); }
+        loadingEl.classList.add('hidden-load');
+        switchTab('dashboard');
+        if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') lucide.createIcons();
+    }
+
+    async function seedSupabaseData() {
+        if (!db || !currentUser) return;
+        try {
+            for (const c of clients) await db.from('pp_clients').upsert({ id: c.id, user_id: currentUser.id, name: c.name, email: c.email, phone: c.phone, company: c.company }, { onConflict: 'id' });
+            for (const p of proposals) await db.from('pp_proposals').upsert({ id: p.id, user_id: currentUser.id, title: p.title, client_id: p.clientId, status: p.status, biz_name: p.bizName, proposal_date: p.date, expiry_date: p.expiry, summary: p.summary, line_items: p.lineItems, milestones: p.milestones, discount: p.discount, tax: p.tax, terms: p.terms, sig_name: p.sigName, sig_date: p.sigDate || null, sent_at: p.sentAt ? p.sentAt.toISOString() : null, viewed_at: p.viewedAt ? p.viewedAt.toISOString() : null, total: p.total, invoice_number: p.invoiceNumber, accepted_date: p.acceptedDate }, { onConflict: 'id' });
+            for (const ap of acceptedProposals) await db.from('pp_accepted_proposals').upsert({ id: ap.id, user_id: currentUser.id, proposal_title: ap.proposalTitle, client_name: ap.clientName, client_email: ap.clientEmail, client_phone: ap.clientPhone, client_company: ap.clientCompany, invoice_number: ap.invoiceNumber, line_items: ap.lineItems, subtotal: ap.subtotal, tax: ap.tax, total: ap.total, accepted_date: ap.acceptedDate, status: ap.status, proposal_id: ap.proposalId }, { onConflict: 'id' });
+        } catch(e) { console.warn('Seed to Supabase failed:', e); }
+    }
+
+    // ============================================================
+    // SUPABASE SAVE OPERATIONS
+    // ============================================================
+    async function saveClientToSupabase(client) { if (!db || !currentUser) return; try { const payload = { user_id: currentUser.id, name: client.name, email: client.email, phone: client.phone, company: client.company }; if (client.id && !client.id.startsWith('local_')) { payload.id = client.id; const { data } = await db.from('pp_clients').upsert(payload, { onConflict: 'id' }).select().single(); return data; } else { const { data } = await db.from('pp_clients').insert(payload).select().single(); return data; } } catch(e) { console.warn('Save client failed:', e); return null; } }
+    async function saveProposalToSupabase(p) { if (!db || !currentUser) return; try { const payload = { user_id: currentUser.id, title: p.title, client_id: p.clientId, status: p.status, biz_name: p.bizName, proposal_date: p.date, expiry_date: p.expiry, summary: p.summary, line_items: p.lineItems, milestones: p.milestones, discount: p.discount, tax: p.tax, terms: p.terms, sig_name: p.sigName, sig_date: p.sigDate || null, sent_at: p.sentAt ? (p.sentAt instanceof Date ? p.sentAt.toISOString() : p.sentAt) : null, viewed_at: p.viewedAt ? (p.viewedAt instanceof Date ? p.viewedAt.toISOString() : p.viewedAt) : null, total: p.total, invoice_number: p.invoiceNumber || null, accepted_date: p.acceptedDate || null }; if (p.id && !p.id.startsWith('local_')) { payload.id = p.id; const { data } = await db.from('pp_proposals').upsert(payload, { onConflict: 'id' }).select().single(); return data; } else { const { data } = await db.from('pp_proposals').insert(payload).select().single(); return data; } } catch(e) { console.warn('Save proposal failed:', e); return null; } }
+    async function deleteProposalFromSupabase(id) { if (!db || !currentUser) return; try { await db.from('pp_proposals').delete().eq('id', id).eq('user_id', currentUser.id); } catch(e) {} }
+    async function saveAcceptedProposalToSupabase(ap) { if (!db || !currentUser) return; try { await db.from('pp_accepted_proposals').upsert({ id: ap.id, user_id: currentUser.id, proposal_title: ap.proposalTitle, client_name: ap.clientName, client_email: ap.clientEmail, client_phone: ap.clientPhone, client_company: ap.clientCompany, invoice_number: ap.invoiceNumber, line_items: ap.lineItems, subtotal: ap.subtotal, tax: ap.tax, total: ap.total, accepted_date: ap.acceptedDate, status: ap.status, proposal_id: ap.proposalId }, { onConflict: 'id' }); } catch(e) {} }
+
+    async function bridgeToInvoiceReady(proposalData) { if (!db || !currentUser) return; try { const { data: irClient } = await db.from('ir_clients').insert({ user_id: currentUser.id, name: proposalData.clientName, email: proposalData.clientEmail, phone: proposalData.clientPhone, company: proposalData.clientCompany, source: 'proposalpro' }).select().single(); const invoiceNumber = proposalData.invoiceNumber || ('INV-' + String(Date.now()).slice(-4)); await db.from('ir_invoices').insert({ user_id: currentUser.id, client_id: irClient?.id || null, invoice_number: invoiceNumber, issue_date: new Date().toISOString().split('T')[0], due_date: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], status: 'draft', subtotal: proposalData.subtotal, tax_rate: proposalData.taxRate || 0, tax_amount: proposalData.taxAmount || 0, total: proposalData.total, from_proposal_ref: proposalData.proposalTitle }); } catch(e) { console.warn('InvoiceReady bridge failed:', e); } }
+
+    // Legacy AppSDK persistence
+    async function loadPersistedData() {
+        if (typeof AppSDK === 'undefined' || !AppSDK.list) return;
+        try { const res = await AppSDK.list('proposalpro_accepted'); if (res.documents && res.documents.length > 0) { res.documents.map(d => d.data).forEach(ap => { if (!acceptedProposals.find(a => a.id === ap.id)) acceptedProposals.push(ap); const num = parseInt((ap.invoiceNumber || '').replace('INV-', '')); if (num >= nextInvoiceNum) nextInvoiceNum = num + 1; }); } } catch(e) {}
+        try { const res = await AppSDK.get('proposalpro_settings', 'dismissed_banners'); if (res && res.data) dismissedBanners = res.data.ids || []; } catch(e) {}
+        try { const res = await AppSDK.get('proposalpro_settings', 'toggles'); if (res && res.data) { autoInvoice = res.data.autoInvoice !== false; autoClient = res.data.autoClient !== false; document.getElementById('toggle-auto-invoice').checked = autoInvoice; document.getElementById('toggle-auto-client').checked = autoClient; } } catch(e) {}
+    }
+    async function saveAcceptedProposal(ap) { saveAcceptedProposalToSupabase(ap); if (typeof AppSDK !== 'undefined' && AppSDK.upsert) { try { await AppSDK.upsert('proposalpro_accepted', ap.id, ap); } catch(e) {} } }
+    async function saveDismissedBanners() { if (typeof AppSDK !== 'undefined' && AppSDK.upsert) { try { await AppSDK.upsert('proposalpro_settings', 'dismissed_banners', { ids: dismissedBanners }); } catch(e) {} } }
+    async function saveToggles() { if (typeof AppSDK !== 'undefined' && AppSDK.upsert) { try { await AppSDK.upsert('proposalpro_settings', 'toggles', { autoInvoice, autoClient }); } catch(e) {} } }
+
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    function genId() { return 'id' + Math.random().toString(36).slice(2, 9); }
+    function fmt$(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtDate(d) { if (!d) return '—'; const dt = typeof d === 'string' ? new Date(d + 'T00:00:00') : d; return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    function timeAgo(date) { if (!date) return null; const diff = NOW - new Date(date); const mins = Math.floor(diff / 60000); if (mins < 1) return 'just now'; if (mins < 60) return mins + 'm ago'; const hrs = Math.floor(mins / 60); if (hrs < 24) return hrs + 'h ago'; return Math.floor(hrs / 24) + 'd ago'; }
+    function daysUntil(dateStr) { if (!dateStr) return null; return Math.ceil((new Date(dateStr + 'T00:00:00') - NOW) / 86400000); }
+    function getClient(id) { return clients.find(c => c.id === id); }
+    function calcProposalTotal(p) { const sub = (p.lineItems || []).reduce((s, li) => s + (li.qty * li.price), 0); const disc = sub * ((p.discount || 0) / 100); const afterDisc = sub - disc; const tax = afterDisc * ((p.tax || 0) / 100); return { subtotal: sub, discountAmt: disc, taxAmt: tax, total: afterDisc + tax }; }
+    function calcProposalTotalSimple(p) { const r = calcProposalTotal(p); return r.total; }
+    function getInvoiceForProposal(pId) { return acceptedProposals.find(ap => ap.proposalId === pId); }
+    function statusBadge(status) { const cls = { Draft: 'badge-draft', Sent: 'badge-sent', Viewed: 'badge-viewed', Accepted: 'badge-accepted', Declined: 'badge-declined', Expired: 'badge-expired' }; const icon = status === 'Accepted' ? '<i data-lucide="check-circle-2" class="w-3 h-3"></i> ' : (status === 'Viewed' ? '<i data-lucide="eye" class="w-3 h-3"></i> ' : ''); return `<span class="badge ${cls[status] || 'badge-draft'}">${icon}${status}</span>`; }
+    function invoiceBadge(invoiceNum) { if (!invoiceNum) return ''; return `<span class="badge badge-invoice"><i data-lucide="receipt" class="w-3 h-3"></i> ${invoiceNum} created in InvoiceReady</span>`; }
+
+    // ============================================================
+    // HELP MODAL
+    // ============================================================
+    function openHelpModal() { document.getElementById('help-overlay').classList.add('open'); document.body.style.overflow = 'hidden'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+    function closeHelpModal() { document.getElementById('help-overlay').classList.remove('open'); document.body.style.overflow = ''; }
+    document.getElementById('help-trigger-btn').addEventListener('click', openHelpModal);
+    document.getElementById('help-close-btn').addEventListener('click', closeHelpModal);
+    document.getElementById('help-overlay').addEventListener('click', function(e) { if (e.target === this) closeHelpModal(); });
+    document.getElementById('help-accordions').addEventListener('click', function(e) { const header = e.target.closest('.help-accordion-header'); if (!header) return; const sectionKey = header.dataset.helpSection; const body = document.getElementById('help-section-' + sectionKey); const isOpen = body.classList.contains('open'); document.querySelectorAll('.help-accordion-body').forEach(b => b.classList.remove('open')); document.querySelectorAll('.help-accordion-header').forEach(h => h.classList.remove('expanded')); if (!isOpen) { body.classList.add('open'); header.classList.add('expanded'); } });
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        const target = document.getElementById('tab-' + tabName);
+        if (target) target.classList.remove('hidden');
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.nav === tabName));
+        if (tabName === 'dashboard') renderDashboard();
+        if (tabName === 'proposals') { renderProposalsList(); renderInvoiceReadyBanner(); }
+        if (tabName === 'templates') renderTemplates();
+        if (tabName === 'clients') { renderClients(); renderClientFlowBanner(); }
+        if (tabName === 'settings') renderSettingsTab();
+        document.getElementById('mobile-menu-p4s9').classList.add('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    document.querySelectorAll('[data-nav]').forEach(btn => { btn.addEventListener('click', () => switchTab(btn.dataset.nav)); });
+    document.getElementById('mobile-menu-btn-x7r2').addEventListener('click', () => document.getElementById('mobile-menu-p4s9').classList.remove('hidden'));
+    document.getElementById('mobile-menu-close-k3m8').addEventListener('click', () => document.getElementById('mobile-menu-p4s9').classList.add('hidden'));
+    document.getElementById('new-proposal-btn-a3f1').addEventListener('click', () => openBuilder(null));
+    document.getElementById('mobile-new-proposal-btn-r4q7').addEventListener('click', () => openBuilder(null));
+    document.getElementById('cdi-explore-btn').addEventListener('click', () => window.open(CDI_URL, '_blank'));
+
+    // ============================================================
+    // DASHBOARD
+    // ============================================================
+    function renderDashboard() {
+        const total = proposals.length;
+        const accepted = proposals.filter(p => p.status === 'Accepted').length;
+        const pending = proposals.filter(p => ['Sent', 'Viewed'].includes(p.status)).length;
+        const totalVal = proposals.filter(p => p.status !== 'Draft').reduce((s, p) => s + calcProposalTotal(p).total, 0);
+        const declined = proposals.filter(p => p.status === 'Declined').length;
+        const decided = accepted + declined;
+        const winRate = decided > 0 ? Math.round((accepted / decided) * 100) : (accepted > 0 ? 100 : 0);
+        document.getElementById('stat-total-h7k3').textContent = total;
+        document.getElementById('stat-accepted-m2n5').textContent = accepted;
+        document.getElementById('stat-pending-p8q1').textContent = pending;
+        document.getElementById('stat-value-v4w9').textContent = fmt$(totalVal);
+        const circ = 2 * Math.PI * 60;
+        const totalForDonut = accepted + pending + declined || 1;
+        const accPct = accepted / totalForDonut; const penPct = pending / totalForDonut; const decPct = declined / totalForDonut;
+        document.getElementById('donut-accepted-s9r4').setAttribute('stroke-dasharray', `${accPct * circ} ${circ - accPct * circ}`);
+        document.getElementById('donut-accepted-s9r4').setAttribute('transform', 'rotate(-90 80 80)');
+        document.getElementById('donut-pending-t2u6').setAttribute('stroke-dasharray', `${penPct * circ} ${circ - penPct * circ}`);
+        document.getElementById('donut-pending-t2u6').setAttribute('transform', `rotate(${-90 + accPct * 360} 80 80)`);
+        document.getElementById('donut-declined-v3w8').setAttribute('stroke-dasharray', `${decPct * circ} ${circ - decPct * circ}`);
+        document.getElementById('donut-declined-v3w8').setAttribute('transform', `rotate(${-90 + (accPct + penPct) * 360} 80 80)`);
+        document.getElementById('win-rate-pct-z1x4').textContent = winRate + '%';
+        const recent = [...proposals].sort((a, b) => (b.sentAt || new Date(b.date + 'T00:00:00')) - (a.sentAt || new Date(a.date + 'T00:00:00'))).slice(0, 5);
+        const container = document.getElementById('recent-proposals-list-b6c3');
+        container.innerHTML = recent.map(p => { const client = getClient(p.clientId); const totals = calcProposalTotal(p); const viewed = p.viewedAt ? `<span class="text-xs text-muted-300 flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Client viewed ${timeAgo(p.viewedAt)}</span>` : ''; const inv = getInvoiceForProposal(p.id); const invBadge = (p.status === 'Accepted' && inv) ? invoiceBadge(inv.invoiceNumber) : ''; const expiry = (p.status === 'Sent' || p.status === 'Viewed') && p.expiry ? (() => { const d = daysUntil(p.expiry); if (d !== null && d >= 0) return `<span class="text-xs text-yellow-400">Expires in ${d}d</span>`; if (d !== null && d < 0) return `<span class="text-xs text-red-400">Expired</span>`; return ''; })() : ''; return `<div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-bg-800/50 hover:bg-bg-600/30 transition-smooth cursor-pointer gap-2" data-view-proposal="${p.id}"><div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap"><span class="text-sm font-medium truncate">${p.title}</span>${statusBadge(p.status)}${invBadge}</div><div class="flex items-center gap-3 mt-1 flex-wrap"><span class="text-xs text-muted-400">${client ? client.name : 'Unknown'}</span><span class="text-xs text-muted-300">${fmtDate(p.date)}</span>${viewed}${expiry}</div></div><div class="text-right"><span class="text-sm font-semibold tabular-nums">${fmt$(totals.total)}</span></div></div>`; }).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-view-proposal]').forEach(el => { el.addEventListener('click', () => openProposalDetail(el.dataset.viewProposal)); });
+    }
+
+    // ============================================================
+    // PROPOSALS LIST
+    // ============================================================
+    let proposalFilter = 'all';
+    let proposalSearch = '';
+    function renderProposalsList() {
+        let filtered = proposals;
+        if (proposalFilter !== 'all') filtered = filtered.filter(p => p.status === proposalFilter);
+        if (proposalSearch) { const q = proposalSearch.toLowerCase(); filtered = filtered.filter(p => { const client = getClient(p.clientId); return p.title.toLowerCase().includes(q) || (client && client.name.toLowerCase().includes(q)); }); }
+        const container = document.getElementById('proposals-list-k5l8');
+        if (filtered.length === 0) { container.innerHTML = `<div class="text-center py-12 text-muted-400"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 opacity-40"></i><p class="text-sm">No proposals found</p></div>`; if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
+        container.innerHTML = filtered.map(p => { const client = getClient(p.clientId); const totals = calcProposalTotal(p); const viewed = p.viewedAt ? `<span class="text-xs text-muted-300 flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Viewed ${timeAgo(p.viewedAt)}</span>` : ''; const inv = getInvoiceForProposal(p.id); const invBadge = (p.status === 'Accepted' && inv) ? invoiceBadge(inv.invoiceNumber) : ''; const invLink = (p.status === 'Accepted' && inv) ? `<button class="text-xs text-success-400 hover:underline cursor-pointer bg-transparent border-0 font-medium" data-view-inv="${p.id}">View Invoice &rarr;</button>` : ''; const expiry = (p.status === 'Sent' || p.status === 'Viewed') && p.expiry ? (() => { const d = daysUntil(p.expiry); if (d !== null && d >= 0) return `<span class="text-xs text-yellow-400 flex items-center gap-1"><i data-lucide="timer" class="w-3 h-3"></i> Expires in ${d}d</span>`; if (d !== null && d < 0) return `<span class="text-xs text-red-400">Expired</span>`; return ''; })() : ''; const acceptBtn = (p.status === 'Sent' || p.status === 'Viewed') ? `<button class="btn-secondary text-xs py-1 px-2" data-accept="${p.id}" title="Accept" style="border-color:rgba(74,222,128,0.3);color:#4ade80;"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i></button>` : ''; return `<div class="card hover:border-stroke-200 transition-smooth"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3"><div class="flex-1 min-w-0 cursor-pointer" data-view-proposal="${p.id}"><div class="flex items-center gap-2 flex-wrap"><span class="font-medium truncate">${p.title}</span>${statusBadge(p.status)}${invBadge}</div><div class="flex items-center gap-3 mt-1.5 flex-wrap"><span class="text-xs text-muted-400 flex items-center gap-1"><i data-lucide="building-2" class="w-3 h-3"></i> ${client ? client.name : 'Unknown'}</span><span class="text-xs text-muted-300">${fmtDate(p.date)}</span>${viewed}${expiry}${invLink}</div></div><div class="flex items-center gap-3"><span class="font-semibold tabular-nums text-sm">${fmt$(totals.total)}</span><div class="flex items-center gap-1">${acceptBtn}<button class="btn-secondary text-xs py-1 px-2" data-edit="${p.id}" title="Edit"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button><button class="btn-secondary text-xs py-1 px-2" data-dup="${p.id}" title="Duplicate"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>${p.status === 'Draft' ? `<button class="btn-primary text-xs py-1 px-2" data-send="${p.id}" title="Send"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>` : ''}<button class="btn-secondary text-xs py-1 px-2" data-archive="${p.id}" title="Archive"><i data-lucide="archive" class="w-3.5 h-3.5"></i></button></div></div></div></div>`; }).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-view-proposal]').forEach(el => el.addEventListener('click', () => openProposalDetail(el.dataset.viewProposal)));
+        container.querySelectorAll('[data-edit]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); openBuilder(el.dataset.edit); }));
+        container.querySelectorAll('[data-dup]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); duplicateProposal(el.dataset.dup); }));
+        container.querySelectorAll('[data-send]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); markProposalSent(el.dataset.send); }));
+        container.querySelectorAll('[data-archive]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); archiveProposal(el.dataset.archive); }));
+        container.querySelectorAll('[data-accept]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); showAcceptConfirm(el.dataset.accept); }));
+        container.querySelectorAll('[data-view-inv]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); showToast('Opening InvoiceReady...'); window.open(CDI_URL, '_blank'); }));
+    }
+    document.getElementById('proposal-search-f2g5').addEventListener('input', (e) => { proposalSearch = e.target.value; renderProposalsList(); });
+    document.getElementById('filter-bar-h4j7').addEventListener('click', (e) => { const btn = e.target.closest('.filter-btn'); if (!btn) return; document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); proposalFilter = btn.dataset.filter; renderProposalsList(); });
+    function duplicateProposal(id) { const orig = proposals.find(p => p.id === id); if (!orig) return; const dup = JSON.parse(JSON.stringify(orig)); dup.id = genId(); dup.title = orig.title + ' (Copy)'; dup.status = 'Draft'; dup.sentAt = null; dup.viewedAt = null; dup.invoiceNumber = null; dup.acceptedDate = null; dup.date = NOW.toISOString().split('T')[0]; proposals.push(dup); saveProposalToSupabase(dup); renderProposalsList(); }
+    function markProposalSent(id) { const p = proposals.find(pr => pr.id === id); if (p) { p.status = 'Sent'; p.sentAt = new Date(NOW); p.viewedAt = null; } saveProposalToSupabase(p); renderProposalsList(); }
+    function archiveProposal(id) { proposals = proposals.filter(p => p.id !== id); deleteProposalFromSupabase(id); renderProposalsList(); }
+
+    // ============================================================
+    // ACCEPT PROPOSAL FLOW
+    // ============================================================
+    let pendingAcceptId = null;
+    function showAcceptConfirm(proposalId) { pendingAcceptId = proposalId; const p = proposals.find(pr => pr.id === proposalId); if (!p) return; const client = getClient(p.clientId); const totals = calcProposalTotal(p); document.getElementById('accept-confirm-info').innerHTML = `<div class="text-left space-y-1 mt-2"><div class="flex justify-between"><span class="text-muted-300">Client:</span><span class="text-white font-medium">${client ? client.name : 'Unknown'}</span></div><div class="flex justify-between"><span class="text-muted-300">Proposal:</span><span class="text-white font-medium">${p.title}</span></div><div class="flex justify-between"><span class="text-muted-300">Total Value:</span><span class="text-white font-bold">${fmt$(totals.total)}</span></div></div>`; document.getElementById('accept-confirm-overlay').classList.add('open'); document.body.style.overflow = 'hidden'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+    document.getElementById('accept-confirm-cancel').addEventListener('click', () => { document.getElementById('accept-confirm-overlay').classList.remove('open'); document.body.style.overflow = ''; pendingAcceptId = null; });
+    document.getElementById('accept-confirm-overlay').addEventListener('click', function(e) { if (e.target === this) { this.classList.remove('open'); document.body.style.overflow = ''; pendingAcceptId = null; } });
+    document.getElementById('accept-confirm-yes').addEventListener('click', () => { document.getElementById('accept-confirm-overlay').classList.remove('open'); if (pendingAcceptId) runAcceptAnimation(pendingAcceptId); pendingAcceptId = null; });
+
+    function runAcceptAnimation(proposalId) {
+        const p = proposals.find(pr => pr.id === proposalId); if (!p) return;
+        const client = getClient(p.clientId); const totals = calcProposalTotal(p);
+        const invNum = 'INV-' + nextInvoiceNum; nextInvoiceNum++;
+        p.status = 'Accepted'; p.invoiceNumber = invNum; p.acceptedDate = NOW.toISOString().split('T')[0]; saveProposalToSupabase(p);
+        const ap = { id: genId(), proposalTitle: p.title, clientName: client ? client.name : 'Unknown', clientEmail: client ? client.email : '', clientPhone: client ? client.phone : '', clientCompany: client ? client.company : '', invoiceNumber: invNum, lineItems: JSON.parse(JSON.stringify(p.lineItems)), subtotal: totals.subtotal, tax: p.tax, total: totals.total, acceptedDate: NOW.toISOString().split('T')[0], status: 'invoice_created', proposalId: p.id };
+        acceptedProposals.push(ap); saveAcceptedProposal(ap);
+        bridgeToInvoiceReady({ clientName: ap.clientName, clientEmail: ap.clientEmail, clientPhone: ap.clientPhone, clientCompany: ap.clientCompany, invoiceNumber: invNum, proposalTitle: ap.proposalTitle, subtotal: totals.subtotal, taxRate: p.tax, taxAmount: totals.taxAmt, total: totals.total });
+        const overlay = document.getElementById('invoice-anim-overlay'); overlay.classList.add('open');
+        ['inv-step-1', 'inv-step-2', 'inv-step-3'].forEach(id => { document.getElementById(id).classList.remove('visible', 'done'); });
+        document.getElementById('inv-step-3-text').textContent = `Invoice ${invNum} is ready in InvoiceReady!`;
+        document.getElementById('invoice-summary-card').classList.add('hidden'); document.getElementById('invoice-anim-btns').classList.add('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        setTimeout(() => { document.getElementById('inv-step-1').classList.add('visible'); }, 200);
+        setTimeout(() => { document.getElementById('inv-step-1').classList.add('done'); if (typeof lucide !== 'undefined') lucide.createIcons(); }, 900);
+        setTimeout(() => { document.getElementById('inv-step-2').classList.add('visible'); }, 1100);
+        setTimeout(() => { document.getElementById('inv-step-2').classList.add('done'); if (typeof lucide !== 'undefined') lucide.createIcons(); }, 1800);
+        setTimeout(() => { document.getElementById('inv-step-3').classList.add('visible'); }, 2000);
+        setTimeout(() => { document.getElementById('inv-step-3').classList.add('done'); if (typeof lucide !== 'undefined') lucide.createIcons(); document.getElementById('invoice-summary-card').innerHTML = `<div class="flex items-center justify-between flex-wrap gap-2"><span class="text-muted-300">Client:</span><span class="font-medium">${client ? client.name : 'Unknown'}</span></div><div class="flex items-center justify-between flex-wrap gap-2"><span class="text-muted-300">Invoice:</span><span class="font-semibold text-success-400">${invNum}</span></div><div class="flex items-center justify-between flex-wrap gap-2"><span class="text-muted-300">Amount:</span><span class="font-bold">${fmt$(totals.total)}</span></div>`; document.getElementById('invoice-summary-card').classList.remove('hidden'); document.getElementById('invoice-anim-btns').classList.remove('hidden'); if (typeof lucide !== 'undefined') lucide.createIcons(); }, 2700);
+    }
+    document.getElementById('inv-view-btn').addEventListener('click', () => { showToast('Opening InvoiceReady...'); window.open(CDI_URL, '_blank'); });
+    document.getElementById('inv-done-btn').addEventListener('click', () => { document.getElementById('invoice-anim-overlay').classList.remove('open'); document.body.style.overflow = ''; renderProposalsList(); renderInvoiceReadyBanner(); });
+
+    // ============================================================
+    // PROPOSAL DETAIL VIEW
+    // ============================================================
+    function openProposalDetail(id) {
+        const p = proposals.find(pr => pr.id === id); if (!p) return;
+        currentDetailId = id;
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tab-proposal-detail').classList.remove('hidden');
+        document.getElementById('detail-title-p7q2').textContent = p.title;
+        document.getElementById('detail-preview-container-r8s3').innerHTML = renderPreviewHTML(p);
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        const actionsBar = document.getElementById('detail-actions-bar');
+        const inv = getInvoiceForProposal(p.id);
+        let actionsHTML = '';
+        if (p.status === 'Sent' || p.status === 'Viewed') actionsHTML += `<button class="btn-primary text-sm" id="detail-accept-btn" style="background:linear-gradient(135deg,#4ade80,#22c55e);color:#0f1117;"><i data-lucide="check-circle-2" class="w-4 h-4"></i> Accept Proposal</button>`;
+        if (p.status === 'Accepted' && inv) actionsHTML += `<div class="flex items-center gap-2 flex-wrap">${statusBadge('Accepted')} ${invoiceBadge(inv.invoiceNumber)} <button class="text-sm text-success-400 hover:underline cursor-pointer bg-transparent border-0 font-medium" id="detail-view-inv-btn">View Invoice &rarr;</button></div>`;
+        actionsBar.innerHTML = actionsHTML;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        const detAcceptBtn = document.getElementById('detail-accept-btn');
+        if (detAcceptBtn) detAcceptBtn.addEventListener('click', () => showAcceptConfirm(id));
+        const detInvBtn = document.getElementById('detail-view-inv-btn');
+        if (detInvBtn) detInvBtn.addEventListener('click', () => { showToast('Opening InvoiceReady...'); window.open(CDI_URL, '_blank'); });
+    }
+    document.getElementById('detail-back-btn-m6n0').addEventListener('click', () => switchTab('proposals'));
+
+    // ============================================================
+    // LIVE PREVIEW RENDERER
+    // ============================================================
+    function renderPreviewHTML(p) {
+        const client = getClient(p.clientId); const totals = calcProposalTotal(p);
+        const lineItemsHTML = (p.lineItems || []).map(li => `<tr><td style="font-weight:500;">${li.name || li.description || ''}</td><td style="color:#666;">${li.desc || ''}</td><td style="text-align:center;">${li.qty || li.quantity || 0}</td><td style="text-align:right;">${fmt$(li.price || li.unitPrice || 0)}</td><td style="text-align:right;font-weight:500;">${fmt$((li.qty || li.quantity || 0) * (li.price || li.unitPrice || 0))}</td></tr>`).join('');
+        const milestonesHTML = (p.milestones || []).map(m => `<tr><td style="font-weight:500;">${m.name}</td><td>${fmtDate(m.date)}</td><td style="color:#666;">${m.deliverable}</td></tr>`).join('');
+        return `<div style="margin-bottom:2rem;border-bottom:3px solid #f472b6;padding-bottom:1.5rem;"><h1 style="font-size:1.5rem;font-weight:800;margin:0 0 0.25rem 0;">${p.bizName || "Heather's Creative Studio"}</h1><h2 style="font-size:1.1rem;font-weight:600;color:#444;margin:0 0 1rem 0;border:none;padding:0;">${p.title || 'Untitled Proposal'}</h2><div style="display:flex;flex-wrap:wrap;gap:2rem;font-size:0.8rem;color:#666;"><div><strong>Prepared for:</strong> ${client ? client.name : '—'}</div><div><strong>Date:</strong> ${fmtDate(p.date)}</div><div><strong>Valid until:</strong> ${fmtDate(p.expiry)}</div></div></div>${p.summary ? `<div style="margin-bottom:1.5rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.5rem;">Executive Summary</h2><p style="font-size:0.85rem;line-height:1.7;color:#444;">${p.summary}</p></div>` : ''}${(p.lineItems || []).length > 0 ? `<div style="margin-bottom:1.5rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.5rem;">Scope of Work</h2><table><thead><tr><th>Service</th><th>Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr></thead><tbody>${lineItemsHTML}</tbody></table></div>` : ''}${(p.milestones || []).length > 0 ? `<div style="margin-bottom:1.5rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.5rem;">Timeline</h2><table><thead><tr><th>Milestone</th><th>Target Date</th><th>Deliverable</th></tr></thead><tbody>${milestonesHTML}</tbody></table></div>` : ''}<div style="margin-bottom:1.5rem;background:#fdf2f8;padding:1rem;border-radius:0.5rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.5rem;border:none;padding:0;">Pricing Summary</h2><div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.25rem;"><span>Subtotal</span><span>${fmt$(totals.subtotal)}</span></div>${p.discount ? `<div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#e11d48;margin-bottom:0.25rem;"><span>Discount (${p.discount}%)</span><span>-${fmt$(totals.discountAmt)}</span></div>` : ''}${p.tax ? `<div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.25rem;"><span>Tax (${p.tax}%)</span><span>${fmt$(totals.taxAmt)}</span></div>` : ''}<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:800;border-top:2px solid #f472b6;padding-top:0.5rem;margin-top:0.5rem;color:#be185d;"><span>Total</span><span>${fmt$(totals.total)}</span></div></div>${p.terms ? `<div style="margin-bottom:1.5rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.5rem;">Terms & Conditions</h2><p style="font-size:0.8rem;line-height:1.7;color:#666;white-space:pre-line;">${p.terms}</p></div>` : ''}<div style="margin-top:2rem;border-top:1px solid #e5e5ea;padding-top:1rem;"><h2 style="font-size:0.95rem;font-weight:700;margin-bottom:0.75rem;border:none;padding:0;">Acceptance & Signature</h2><div style="display:flex;gap:2rem;flex-wrap:wrap;"><div style="flex:1;min-width:200px;"><p style="font-size:0.75rem;color:#999;margin-bottom:0.25rem;">Client Name</p><p style="font-size:0.85rem;font-weight:500;border-bottom:1px solid #ccc;padding-bottom:0.25rem;min-height:1.5rem;">${p.sigName || ''}</p></div><div style="flex:1;min-width:200px;"><p style="font-size:0.75rem;color:#999;margin-bottom:0.25rem;">Date</p><p style="font-size:0.85rem;font-weight:500;border-bottom:1px solid #ccc;padding-bottom:0.25rem;min-height:1.5rem;">${fmtDate(p.sigDate)}</p></div></div><div style="margin-top:1rem;"><p style="font-size:0.75rem;color:#999;margin-bottom:0.25rem;">Signature</p><div style="border:1px dashed #ccc;border-radius:0.25rem;height:60px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:0.8rem;">E-signature area</div></div></div>`;
+    }
+
+    // ============================================================
+    // PROPOSAL BUILDER
+    // ============================================================
+    function openBuilder(id) {
+        currentEditId = id;
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tab-builder').classList.remove('hidden');
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('mobile-menu-p4s9').classList.add('hidden');
+        const sel = document.getElementById('b-client-select-i7j1');
+        sel.innerHTML = '<option value="">Select a client...</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if (id) {
+            const p = proposals.find(pr => pr.id === id); if (!p) return;
+            document.getElementById('builder-title-w1x5').textContent = 'Edit Proposal';
+            document.getElementById('b-biz-name-g6h0').value = p.bizName || '';
+            document.getElementById('b-client-select-i7j1').value = p.clientId || '';
+            document.getElementById('b-title-k8l2').value = p.title || '';
+            document.getElementById('b-date-m9n3').value = p.date || '';
+            document.getElementById('b-expiry-o0p4').value = p.expiry || '';
+            document.getElementById('b-summary-q1r5').value = p.summary || '';
+            builderLineItems = JSON.parse(JSON.stringify(p.lineItems || []));
+            builderMilestones = JSON.parse(JSON.stringify(p.milestones || []));
+            document.getElementById('b-discount-c7d1').value = p.discount || 0;
+            document.getElementById('b-tax-e8f2').value = p.tax || 0;
+            document.getElementById('b-terms-i0j4').value = p.terms || '';
+            document.getElementById('b-sig-name-k1l5').value = p.sigName || '';
+            document.getElementById('b-sig-date-m2n6').value = p.sigDate || '';
+        } else {
+            document.getElementById('builder-title-w1x5').textContent = 'New Proposal';
+            document.getElementById('b-biz-name-g6h0').value = "Heather's Creative Studio";
+            document.getElementById('b-client-select-i7j1').value = '';
+            document.getElementById('b-title-k8l2').value = '';
+            document.getElementById('b-date-m9n3').value = NOW.toISOString().split('T')[0];
+            const exp = new Date(NOW); exp.setDate(exp.getDate() + 30);
+            document.getElementById('b-expiry-o0p4').value = exp.toISOString().split('T')[0];
+            document.getElementById('b-summary-q1r5').value = '';
+            builderLineItems = [{ name: '', desc: '', qty: 1, price: 0 }];
+            builderMilestones = [{ name: '', date: '', deliverable: '' }];
+            document.getElementById('b-discount-c7d1').value = 0;
+            document.getElementById('b-tax-e8f2').value = 0;
+            document.getElementById('b-terms-i0j4').value = document.getElementById('b-terms-i0j4').defaultValue;
+            document.getElementById('b-sig-name-k1l5').value = '';
+            document.getElementById('b-sig-date-m2n6').value = '';
+        }
+        renderLineItems(); renderMilestones(); updatePricingSummary(); updateLivePreview(); initSignaturePad();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function loadTemplate(templateId) {
+        const t = templates.find(tp => tp.id === templateId); if (!t) return;
+        currentEditId = null;
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tab-builder').classList.remove('hidden');
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        const sel = document.getElementById('b-client-select-i7j1');
+        sel.innerHTML = '<option value="">Select a client...</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        document.getElementById('builder-title-w1x5').textContent = 'New Proposal from Template';
+        document.getElementById('b-biz-name-g6h0').value = "Heather's Creative Studio";
+        document.getElementById('b-client-select-i7j1').value = '';
+        document.getElementById('b-title-k8l2').value = '';
+        document.getElementById('b-date-m9n3').value = NOW.toISOString().split('T')[0];
+        const exp = new Date(NOW); exp.setDate(exp.getDate() + 30);
+        document.getElementById('b-expiry-o0p4').value = exp.toISOString().split('T')[0];
+        document.getElementById('b-summary-q1r5').value = t.data.summary || '';
+        builderLineItems = JSON.parse(JSON.stringify(t.data.lineItems || []));
+        builderMilestones = JSON.parse(JSON.stringify(t.data.milestones || []));
+        document.getElementById('b-discount-c7d1').value = t.data.discount || 0;
+        document.getElementById('b-tax-e8f2').value = t.data.tax || 0;
+        document.getElementById('b-sig-name-k1l5').value = '';
+        document.getElementById('b-sig-date-m2n6').value = '';
+        renderLineItems(); renderMilestones(); updatePricingSummary(); updateLivePreview(); initSignaturePad();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    document.getElementById('builder-back-btn-t9u4').addEventListener('click', () => switchTab('proposals'));
+
+    function renderLineItems() {
+        const container = document.getElementById('line-items-container-s2t6');
+        container.innerHTML = builderLineItems.map((li, i) => `<div class="p-3 rounded-lg bg-bg-800/50 space-y-2"><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2"><div><label class="text-xs text-muted-300 block mb-0.5">Service</label><input class="li-field text-sm" data-li="${i}" data-field="name" value="${li.name || ''}" placeholder="Service name" /></div><div><label class="text-xs text-muted-300 block mb-0.5">Description</label><input class="li-field text-sm" data-li="${i}" data-field="desc" value="${li.desc || ''}" placeholder="Description" /></div><div><label class="text-xs text-muted-300 block mb-0.5">Qty</label><input class="li-field text-sm" data-li="${i}" data-field="qty" type="number" min="1" value="${li.qty}" /></div><div><label class="text-xs text-muted-300 block mb-0.5">Unit Price</label><input class="li-field text-sm" data-li="${i}" data-field="price" type="number" min="0" step="0.01" value="${li.price}" /></div><div class="flex items-end gap-2"><div class="flex-1"><label class="text-xs text-muted-300 block mb-0.5">Amount</label><div class="text-sm font-medium py-2 tabular-nums">${fmt$(li.qty * li.price)}</div></div><button class="remove-li-btn text-muted-300 hover:text-red-400 pb-2" data-remove-li="${i}"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('.li-field').forEach(input => { input.addEventListener('input', () => { const idx = parseInt(input.dataset.li); const field = input.dataset.field; if (field === 'qty' || field === 'price') builderLineItems[idx][field] = parseFloat(input.value) || 0; else builderLineItems[idx][field] = input.value; updatePricingSummary(); updateLivePreview(); const row = input.closest('.p-3'); const amtEl = row.querySelector('.tabular-nums'); if (amtEl) amtEl.textContent = fmt$(builderLineItems[idx].qty * builderLineItems[idx].price); }); });
+        container.querySelectorAll('[data-remove-li]').forEach(btn => { btn.addEventListener('click', () => { builderLineItems.splice(parseInt(btn.dataset.removeLi), 1); renderLineItems(); updatePricingSummary(); updateLivePreview(); }); });
+    }
+    document.getElementById('add-line-item-btn-u3v7').addEventListener('click', () => { builderLineItems.push({ name: '', desc: '', qty: 1, price: 0 }); renderLineItems(); });
+
+    function renderMilestones() {
+        const container = document.getElementById('milestones-container-w4x8');
+        container.innerHTML = builderMilestones.map((m, i) => `<div class="p-3 rounded-lg bg-bg-800/50"><div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><div><label class="text-xs text-muted-300 block mb-0.5">Milestone</label><input class="ms-field text-sm" data-ms="${i}" data-field="name" value="${m.name}" placeholder="Milestone name" /></div><div><label class="text-xs text-muted-300 block mb-0.5">Date</label><input class="ms-field text-sm" data-ms="${i}" data-field="date" type="date" value="${m.date}" /></div><div class="flex items-end gap-2"><div class="flex-1"><label class="text-xs text-muted-300 block mb-0.5">Deliverable</label><input class="ms-field text-sm" data-ms="${i}" data-field="deliverable" value="${m.deliverable}" placeholder="What will be delivered" /></div><button class="text-muted-300 hover:text-red-400 pb-2" data-remove-ms="${i}"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('.ms-field').forEach(input => { input.addEventListener('input', () => { builderMilestones[parseInt(input.dataset.ms)][input.dataset.field] = input.value; updateLivePreview(); }); });
+        container.querySelectorAll('[data-remove-ms]').forEach(btn => { btn.addEventListener('click', () => { builderMilestones.splice(parseInt(btn.dataset.removeMs), 1); renderMilestones(); updateLivePreview(); }); });
+    }
+    document.getElementById('add-milestone-btn-y5z9').addEventListener('click', () => { builderMilestones.push({ name: '', date: '', deliverable: '' }); renderMilestones(); });
+
+    function updatePricingSummary() {
+        const subtotal = builderLineItems.reduce((s, li) => s + (li.qty * li.price), 0);
+        const disc = parseFloat(document.getElementById('b-discount-c7d1').value) || 0;
+        const tax = parseFloat(document.getElementById('b-tax-e8f2').value) || 0;
+        const discAmt = subtotal * (disc / 100); const afterDisc = subtotal - discAmt; const taxAmt = afterDisc * (tax / 100);
+        document.getElementById('b-subtotal-a6b0').textContent = fmt$(subtotal);
+        document.getElementById('b-total-g9h3').textContent = fmt$(afterDisc + taxAmt);
+    }
+    document.getElementById('b-discount-c7d1').addEventListener('input', () => { updatePricingSummary(); updateLivePreview(); });
+    document.getElementById('b-tax-e8f2').addEventListener('input', () => { updatePricingSummary(); updateLivePreview(); });
+
+    function updateLivePreview() {
+        const p = { bizName: document.getElementById('b-biz-name-g6h0').value, clientId: document.getElementById('b-client-select-i7j1').value, title: document.getElementById('b-title-k8l2').value, date: document.getElementById('b-date-m9n3').value, expiry: document.getElementById('b-expiry-o0p4').value, summary: document.getElementById('b-summary-q1r5').value, lineItems: builderLineItems, milestones: builderMilestones, discount: parseFloat(document.getElementById('b-discount-c7d1').value) || 0, tax: parseFloat(document.getElementById('b-tax-e8f2').value) || 0, terms: document.getElementById('b-terms-i0j4').value, sigName: document.getElementById('b-sig-name-k1l5').value, sigDate: document.getElementById('b-sig-date-m2n6').value };
+        document.getElementById('live-preview-y8z2').innerHTML = renderPreviewHTML(p);
+    }
+    ['b-biz-name-g6h0', 'b-client-select-i7j1', 'b-title-k8l2', 'b-date-m9n3', 'b-expiry-o0p4', 'b-summary-q1r5', 'b-terms-i0j4', 'b-sig-name-k1l5', 'b-sig-date-m2n6'].forEach(id => { document.getElementById(id).addEventListener('input', updateLivePreview); document.getElementById(id).addEventListener('change', updateLivePreview); });
+
+    document.getElementById('preview-toggle-btn-y2z6').addEventListener('click', () => { const panel = document.getElementById('builder-preview-panel-w7x1'); previewVisible = !previewVisible; if (previewVisible) { panel.classList.remove('hidden'); panel.classList.add('fixed', 'inset-0', 'z-50', 'bg-bg-900', 'p-4', 'overflow-y-auto'); const closeBtn = document.createElement('button'); closeBtn.className = 'btn-secondary mb-4'; closeBtn.id = 'close-preview-mobile'; closeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i> Close Preview'; panel.prepend(closeBtn); if (typeof lucide !== 'undefined') lucide.createIcons(); closeBtn.addEventListener('click', () => { previewVisible = false; panel.classList.add('hidden'); panel.classList.remove('fixed', 'inset-0', 'z-50', 'bg-bg-900', 'p-4', 'overflow-y-auto'); closeBtn.remove(); }); } else { panel.classList.add('hidden'); panel.classList.remove('fixed', 'inset-0', 'z-50', 'bg-bg-900', 'p-4', 'overflow-y-auto'); const cb = document.getElementById('close-preview-mobile'); if (cb) cb.remove(); } });
+
+    function initSignaturePad() {
+        const canvas = document.getElementById('sig-canvas-q4r8'); const placeholder = document.getElementById('sig-placeholder-s5t9'); const pad = document.getElementById('sig-pad-o3p7');
+        sigCtx = canvas.getContext('2d'); canvas.width = pad.offsetWidth; canvas.height = pad.offsetHeight;
+        sigCtx.strokeStyle = '#e2e4ed'; sigCtx.lineWidth = 2; sigCtx.lineCap = 'round'; sigHasContent = false; placeholder.style.display = '';
+        function getPos(e) { const rect = canvas.getBoundingClientRect(); return { x: ((e.touches ? e.touches[0].clientX : e.clientX) - rect.left) * (canvas.width / rect.width), y: ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top) * (canvas.height / rect.height) }; }
+        function startDraw(e) { e.preventDefault(); sigDrawing = true; sigHasContent = true; placeholder.style.display = 'none'; const pos = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(pos.x, pos.y); }
+        function draw(e) { if (!sigDrawing) return; e.preventDefault(); const pos = getPos(e); sigCtx.lineTo(pos.x, pos.y); sigCtx.stroke(); }
+        function stopDraw() { sigDrawing = false; }
+        canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false }); canvas.addEventListener('touchmove', draw, { passive: false }); canvas.addEventListener('touchend', stopDraw);
+    }
+    document.getElementById('clear-sig-btn-u6v0').addEventListener('click', () => { const canvas = document.getElementById('sig-canvas-q4r8'); sigCtx.clearRect(0, 0, canvas.width, canvas.height); sigHasContent = false; document.getElementById('sig-placeholder-s5t9').style.display = ''; });
+
+    function gatherBuilderData() { return { bizName: document.getElementById('b-biz-name-g6h0').value, clientId: document.getElementById('b-client-select-i7j1').value, title: document.getElementById('b-title-k8l2').value, date: document.getElementById('b-date-m9n3').value, expiry: document.getElementById('b-expiry-o0p4').value, summary: document.getElementById('b-summary-q1r5').value, lineItems: JSON.parse(JSON.stringify(builderLineItems)), milestones: JSON.parse(JSON.stringify(builderMilestones)), discount: parseFloat(document.getElementById('b-discount-c7d1').value) || 0, tax: parseFloat(document.getElementById('b-tax-e8f2').value) || 0, terms: document.getElementById('b-terms-i0j4').value, sigName: document.getElementById('b-sig-name-k1l5').value, sigDate: document.getElementById('b-sig-date-m2n6').value }; }
+
+    document.getElementById('save-draft-btn-a3b7').addEventListener('click', async () => { const data = gatherBuilderData(); if (!data.title) { alert('Please enter a proposal title.'); return; } if (currentEditId) { const p = proposals.find(pr => pr.id === currentEditId); if (p) { Object.assign(p, data); p.total = calcProposalTotal(p).total; await saveProposalToSupabase(p); } } else { const newP = { id: genId(), ...data, status: 'Draft', sentAt: null, viewedAt: null }; newP.total = calcProposalTotal(newP).total; proposals.push(newP); currentEditId = newP.id; const saved = await saveProposalToSupabase(newP); if (saved && saved.id) { newP.id = saved.id; currentEditId = saved.id; } } showToast('Proposal saved as draft'); switchTab('proposals'); });
+    document.getElementById('mark-sent-btn-c4d8').addEventListener('click', async () => { const data = gatherBuilderData(); if (!data.title) { alert('Please enter a proposal title.'); return; } if (!data.clientId) { alert('Please select a client.'); return; } if (currentEditId) { const p = proposals.find(pr => pr.id === currentEditId); if (p) { Object.assign(p, data); p.status = 'Sent'; p.sentAt = new Date(NOW); p.viewedAt = null; p.total = calcProposalTotal(p).total; await saveProposalToSupabase(p); } } else { const newP = { id: genId(), ...data, status: 'Sent', sentAt: new Date(NOW), viewedAt: null }; newP.total = calcProposalTotal(newP).total; proposals.push(newP); const saved = await saveProposalToSupabase(newP); if (saved && saved.id) newP.id = saved.id; } showToast('Proposal marked as sent!'); switchTab('proposals'); });
+
+    function showToast(msg) { const toast = document.createElement('div'); toast.className = 'fixed bottom-14 right-6 bg-success-400 text-bg-900 px-5 py-3 rounded-lg shadow-lg font-medium text-sm z-[95] fade-in flex items-center gap-2'; toast.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4"></i> ${msg}`; document.body.appendChild(toast); if (typeof lucide !== 'undefined') lucide.createIcons(); setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2500); }
+
+    // ============================================================
+    // TEMPLATES
+    // ============================================================
+    function renderTemplates() {
+        const container = document.getElementById('templates-grid-a9b1');
+        const icons = ['briefcase', 'presentation', 'palette'];
+        container.innerHTML = templates.map((t, i) => `<div class="card hover:border-accent-400/30 transition-smooth"><div class="w-10 h-10 rounded-xl bg-accent-400/10 flex items-center justify-center mb-4"><i data-lucide="${icons[i % icons.length]}" class="w-5 h-5 text-accent-400"></i></div><h3 class="font-semibold mb-1">${t.name}</h3><p class="text-muted-400 text-sm mb-4 leading-relaxed">${t.description}</p><div class="space-y-1.5 mb-5">${t.sections.map(s => `<div class="flex items-center gap-2 text-xs text-muted-300"><i data-lucide="check" class="w-3 h-3 text-success-400"></i> ${s}</div>`).join('')}</div><div class="flex gap-2"><button class="btn-primary flex-1 justify-center text-sm" data-use-template="${t.id}"><i data-lucide="file-plus" class="w-4 h-4"></i> Use Template</button><button class="btn-secondary text-xs" data-dup-template="${t.id}" title="Duplicate"><i data-lucide="copy" class="w-4 h-4"></i></button></div></div>`).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-use-template]').forEach(btn => btn.addEventListener('click', () => loadTemplate(btn.dataset.useTemplate)));
+        container.querySelectorAll('[data-dup-template]').forEach(btn => { btn.addEventListener('click', () => { const t = templates.find(tp => tp.id === btn.dataset.dupTemplate); if (!t) return; const dup = JSON.parse(JSON.stringify(t)); dup.id = genId(); dup.name = t.name + ' (Copy)'; templates.push(dup); renderTemplates(); showToast('Template duplicated'); }); });
+    }
+
+    // ============================================================
+    // CLIENTS
+    // ============================================================
+    let editingClientId = null;
+    function renderClients() {
+        const container = document.getElementById('clients-list-e1f3');
+        if (clients.length === 0) { container.innerHTML = `<div class="text-center py-12 text-muted-400"><i data-lucide="users" class="w-10 h-10 mx-auto mb-3 opacity-40"></i><p class="text-sm">No clients yet</p></div>`; if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
+        container.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="text-xs text-muted-300 uppercase tracking-wide border-b border-stroke-100"><th class="py-3 px-4 font-medium">Client</th><th class="py-3 px-4 font-medium hidden sm:table-cell">Email</th><th class="py-3 px-4 font-medium text-center">Proposals</th><th class="py-3 px-4 font-medium hidden md:table-cell">Last Proposal</th><th class="py-3 px-4 font-medium text-right">Total Value</th><th class="py-3 px-4 font-medium text-right">Actions</th></tr></thead><tbody class="divide-y divide-stroke-100">${clients.map(c => { const cProps = proposals.filter(p => p.clientId === c.id); const totalVal = cProps.reduce((s, p) => s + calcProposalTotal(p).total, 0); const lastDate = cProps.length > 0 ? cProps.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null; return `<tr class="hover:bg-bg-700/30 transition-smooth"><td class="py-3 px-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-accent-400/15 flex items-center justify-center text-accent-400 font-semibold text-xs">${c.name.charAt(0)}</div><div><p class="font-medium text-sm">${c.name}</p><p class="text-xs text-muted-300 sm:hidden">${c.email}</p></div></div></td><td class="py-3 px-4 text-sm text-muted-400 hidden sm:table-cell">${c.email}</td><td class="py-3 px-4 text-sm text-center tabular-nums">${cProps.length}</td><td class="py-3 px-4 text-sm text-muted-400 hidden md:table-cell">${fmtDate(lastDate)}</td><td class="py-3 px-4 text-sm text-right tabular-nums font-medium">${fmt$(totalVal)}</td><td class="py-3 px-4 text-right"><button class="btn-secondary text-xs py-1 px-2" data-edit-client="${c.id}"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button></td></tr>`; }).join('')}</tbody></table></div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-edit-client]').forEach(btn => btn.addEventListener('click', () => openClientModal(btn.dataset.editClient)));
+    }
+    function openClientModal(clientId) { editingClientId = clientId || null; document.getElementById('client-modal-g2h4').classList.remove('hidden'); document.getElementById('client-modal-title-i3j5').textContent = clientId ? 'Edit Client' : 'Add Client'; if (clientId) { const c = clients.find(cl => cl.id === clientId); if (c) { document.getElementById('cf-name-m5n7').value = c.name; document.getElementById('cf-email-o6p8').value = c.email; document.getElementById('cf-phone-q7r9').value = c.phone || ''; document.getElementById('cf-company-s8t0').value = c.company || ''; } } else { document.getElementById('cf-name-m5n7').value = ''; document.getElementById('cf-email-o6p8').value = ''; document.getElementById('cf-phone-q7r9').value = ''; document.getElementById('cf-company-s8t0').value = ''; } }
+    function closeClientModal() { document.getElementById('client-modal-g2h4').classList.add('hidden'); editingClientId = null; }
+    document.getElementById('add-client-btn-c0d2').addEventListener('click', () => openClientModal(null));
+    document.getElementById('client-modal-close-k4l6').addEventListener('click', closeClientModal);
+    document.getElementById('cf-cancel-u9v1').addEventListener('click', closeClientModal);
+    document.getElementById('cf-save-w0x2').addEventListener('click', async () => { const name = document.getElementById('cf-name-m5n7').value.trim(); const email = document.getElementById('cf-email-o6p8').value.trim(); if (!name || !email) { alert('Name and email are required.'); return; } const data = { name, email, phone: document.getElementById('cf-phone-q7r9').value.trim(), company: document.getElementById('cf-company-s8t0').value.trim() }; if (editingClientId) { const c = clients.find(cl => cl.id === editingClientId); if (c) { Object.assign(c, data); await saveClientToSupabase(c); } showToast('Client updated'); } else { const newClient = { id: genId(), ...data }; const saved = await saveClientToSupabase(newClient); if (saved && saved.id) newClient.id = saved.id; clients.push(newClient); showToast('Client added'); } closeClientModal(); renderClients(); });
+
+    // ============================================================
+    // PAIRING BANNERS
+    // ============================================================
+    function renderInvoiceReadyBanner() {
+        const container = document.getElementById('invoiceready-banner');
+        if (dismissedBanners.includes('proposalpro_invoiceready_banner')) { container.classList.add('hidden'); return; }
+        const hasAccepted = acceptedProposals.length > 0; container.classList.remove('hidden');
+        if (hasAccepted) { container.innerHTML = `<div class="pairing-banner" style="border-left:3px solid #4ade80;background:linear-gradient(90deg,rgba(74,222,128,0.06),transparent);" id="ir-banner-card"><button class="dismiss-btn" data-dismiss-banner="proposalpro_invoiceready_banner"><i data-lucide="x" class="w-4 h-4"></i></button><div class="flex items-start gap-4 flex-wrap"><div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(74,222,128,0.12);"><i data-lucide="receipt" class="w-5 h-5" style="color:#4ade80;"></i></div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-sm">InvoiceReady</span><span class="badge badge-accepted text-[0.6rem]">Connected</span></div><p class="text-sm text-muted-400 leading-relaxed mb-3">InvoiceReady is active — proposals auto-generate invoices on acceptance.</p><div class="flex gap-2 flex-wrap"><button class="text-xs font-medium cursor-pointer bg-transparent border-0" style="color:#4ade80;" data-nav-settings>Manage Integration &rarr;</button></div></div></div></div>`; }
+        else { container.innerHTML = `<div class="pairing-banner" style="border-left:3px solid #4ade80;background:linear-gradient(90deg,rgba(74,222,128,0.06),transparent);" id="ir-banner-card"><button class="dismiss-btn" data-dismiss-banner="proposalpro_invoiceready_banner"><i data-lucide="x" class="w-4 h-4"></i></button><div class="flex items-start gap-4 flex-wrap"><div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(74,222,128,0.12);"><i data-lucide="receipt" class="w-5 h-5" style="color:#4ade80;"></i></div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-sm">InvoiceReady</span></div><p class="text-sm text-muted-400 leading-relaxed mb-3">Accepted proposal? Your invoice is already waiting.</p><div class="flex gap-2 flex-wrap"><button class="text-xs font-semibold px-3 py-1.5 rounded-md border-0 cursor-pointer" style="background:#4ade80;color:#0f1117;" data-banner-cta>Connect Now</button><button class="text-xs font-medium cursor-pointer bg-transparent border-0" style="color:#4ade80;" data-banner-learn>Learn More</button></div></div></div></div>`; }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-dismiss-banner]').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); dismissedBanners.push(btn.dataset.dismissBanner); saveDismissedBanners(); const card = btn.closest('.pairing-banner'); card.classList.add('banner-dismiss-anim'); setTimeout(() => container.classList.add('hidden'), 350); }); });
+        container.querySelectorAll('[data-banner-cta]').forEach(btn => btn.addEventListener('click', () => window.open(CDI_URL, '_blank')));
+        container.querySelectorAll('[data-banner-learn]').forEach(btn => btn.addEventListener('click', () => window.open(CDI_URL, '_blank')));
+        container.querySelectorAll('[data-nav-settings]').forEach(btn => btn.addEventListener('click', () => switchTab('settings')));
+    }
+    function renderClientFlowBanner() {
+        const container = document.getElementById('clientflow-banner');
+        if (dismissedBanners.includes('proposalpro_clientflow_banner')) { container.classList.add('hidden'); return; }
+        container.classList.remove('hidden');
+        container.innerHTML = `<div class="pairing-banner" style="border-left:3px solid #7c5cfc;background:linear-gradient(90deg,rgba(124,92,252,0.06),transparent);" id="cf-banner-card"><button class="dismiss-btn" data-dismiss-banner="proposalpro_clientflow_banner"><i data-lucide="x" class="w-4 h-4"></i></button><div class="flex items-start gap-4 flex-wrap"><div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(124,92,252,0.12);"><i data-lucide="users" class="w-5 h-5" style="color:#7c5cfc;"></i></div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-sm">ClientFlow CRM</span></div><p class="text-sm text-muted-400 leading-relaxed mb-3">Track every interaction, follow-up, and deal across your entire client base.</p><div class="flex gap-2 flex-wrap"><button class="text-xs font-semibold px-3 py-1.5 rounded-md border-0 cursor-pointer" style="background:#7c5cfc;color:#fff;" data-banner-cta>Connect Now</button><button class="text-xs font-medium cursor-pointer bg-transparent border-0" style="color:#7c5cfc;" data-banner-learn>Learn More</button></div></div></div></div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        container.querySelectorAll('[data-dismiss-banner]').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); dismissedBanners.push(btn.dataset.dismissBanner); saveDismissedBanners(); btn.closest('.pairing-banner').classList.add('banner-dismiss-anim'); setTimeout(() => container.classList.add('hidden'), 350); }); });
+        container.querySelectorAll('[data-banner-cta]').forEach(btn => btn.addEventListener('click', () => window.open(CDI_URL, '_blank')));
+        container.querySelectorAll('[data-banner-learn]').forEach(btn => btn.addEventListener('click', () => window.open(CDI_URL, '_blank')));
+    }
+
+    // ============================================================
+    // SETTINGS TAB
+    // ============================================================
+    function renderSettingsTab() {
+        const count = acceptedProposals.length;
+        document.getElementById('settings-invoice-count').textContent = `${count} invoice${count !== 1 ? 's' : ''} auto-created this month`;
+        const recentContainer = document.getElementById('settings-recent-invoices');
+        const recent = acceptedProposals.slice(-3).reverse();
+        if (recent.length === 0) { recentContainer.innerHTML = `<p class="text-xs text-muted-300">No invoices created yet.</p>`; }
+        else { recentContainer.innerHTML = recent.map(ap => `<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-bg-900/50 text-sm"><div class="flex items-center gap-2 min-w-0"><span class="font-medium text-success-400 tabular-nums text-xs">${ap.invoiceNumber}</span><span class="text-muted-400 truncate">${ap.clientName}</span></div><div class="flex items-center gap-3 flex-shrink-0"><span class="tabular-nums font-medium text-xs">${fmt$(ap.total)}</span><span class="text-xs text-muted-300">${fmtDate(ap.acceptedDate)}</span></div></div>`).join(''); }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    document.getElementById('toggle-auto-invoice').addEventListener('change', function() { autoInvoice = this.checked; saveToggles(); });
+    document.getElementById('toggle-auto-client').addEventListener('change', function() { autoClient = this.checked; saveToggles(); });
+
+    // ============================================================
+    // AI PROPOSAL GENERATOR
+    // ============================================================
+    let selectedContractorType = 'General Contractor';
+    let capturedImages = [];
+    let cameraStream = null;
+    let capturedFrames = [];
+    let currentAiTab = 'describe';
+    let aiGeneratedData = null;
+    let useFrontCamera = false;
+
+    // Open / Close AI modal
+    function openAiGenModal() {
+        document.getElementById('ai-gen-overlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        resetAiModal();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    function closeAiGenModal() {
+        document.getElementById('ai-gen-overlay').classList.remove('open');
+        document.body.style.overflow = '';
+        stopCamera();
+    }
+    function resetAiModal() {
+        capturedImages = [];
+        capturedFrames = [];
+        aiGeneratedData = null;
+        switchAiTab('describe');
+        document.getElementById('ai-description').value = '';
+        document.getElementById('ai-budget-min').value = '';
+        document.getElementById('ai-budget-max').value = '';
+        document.getElementById('ai-location').value = 'Trotwood, OH';
+        document.getElementById('ai-timeline') && (document.getElementById('ai-timeline').value = '');
+        document.getElementById('ai-notes') && (document.getElementById('ai-notes').value = '');
+        document.getElementById('ai-photo-grid').innerHTML = '';
+        document.getElementById('ai-photo-notes-wrap').classList.add('hidden');
+        document.getElementById('ai-frames-grid').innerHTML = '';
+        document.getElementById('ai-camera-notes-wrap').classList.add('hidden');
+        showAiInputState();
+        updateMediaCount();
+    }
+
+    document.getElementById('ai-gen-trigger-btn').addEventListener('click', openAiGenModal);
+    document.getElementById('ai-gen-close-btn').addEventListener('click', closeAiGenModal);
+    document.getElementById('ai-gen-overlay').addEventListener('click', function(e) { if (e.target === this) closeAiGenModal(); });
+
+    // AI Tab switching
+    function switchAiTab(tab) {
+        currentAiTab = tab;
+        document.querySelectorAll('.ai-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.aiTab === tab));
+        document.getElementById('ai-tab-describe').classList.toggle('hidden', tab !== 'describe');
+        document.getElementById('ai-tab-photos').classList.toggle('hidden', tab !== 'photos');
+        document.getElementById('ai-tab-camera').classList.toggle('hidden', tab !== 'camera');
+        if (tab === 'camera') startCamera();
+        else stopCamera();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    document.getElementById('ai-input-tabs').addEventListener('click', function(e) {
+        const btn = e.target.closest('.ai-tab-btn');
+        if (!btn) return;
+        switchAiTab(btn.dataset.aiTab);
+    });
+
+    // Contractor type pills
+    document.getElementById('ai-contractor-types').addEventListener('click', function(e) {
+        const pill = e.target.closest('.contractor-pill');
+        if (!pill) return;
+        document.querySelectorAll('.contractor-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedContractorType = pill.dataset.ctype;
+    });
+
+    // Advanced options toggle
+    document.getElementById('ai-advanced-toggle').addEventListener('click', function() {
+        const body = document.getElementById('ai-advanced-body');
+        const chev = document.getElementById('ai-adv-chev');
+        body.classList.toggle('hidden');
+        chev.style.transform = body.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    });
+
+    // Photo upload
+    const dropzone = document.getElementById('ai-dropzone');
+    const fileInput = document.getElementById('ai-file-input');
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); fileInput.value = ''; });
+
+    function handleFiles(files) {
+        const remaining = 8 - capturedImages.length;
+        const toProcess = Array.from(files).slice(0, remaining);
+        toProcess.forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.addEventListener('load', function() {
+                capturedImages.push(reader.result);
+                renderPhotoGrid();
+                updateMediaCount();
+            });
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderPhotoGrid() {
+        const grid = document.getElementById('ai-photo-grid');
+        grid.innerHTML = capturedImages.filter((_, i) => !capturedFrames.includes(capturedImages[i]) || currentAiTab === 'photos').map((img, i) => `<div class="ai-photo-thumb"><img src="${img}" alt="Project photo ${i+1}" /><button class="remove-photo" data-remove-photo="${i}">&times;</button></div>`).join('');
+        document.getElementById('ai-photo-notes-wrap').classList.toggle('hidden', capturedImages.length === 0);
+        grid.querySelectorAll('.remove-photo').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.removePhoto);
+                capturedImages.splice(idx, 1);
+                renderPhotoGrid();
+                updateMediaCount();
+            });
+        });
+    }
+
+    // Camera
+    async function startCamera() {
+        document.getElementById('ai-camera-container').classList.remove('hidden');
+        document.getElementById('ai-camera-denied').classList.add('hidden');
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useFrontCamera ? 'user' : 'environment' } });
+            document.getElementById('ai-camera-feed').srcObject = cameraStream;
+        } catch(e) {
+            document.getElementById('ai-camera-container').classList.add('hidden');
+            document.getElementById('ai-camera-denied').classList.remove('hidden');
+        }
+    }
+    function stopCamera() {
+        if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+        const vid = document.getElementById('ai-camera-feed');
+        if (vid) vid.srcObject = null;
+    }
+    document.getElementById('ai-capture-btn').addEventListener('click', function() {
+        const video = document.getElementById('ai-camera-feed');
+        if (!video.srcObject) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        if (capturedImages.length < 8) {
+            capturedImages.push(dataUrl);
+            capturedFrames.push(dataUrl);
+            renderFramesGrid();
+            updateMediaCount();
+        }
+    });
+    document.getElementById('ai-switch-cam-btn').addEventListener('click', function() {
+        useFrontCamera = !useFrontCamera;
+        stopCamera();
+        startCamera();
+    });
+    document.getElementById('ai-cam-switch-to-photos').addEventListener('click', function() {
+        switchAiTab('photos');
+    });
+
+    function renderFramesGrid() {
+        const grid = document.getElementById('ai-frames-grid');
+        grid.innerHTML = capturedFrames.map((img, i) => `<div class="ai-photo-thumb"><img src="${img}" alt="Captured frame ${i+1}" /><button class="remove-photo" data-remove-frame="${i}">&times;</button></div>`).join('');
+        document.getElementById('ai-camera-notes-wrap').classList.toggle('hidden', capturedFrames.length === 0);
+        grid.querySelectorAll('.remove-photo').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.removeFrame);
+                const frameUrl = capturedFrames[idx];
+                capturedFrames.splice(idx, 1);
+                const mainIdx = capturedImages.indexOf(frameUrl);
+                if (mainIdx !== -1) capturedImages.splice(mainIdx, 1);
+                renderFramesGrid();
+                updateMediaCount();
+            });
+        });
+    }
+
+    function updateMediaCount() {
+        const el = document.getElementById('ai-media-count');
+        if (capturedImages.length > 0) {
+            el.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium" style="background:rgba(244,114,182,0.12);color:#f472b6;">📸 Using: ${capturedImages.length} photo${capturedImages.length !== 1 ? 's' : ''}</span>`;
+        } else { el.innerHTML = ''; }
+    }
+
+    // Show/hide states
+    function showAiInputState() {
+        document.getElementById('ai-tab-describe').classList.toggle('hidden', currentAiTab !== 'describe');
+        document.getElementById('ai-tab-photos').classList.toggle('hidden', currentAiTab !== 'photos');
+        document.getElementById('ai-tab-camera').classList.toggle('hidden', currentAiTab !== 'camera');
+        document.getElementById('ai-generating-state').classList.add('hidden');
+        document.getElementById('ai-result-state').classList.add('hidden');
+        document.getElementById('ai-error-state').classList.add('hidden');
+        document.getElementById('ai-gen-footer').classList.remove('hidden');
+        document.getElementById('ai-result-footer').classList.add('hidden');
+        document.getElementById('ai-input-tabs').classList.remove('hidden');
+    }
+    function showAiGeneratingState() {
+        document.getElementById('ai-tab-describe').classList.add('hidden');
+        document.getElementById('ai-tab-photos').classList.add('hidden');
+        document.getElementById('ai-tab-camera').classList.add('hidden');
+        document.getElementById('ai-generating-state').classList.remove('hidden');
+        document.getElementById('ai-result-state').classList.add('hidden');
+        document.getElementById('ai-error-state').classList.add('hidden');
+        document.getElementById('ai-gen-footer').classList.add('hidden');
+        document.getElementById('ai-result-footer').classList.add('hidden');
+        document.getElementById('ai-input-tabs').classList.add('hidden');
+        stopCamera();
+    }
+    function showAiResultState() {
+        document.getElementById('ai-generating-state').classList.add('hidden');
+        document.getElementById('ai-result-state').classList.remove('hidden');
+        document.getElementById('ai-error-state').classList.add('hidden');
+        document.getElementById('ai-gen-footer').classList.add('hidden');
+        document.getElementById('ai-result-footer').classList.remove('hidden');
+        document.getElementById('ai-input-tabs').classList.add('hidden');
+    }
+    function showAiErrorState(msg) {
+        document.getElementById('ai-generating-state').classList.add('hidden');
+        document.getElementById('ai-result-state').classList.add('hidden');
+        document.getElementById('ai-error-state').classList.remove('hidden');
+        document.getElementById('ai-error-msg').textContent = msg;
+        document.getElementById('ai-gen-footer').classList.add('hidden');
+        document.getElementById('ai-result-footer').classList.add('hidden');
+        document.getElementById('ai-input-tabs').classList.add('hidden');
+    }
+
+    // Generate button
+    document.getElementById('ai-generate-btn').addEventListener('click', generateProposal);
+    document.getElementById('ai-error-retry').addEventListener('click', function() { showAiInputState(); });
+    document.getElementById('ai-regenerate-btn').addEventListener('click', function() { showAiInputState(); });
+
+    async function generateProposal() {
+        const description = document.getElementById('ai-description').value.trim();
+        if (!description && capturedImages.length === 0) {
+            alert('Please describe the project or add photos.');
+            return;
+        }
+
+        showAiGeneratingState();
+
+        // Animated status messages
+        const statusContainer = document.getElementById('ai-status-messages');
+        statusContainer.innerHTML = '';
+        const messages = [
+            '🔍 Analyzing your project details...',
+            '🏗️ Identifying scope of work...',
+            '💰 Estimating materials and labor...',
+            '📋 Building your line items...',
+            '✍️ Writing proposal terms...',
+            '✅ Proposal ready!'
+        ];
+        messages.forEach((msg, i) => {
+            setTimeout(() => {
+                const el = document.createElement('div');
+                el.className = 'ai-status-msg';
+                el.textContent = msg;
+                statusContainer.appendChild(el);
+                requestAnimationFrame(() => { el.classList.add('visible'); });
+            }, i * 700);
+        });
+
+        const systemPrompt = `You are an expert contractor proposal writer with 20+ years of experience across all trades. Generate a detailed, professional, itemized contractor proposal based on the project information provided.
+
+Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "proposalTitle": "string",
+  "projectType": "string",
+  "executiveSummary": "string — 2-3 professional sentences",
+  "scopeOfWork": "string — detailed paragraph",
+  "lineItems": [
+    { "description": "string", "quantity": number, "unit": "string", "unitPrice": number, "amount": number }
+  ],
+  "materialsNote": "string",
+  "exclusions": ["string array"],
+  "estimatedTimeline": "string",
+  "paymentTerms": "string",
+  "warrantyInfo": "string",
+  "termsAndConditions": "string",
+  "subtotal": number,
+  "taxRate": 0.07,
+  "taxAmount": number,
+  "total": number
+}
+
+Make line items specific and realistic. Include 8-15 line items. Price everything reasonably for professional contractor rates. If a budget was provided, keep total within that range.`;
+
+        const budgetMin = document.getElementById('ai-budget-min').value || '';
+        const budgetMax = document.getElementById('ai-budget-max').value || '';
+        const location = document.getElementById('ai-location').value || '';
+        const timeline = document.getElementById('ai-timeline') ? document.getElementById('ai-timeline').value : '';
+        const notes = document.getElementById('ai-notes') ? document.getElementById('ai-notes').value : '';
+        const photoNotes = document.getElementById('ai-photo-notes') ? document.getElementById('ai-photo-notes').value : '';
+        const cameraNotes = document.getElementById('ai-camera-notes') ? document.getElementById('ai-camera-notes').value : '';
+
+        let textContent = `Contractor Type: ${selectedContractorType}\n`;
+        if (description) textContent += `Project Description: ${description}\n`;
+        if (budgetMin || budgetMax) textContent += `Budget Range: $${budgetMin} - $${budgetMax}\n`;
+        if (location) textContent += `Location: ${location}\n`;
+        if (timeline) textContent += `Timeline Expectation: ${timeline}\n`;
+        if (notes) textContent += `Additional Notes: ${notes}\n`;
+        if (photoNotes) textContent += `Photo Notes: ${photoNotes}\n`;
+        if (cameraNotes) textContent += `Camera Notes: ${cameraNotes}\n`;
+
+        // Build user content - images require multimodal
+        let userContent;
+        if (capturedImages.length > 0) {
+            userContent = [];
+            userContent.push({ type: 'text', text: textContent });
+            // Only send up to 4 images to keep request size manageable
+            const imagesToSend = capturedImages.slice(0, 4);
+            for (const imgData of imagesToSend) {
+                userContent.push({ type: 'image_url', image_url: { url: imgData } });
+            }
+            userContent.push({ type: 'text', text: `Please analyze these ${imagesToSend.length} project photo(s) and incorporate what you see into the proposal scope, line items, and pricing.` });
+        } else {
+            userContent = textContent;
+        }
+
+        try {
+            if (!window.AppSDK || !window.AppSDK.ai || !window.AppSDK.ai.chat) {
+                throw new Error('AI service is not available.');
+            }
+            const response = await AppSDK.ai.chat({
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent }
+                ]
+            });
+
+            let proposalData;
+            try {
+                const jsonStr = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                proposalData = JSON.parse(jsonStr);
+            } catch(e) {
+                const match = response.content.match(/\{[\s\S]*\}/);
+                if (match) proposalData = JSON.parse(match[0]);
+                else throw new Error('Could not parse AI response');
+            }
+
+            aiGeneratedData = proposalData;
+            showGeneratedProposal(proposalData);
+        } catch(err) {
+            console.error('AI generation error:', err);
+            showAiErrorState('Something went wrong generating the proposal. Please try again or add more project details.');
+        }
+    }
+
+    function showGeneratedProposal(data) {
+        showAiResultState();
+        document.getElementById('ai-result-title').textContent = data.proposalTitle || 'Untitled Proposal';
+        document.getElementById('ai-result-type-badge').textContent = data.projectType || selectedContractorType;
+        document.getElementById('ai-result-total-badge').textContent = '💰 Estimated Total: ' + fmt$(data.total || 0);
+
+        const sections = document.getElementById('ai-result-sections');
+        let html = '';
+
+        // Executive Summary
+        html += buildResultCard('Executive Summary', `<p class="text-sm text-muted-400 leading-relaxed">${data.executiveSummary || ''}</p>`, true);
+
+        // Scope of Work
+        html += buildResultCard('Scope of Work', `<p class="text-sm text-muted-400 leading-relaxed">${data.scopeOfWork || ''}</p>`, true);
+
+        // Line Items
+        const liRows = (data.lineItems || []).map(li => `<tr class="border-b border-stroke-100"><td class="py-2 pr-3 text-sm">${li.description}</td><td class="py-2 px-2 text-sm text-center tabular-nums">${li.quantity} ${li.unit || ''}</td><td class="py-2 px-2 text-sm text-right tabular-nums">${fmt$(li.unitPrice)}</td><td class="py-2 pl-2 text-sm text-right tabular-nums font-medium">${fmt$(li.amount)}</td></tr>`).join('');
+        const liTable = `<div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="text-xs text-muted-300 uppercase border-b border-stroke-100"><th class="py-2 pr-3 font-medium">Item</th><th class="py-2 px-2 font-medium text-center">Qty</th><th class="py-2 px-2 font-medium text-right">Unit Price</th><th class="py-2 pl-2 font-medium text-right">Amount</th></tr></thead><tbody>${liRows}</tbody></table></div><div class="border-t border-stroke-200 mt-3 pt-3 space-y-1"><div class="flex justify-between text-sm"><span class="text-muted-400">Subtotal</span><span class="tabular-nums">${fmt$(data.subtotal)}</span></div><div class="flex justify-between text-sm"><span class="text-muted-400">Tax (${((data.taxRate||0)*100).toFixed(1)}%)</span><span class="tabular-nums">${fmt$(data.taxAmount)}</span></div><div class="flex justify-between text-base font-bold mt-1"><span class="text-accent-400">Total</span><span class="text-accent-400 tabular-nums">${fmt$(data.total)}</span></div></div>`;
+        html += buildResultCard(`Line Items (${(data.lineItems || []).length})`, liTable, true);
+
+        // Timeline & Terms
+        html += buildResultCard('Timeline & Terms', `<div class="space-y-2 text-sm text-muted-400"><div><strong class="text-white">Timeline:</strong> ${data.estimatedTimeline || '—'}</div><div><strong class="text-white">Payment:</strong> ${data.paymentTerms || '—'}</div><div><strong class="text-white">Warranty:</strong> ${data.warrantyInfo || '—'}</div></div>`, true);
+
+        // Exclusions
+        const exclList = (data.exclusions || []).map(e => `<li class="text-sm text-muted-400 flex items-start gap-2"><span class="text-red-400 mt-0.5 flex-shrink-0">•</span>${e}</li>`).join('');
+        html += buildResultCard('Exclusions', `<ul class="space-y-1">${exclList}</ul>`, false);
+
+        // Materials Note
+        if (data.materialsNote) {
+            html += buildResultCard('Materials Note', `<p class="text-sm text-muted-400">${data.materialsNote}</p>`, false);
+        }
+
+        // T&C
+        html += buildResultCard('Terms & Conditions', `<p class="text-sm text-muted-400 leading-relaxed whitespace-pre-line">${data.termsAndConditions || ''}</p>`, false);
+
+        sections.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bind expand toggles
+        sections.querySelectorAll('.ai-result-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                const body = this.nextElementSibling;
+                this.classList.toggle('expanded');
+                body.classList.toggle('open');
+            });
+        });
+    }
+
+    function buildResultCard(title, content, startOpen) {
+        return `<div class="ai-result-card"><button class="ai-result-toggle${startOpen ? ' expanded' : ''}"><span>${title}</span><i data-lucide="chevron-down" class="w-4 h-4 chev"></i></button><div class="ai-result-body${startOpen ? ' open' : ''}" style="padding-top:${startOpen ? '0.75rem' : '0'};">${content}</div></div>`;
+    }
+
+    // Edit & Save
+    document.getElementById('ai-edit-save-btn').addEventListener('click', function() {
+        if (!aiGeneratedData) return;
+        closeAiGenModal();
+        // Open builder pre-populated
+        currentEditId = null;
+        document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+        document.getElementById('tab-builder').classList.remove('hidden');
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+
+        const sel = document.getElementById('b-client-select-i7j1');
+        sel.innerHTML = '<option value="">Select a client...</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option><!--element content stripped-->

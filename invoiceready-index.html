@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>InvoiceReady</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              bg: { DEFAULT: '#0f1117', card: '#1a1d2e', elevated: '#222640', input: '#151828' },
+              accent: { DEFAULT: '#4ade80', secondary: '#34d399', dark: '#22c55e', glow: 'rgba(74,222,128,0.15)' },
+              coral: '#ff6b6b',
+              gold: { DEFAULT: '#facc15', dark: '#eab308', light: '#fde68a', glow: 'rgba(250,204,21,0.15)' },
+              pink: { DEFAULT: '#f472b6', dark: '#ec4899', glow: 'rgba(244,114,182,0.15)' },
+              muted: '#8b8fa8',
+              border: 'rgba(255,255,255,0.08)',
+              status: { draft: '#6b7280', sent: '#3b82f6', paid: '#4ade80', overdue: '#ff6b6b' }
+            },
+            fontFamily: { inter: ['Inter', 'sans-serif'] }
+          }
+        }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0f1117;
+        --card: #1a1d2e;
+        --elevated: #222640;
+        --accent: #4ade80;
+        --accent-secondary: #34d399;
+        --coral: #ff6b6b;
+        --gold: #facc15;
+        --gold-dark: #eab308;
+        --gold-glow: rgba(250,204,21,0.15);
+        --pink: #f472b6;
+        --pink-dark: #ec4899;
+        --pink-glow: rgba(244,114,182,0.15);
+        --muted: #8b8fa8;
+        --border: rgba(255,255,255,0.08);
+        --text: #e2e4ed;
+        --text-light: #f0f1f5;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 44px; }
+      .tab-active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+      .tab-inactive { color: var(--muted); border-bottom: 2px solid transparent; }
+      .tab-inactive:hover { color: var(--text); }
+      .badge { padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+      .badge-draft { background: rgba(107,114,128,0.2); color: #9ca3af; }
+      .badge-sent { background: rgba(59,130,246,0.2); color: #60a5fa; }
+      .badge-paid { background: rgba(74,222,128,0.15); color: #4ade80; }
+      .badge-overdue { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+      .badge-pp { background: rgba(244,114,182,0.15); color: #f472b6; font-size: 0.65rem; }
+      .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem 1.5rem; transition: transform 0.2s, box-shadow 0.2s; }
+      .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+      .btn-primary { background: var(--accent); color: #0f1117; font-weight: 600; border-radius: 10px; padding: 0.5rem 1.25rem; transition: all 0.2s; border: none; cursor: pointer; }
+      .btn-primary:hover { background: var(--accent-secondary); }
+      .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 0.5rem 1rem; cursor: pointer; transition: all 0.2s; }
+      .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+      .btn-danger { background: rgba(255,107,107,0.15); color: var(--coral); border: 1px solid rgba(255,107,107,0.2); border-radius: 10px; padding: 0.5rem 1rem; cursor: pointer; transition: all 0.2s; }
+      .btn-danger:hover { background: rgba(255,107,107,0.3); }
+      input, select, textarea {
+        background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 10px;
+        padding: 0.5rem 0.75rem; font-family: 'Inter', sans-serif; font-size: 0.875rem; transition: border-color 0.2s;
+        width: 100%;
+      }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74,222,128,0.15); }
+      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 2rem 1rem; }
+      .modal-overlay.active { display: flex; }
+      .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 20px; width: 100%; max-width: 800px; padding: 2rem; position: relative; }
+      .chart-bar { border-radius: 6px 6px 0 0; transition: height 0.5s ease; min-width: 32px; }
+      .table-row { transition: background 0.15s; }
+      .table-row:hover { background: rgba(255,255,255,0.03); }
+      .toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+      .toggle-track.on { background: var(--accent); }
+      .toggle-track.on-gold { background: var(--gold); }
+      .toggle-track.on-pink { background: var(--pink); }
+      .toggle-thumb { width: 20px; height: 20px; border-radius: 50%; background: white; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+      .toggle-track.on .toggle-thumb, .toggle-track.on-gold .toggle-thumb, .toggle-track.on-pink .toggle-thumb { transform: translateX(20px); }
+      @media print {
+        nav, footer, .no-print, .cdi-footer { display: none !important; }
+        body { background: #fff; color: #000; font-size: 11pt; padding-bottom: 0; }
+        .print-view { background: #fff !important; color: #000 !important; border: none !important; }
+        .print-view * { color: #000 !important; }
+        .print-view table { border-collapse: collapse; }
+        .print-view th, .print-view td { border-bottom: 1px solid #ddd !important; padding: 6px 8px !important; }
+        .badge { border: 1px solid #999 !important; }
+      }
+      .tabular { font-variant-numeric: tabular-nums; }
+      .section-hidden { display: none; }
+
+      .help-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200;
+        display: flex; align-items: flex-start; justify-content: center;
+        overflow-y: auto; padding: 2rem 1rem;
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+      }
+      .help-overlay.active { opacity: 1; pointer-events: auto; }
+      .help-modal {
+        background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+        width: 100%; max-width: 720px; padding: 2rem; position: relative;
+        transform: translateY(24px) scale(0.97); transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.3s ease;
+        opacity: 0;
+      }
+      .help-overlay.active .help-modal { transform: translateY(0) scale(1); opacity: 1; }
+
+      .accordion-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.875rem 1.125rem; cursor: pointer; border-radius: 12px;
+        background: var(--bg); border: 1px solid var(--border); transition: all 0.2s;
+        user-select: none;
+      }
+      .accordion-header:hover { border-color: var(--accent); }
+      .accordion-header.open { border-color: var(--accent); background: rgba(74,222,128,0.06); }
+      .accordion-body {
+        max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s ease;
+        padding: 0 1.125rem;
+      }
+      .accordion-body.open { max-height: 600px; padding: 1rem 1.125rem; }
+      .accordion-chevron { transition: transform 0.3s ease; }
+      .accordion-header.open .accordion-chevron { transform: rotate(180deg); }
+
+      .help-btn-ring {
+        width: 36px; height: 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        border: 1.5px solid var(--border); background: transparent;
+        color: var(--muted); cursor: pointer; transition: all 0.2s;
+        font-weight: 600; font-size: 0.875rem; font-family: 'Inter', sans-serif;
+      }
+      .help-btn-ring:hover { border-color: var(--accent); color: var(--accent); background: rgba(74,222,128,0.08); }
+
+      .rb-toast-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300;
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease; padding: 1rem;
+      }
+      .rb-toast-overlay.active { opacity: 1; pointer-events: auto; }
+      .rb-toast-card {
+        background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+        width: 100%; max-width: 440px; padding: 2rem; text-align: center;
+        transform: scale(0.92); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+      }
+      .rb-toast-overlay.active .rb-toast-card { transform: scale(1); }
+      .rb-platform-check { opacity: 0; transform: translateY(8px); transition: all 0.4s ease; }
+      .rb-platform-check.visible { opacity: 1; transform: translateY(0); }
+
+      .rb-checkbox { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
+      .rb-section { border: 1px solid rgba(250,204,21,0.2); border-radius: 14px; background: rgba(250,204,21,0.04); padding: 1.25rem; }
+
+      .rb-section input:focus, .rb-section textarea:focus, .rb-section select:focus {
+        border-color: var(--gold); box-shadow: 0 0 0 2px rgba(250,204,21,0.15);
+      }
+
+      .rb-tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+      .rb-tooltip-wrap .rb-tip {
+        position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+        background: var(--elevated); color: var(--text); font-size: 0.68rem; padding: 4px 10px;
+        border-radius: 6px; white-space: nowrap; pointer-events: none;
+        opacity: 0; transition: opacity 0.15s; z-index: 10; border: 1px solid var(--border);
+      }
+      .rb-tooltip-wrap:hover .rb-tip { opacity: 1; }
+
+      .rb-connected-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.25);
+        color: #4ade80; border-radius: 9999px; padding: 4px 14px; font-size: 0.75rem; font-weight: 600;
+      }
+
+      .pairing-banner {
+        background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+        padding: 1.25rem 1.5rem; position: relative; overflow: hidden;
+        transition: opacity 0.3s, transform 0.3s;
+      }
+      .pairing-banner.dismissed { opacity: 0; transform: translateY(-8px); pointer-events: none; height: 0; padding: 0; margin: 0; border: none; overflow: hidden; }
+      .pairing-banner::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      }
+      .pairing-banner.pink-border::before { background: var(--pink); }
+      .pairing-banner.gold-border::before { background: var(--gold); }
+
+      .pp-section { border: 1px solid rgba(244,114,182,0.2); border-radius: 14px; background: rgba(244,114,182,0.04); padding: 1.25rem; }
+      .pp-section input:focus, .pp-section textarea:focus, .pp-section select:focus {
+        border-color: var(--pink); box-shadow: 0 0 0 2px rgba(244,114,182,0.15);
+      }
+      .pp-checkbox { width: 18px; height: 18px; accent-color: var(--pink); cursor: pointer; flex-shrink: 0; }
+      .pp-connected-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.25);
+        color: #f472b6; border-radius: 9999px; padding: 4px 14px; font-size: 0.75rem; font-weight: 600;
+      }
+
+      .cdi-footer {
+        position: fixed; bottom: 0; left: 0; right: 0; height: 44px; z-index: 90;
+        background: linear-gradient(to right, #1a1d2e, #0f1117);
+        border-top: 1px solid rgba(74,222,128,0.2);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 1rem;
+      }
+      .cdi-footer-btn {
+        background: linear-gradient(135deg, #4ade80, #34d399);
+        color: #0f1117; font-weight: 700; font-size: 0.75rem; border: none;
+        border-radius: 9999px; padding: 6px 16px; cursor: pointer;
+        transition: filter 0.2s, transform 0.2s; white-space: nowrap;
+        font-family: 'Inter', sans-serif;
+      }
+      .cdi-footer-btn:hover { filter: brightness(1.15); transform: scale(1.03); }
+
+      .pp-notif-banner {
+        background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2);
+        border-radius: 14px; padding: 0.875rem 1.25rem; position: relative;
+        display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+        transition: opacity 0.3s, max-height 0.3s;
+      }
+      .pp-notif-banner.dismissed { opacity: 0; max-height: 0; padding: 0; margin: 0; border: none; overflow: hidden; }
+
+      /* ===== AUTH MODAL STYLES ===== */
+      .auth-overlay {
+        position: fixed; inset: 0; z-index: 500;
+        background: #0f1117;
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem;
+        transition: opacity 0.3s ease;
+      }
+      .auth-overlay.hidden { display: none; }
+      .auth-card {
+        background: #1a1d2e; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px; width: 100%; max-width: 420px; padding: 2.5rem 2rem;
+      }
+      .auth-tab-btn {
+        flex: 1; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 600;
+        border: none; cursor: pointer; transition: all 0.2s;
+        font-family: 'Inter', sans-serif; border-radius: 10px;
+        background: transparent; color: var(--muted);
+      }
+      .auth-tab-btn.active {
+        background: rgba(74,222,128,0.12); color: #4ade80;
+      }
+      .auth-input {
+        width: 100%; background: #0f1117; border: 1px solid rgba(255,255,255,0.08);
+        color: #e2e4ed; border-radius: 10px; padding: 0.625rem 0.875rem;
+        font-family: 'Inter', sans-serif; font-size: 0.875rem; transition: border-color 0.2s;
+      }
+      .auth-input:focus { outline: none; border-color: #4ade80; box-shadow: 0 0 0 2px rgba(74,222,128,0.15); }
+      .auth-submit {
+        width: 100%; padding: 0.75rem; border: none; border-radius: 10px;
+        font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 700;
+        cursor: pointer; transition: all 0.2s; color: #0f1117;
+        background: linear-gradient(135deg, #4ade80, #34d399);
+      }
+      .auth-submit:hover { filter: brightness(1.1); transform: translateY(-1px); }
+      .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
+      .auth-error {
+        background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.25);
+        color: #ff6b6b; border-radius: 9999px; padding: 0.375rem 1rem;
+        font-size: 0.75rem; text-align: center; display: none;
+      }
+      .auth-error.visible { display: block; }
+      .auth-success {
+        background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.25);
+        color: #4ade80; border-radius: 9999px; padding: 0.375rem 1rem;
+        font-size: 0.75rem; text-align: center; display: none;
+      }
+      .auth-success.visible { display: block; }
+      .auth-link { color: #4ade80; font-size: 0.75rem; cursor: pointer; background: none; border: none; font-family: 'Inter', sans-serif; }
+      .auth-link:hover { text-decoration: underline; }
+
+      /* User badge in nav */
+      .user-badge { display: flex; align-items: center; gap: 0.5rem; }
+      .user-avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: rgba(74,222,128,0.15); border: 1.5px solid rgba(74,222,128,0.3);
+        display: flex; align-items: center; justify-content: center;
+        color: #4ade80; font-weight: 700; font-size: 0.8rem;
+      }
+      .user-email-text { color: var(--muted); font-size: 0.7rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .signout-btn {
+        background: transparent; border: 1px solid rgba(255,255,255,0.08);
+        color: var(--muted); border-radius: 8px; padding: 0.25rem 0.625rem;
+        font-size: 0.65rem; cursor: pointer; font-family: 'Inter', sans-serif;
+        transition: all 0.2s; white-space: nowrap;
+      }
+      .signout-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+      /* Loading overlay for data fetch */
+      .data-loading-overlay {
+        position: fixed; inset: 0; z-index: 400; background: rgba(15,17,23,0.92);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+      }
+      .data-loading-overlay.hidden { display: none; }
+      .spinner {
+        width: 36px; height: 36px; border: 3px solid rgba(74,222,128,0.2);
+        border-top-color: #4ade80; border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body data-id="0" class="font-inter">
+    <app-icon data-id="1" hidden data-icon="receipt" data-palette="Green"></app-icon>
+
+    <!-- ===== AUTH MODAL ===== -->
+    <div data-id="2" id="auth-overlay" class="auth-overlay">
+        <div data-id="3" class="auth-card">
+            <div data-id="4" class="flex items-center justify-center gap-2 mb-1">
+                <div data-id="5" class="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
+                    <i data-id="6" data-lucide="receipt" class="w-5 h-5 text-accent"></i>
+                </div>
+                <span data-id="7" class="text-xl font-bold text-white tracking-tight">InvoiceReady</span>
+            </div>
+            <p data-id="8" class="text-center text-xs text-muted mb-6">by Constructive Designs Inc.</p>
+
+            <!-- Auth Tabs -->
+            <div data-id="9" class="flex gap-2 mb-6 bg-bg rounded-xl p-1">
+                <button data-id="10" id="auth-tab-signin" class="auth-tab-btn active">Sign In</button>
+                <button data-id="11" id="auth-tab-signup" class="auth-tab-btn">Sign Up</button>
+            </div>
+
+            <!-- Error / Success -->
+            <div data-id="12" id="auth-error" class="auth-error mb-4"></div>
+            <div data-id="13" id="auth-success" class="auth-success mb-4"></div>
+
+            <!-- Sign In Form -->
+            <div data-id="14" id="auth-signin-form" class="space-y-4">
+                <div data-id="15">
+                    <label data-id="16" class="block text-xs text-muted mb-1.5 font-medium">Email</label>
+                    <input data-id="17" id="auth-signin-email" type="email" placeholder="you@example.com" class="auth-input" />
+                </div>
+                <div data-id="18">
+                    <label data-id="19" class="block text-xs text-muted mb-1.5 font-medium">Password</label>
+                    <input data-id="20" id="auth-signin-password" type="password" placeholder="••••••••" class="auth-input" />
+                </div>
+                <button data-id="21" id="auth-signin-btn" class="auth-submit">Sign In</button>
+                <div data-id="22" class="text-center">
+                    <button data-id="23" id="auth-forgot-btn" class="auth-link">Forgot password?</button>
+                </div>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div data-id="24" id="auth-signup-form" class="space-y-4" style="display:none;">
+                <div data-id="25">
+                    <label data-id="26" class="block text-xs text-muted mb-1.5 font-medium">Business Name</label>
+                    <input data-id="27" id="auth-signup-biz" type="text" placeholder="Your Business Name" class="auth-input" />
+                </div>
+                <div data-id="28">
+                    <label data-id="29" class="block text-xs text-muted mb-1.5 font-medium">Email</label>
+                    <input data-id="30" id="auth-signup-email" type="email" placeholder="you@example.com" class="auth-input" />
+                </div>
+                <div data-id="31">
+                    <label data-id="32" class="block text-xs text-muted mb-1.5 font-medium">Password</label>
+                    <input data-id="33" id="auth-signup-password" type="password" placeholder="••••••••" class="auth-input" />
+                </div>
+                <div data-id="34">
+                    <label data-id="35" class="block text-xs text-muted mb-1.5 font-medium">Confirm Password</label>
+                    <input data-id="36" id="auth-signup-confirm" type="password" placeholder="••••••••" class="auth-input" />
+                </div>
+                <button data-id="37" id="auth-signup-btn" class="auth-submit">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DATA LOADING OVERLAY ===== -->
+    <div data-id="38" id="data-loading-overlay" class="data-loading-overlay hidden">
+        <div data-id="39" class="spinner"></div>
+        <span data-id="40" class="text-sm text-muted">Loading your data...</span>
+    </div>
+
+    <!-- ===== STICKY NAVBAR ===== -->
+    <nav data-id="41" id="main-nav-a1b2" class="sticky top-0 z-50 bg-bg/90 backdrop-blur-md border-b border-border no-print">
+        <div data-id="42" class="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between h-16">
+            <div data-id="43" class="flex items-center gap-2">
+                <div data-id="44" class="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
+                    <i data-id="45" data-lucide="receipt" class="w-5 h-5 text-accent"></i>
+                </div>
+                <span data-id="46" class="text-lg font-bold text-white tracking-tight">InvoiceReady</span>
+            </div>
+            <div data-id="47" class="hidden md:flex items-center gap-1">
+                <button data-id="48" class="nav-tab tab-active px-4 py-5 text-sm font-medium transition-colors" data-tab="dashboard">Dashboard</button>
+                <button data-id="49" class="nav-tab tab-inactive px-4 py-5 text-sm font-medium transition-colors" data-tab="invoices">Invoices</button>
+                <button data-id="50" class="nav-tab tab-inactive px-4 py-5 text-sm font-medium transition-colors" data-tab="clients">Clients</button>
+                <button data-id="51" class="nav-tab tab-inactive px-4 py-5 text-sm font-medium transition-colors" data-tab="recurring">Recurring</button>
+                <button data-id="52" class="nav-tab tab-inactive px-4 py-5 text-sm font-medium transition-colors" data-tab="settings">Settings</button>
+            </div>
+            <div data-id="53" class="flex items-center gap-3">
+                <!-- User Badge (visible when authenticated) -->
+                <div data-id="54" id="nav-user-badge" class="user-badge hidden">
+                    <div data-id="55" id="nav-user-avatar" class="user-avatar hidden md:flex">H</div>
+                    <span data-id="56" id="nav-user-email" class="user-email-text hidden lg:block"></span>
+                    <button data-id="57" id="nav-signout-btn" class="signout-btn hidden md:block">Sign Out</button>
+                </div>
+                <button data-id="58" id="help-btn-nav" class="help-btn-ring" title="Help">?</button>
+                <button data-id="59" id="new-invoice-btn-top-c3d4" class="btn-primary hidden md:flex items-center gap-2 text-sm">
+                    <i data-id="60" data-lucide="plus" class="w-4 h-4"></i> New Invoice
+                </button>
+                <button data-id="61" id="mobile-menu-btn-e5f6" class="md:hidden p-2 text-muted hover:text-white">
+                    <i data-id="62" data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div data-id="63" id="mobile-menu-g7h8" class="hidden fixed inset-0 bg-bg z-[60] flex flex-col p-6">
+        <div data-id="64" class="flex items-center justify-between mb-8">
+            <div data-id="65" class="flex items-center gap-2">
+                <div data-id="66" class="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
+                    <i data-id="67" data-lucide="receipt" class="w-5 h-5 text-accent"></i>
+                </div>
+                <span data-id="68" class="text-lg font-bold text-white">InvoiceReady</span>
+            </div>
+            <button data-id="69" id="mobile-menu-close-i9j0" class="p-2 text-muted hover:text-white">
+                <i data-id="70" data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <!-- Mobile user info -->
+        <div data-id="71" id="mobile-user-info" class="hidden mb-4 p-3 rounded-xl bg-accent/5 border border-accent/10">
+            <div data-id="72" class="flex items-center gap-2 mb-2">
+                <div data-id="73" id="mobile-user-avatar" class="user-avatar">H</div>
+                <span data-id="74" id="mobile-user-email" class="text-xs text-muted truncate"></span>
+            </div>
+            <button data-id="75" id="mobile-signout-btn" class="signout-btn w-full text-center py-1.5 text-xs">Sign Out</button>
+        </div>
+        <div data-id="76" class="flex flex-col gap-2">
+            <button data-id="77" class="mobile-nav-tab text-left px-4 py-3 rounded-xl text-base font-medium text-white bg-accent/10" data-tab="dashboard">
+                <i data-id="78" data-lucide="layout-dashboard" class="w-5 h-5 inline mr-3"></i>Dashboard
+            </button>
+            <button data-id="79" class="mobile-nav-tab text-left px-4 py-3 rounded-xl text-base font-medium text-muted hover:text-white hover:bg-white/5" data-tab="invoices">
+                <i data-id="80" data-lucide="file-text" class="w-5 h-5 inline mr-3"></i>Invoices
+            </button>
+            <button data-id="81" class="mobile-nav-tab text-left px-4 py-3 rounded-xl text-base font-medium text-muted hover:text-white hover:bg-white/5" data-tab="clients">
+                <i data-id="82" data-lucide="users" class="w-5 h-5 inline mr-3"></i>Clients
+            </button>
+            <button data-id="83" class="mobile-nav-tab text-left px-4 py-3 rounded-xl text-base font-medium text-muted hover:text-white hover:bg-white/5" data-tab="recurring">
+                <i data-id="84" data-lucide="repeat" class="w-5 h-5 inline mr-3"></i>Recurring
+            </button>
+            <button data-id="85" class="mobile-nav-tab text-left px-4 py-3 rounded-xl text-base font-medium text-muted hover:text-white hover:bg-white/5" data-tab="settings">
+                <i data-id="86" data-lucide="settings" class="w-5 h-5 inline mr-3"></i>Settings
+            </button>
+        </div>
+        <button data-id="87" id="mobile-new-invoice-btn-k1l2" class="btn-primary mt-6 flex items-center justify-center gap-2 text-base py-3">
+            <i data-id="88" data-lucide="plus" class="w-5 h-5"></i> New Invoice
+        </button>
+    </div>
+
+    <main data-id="89" class="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+
+        <!-- ===== DASHBOARD TAB ===== -->
+        <section data-id="90" id="tab-dashboard-m3n4" class="tab-content">
+            <div data-id="91" class="flex items-center justify-between mb-6">
+                <div data-id="92">
+                    <h1 data-id="93" class="text-xl md:text-2xl font-bold text-white">Good afternoon, Heather</h1>
+                    <p data-id="94" class="text-muted text-sm mt-1">Here's your business snapshot for May 2026</p>
+                </div>
+            </div>
+
+            <!-- PP Auto-Created Notification Banner -->
+            <div data-id="95" id="pp-notif-banner" class="pp-notif-banner mb-5 hidden">
+                <span data-id="96" class="text-lg">📋</span>
+                <span data-id="97" id="pp-notif-text" class="text-sm text-accent font-medium flex-1"></span>
+                <button data-id="98" id="pp-notif-view-btn" class="text-accent text-xs font-semibold hover:underline whitespace-nowrap">View Invoice</button>
+                <button data-id="99" id="pp-notif-dismiss-btn" class="p-1 text-muted hover:text-white rounded-lg hover:bg-white/5 ml-1">
+                    <i data-id="100" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Stat Cards -->
+            <div data-id="101" id="stats-grid-o5p6" class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            </div>
+
+            <!-- ProposalPro Pairing Banner (Dashboard) -->
+            <div data-id="102" id="pp-pairing-banner-dash" class="pairing-banner pink-border mb-6">
+                <button data-id="103" id="pp-banner-dash-dismiss" class="absolute top-3 right-3 p-1.5 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                    <i data-id="104" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+                <div data-id="105" class="flex flex-col md:flex-row md:items-center gap-4">
+                    <div data-id="106" class="flex items-center gap-3 flex-1">
+                        <div data-id="107" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(244,114,182,0.12);">
+                            <i data-id="108" data-lucide="file-signature" class="w-5 h-5 text-pink"></i>
+                        </div>
+                        <div data-id="109">
+                            <div data-id="110" class="flex items-center gap-2 mb-0.5">
+                                <span data-id="111" class="text-sm font-bold text-white">ProposalPro</span>
+                                <span data-id="112" id="pp-banner-status-pill" class="hidden pp-connected-pill text-xs"><span data-id="113" class="w-2 h-2 rounded-full bg-accent inline-block"></span> Connected</span>
+                            </div>
+                            <p data-id="114" id="pp-banner-tagline" class="text-xs text-muted leading-relaxed max-w-xl">Win the job before you send the invoice. ProposalPro crafts proposals that convert — and when they're accepted, your invoice here is already built. No copy-paste, ever.</p>
+                        </div>
+                    </div>
+                    <div data-id="115" id="pp-banner-ctas" class="flex items-center gap-2 shrink-0">
+                        <a data-id="116" href="https://shopreneur.constructivedesignsinc.org" target="_blank" class="btn-primary text-xs px-4 py-2 inline-flex items-center gap-1.5" style="background:#f472b6;color:#0f1117;">Connect Now</a>
+                        <a data-id="117" href="https://shopreneur.constructivedesignsinc.org" target="_blank" class="btn-outline text-xs px-4 py-2">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- From ProposalPro Section -->
+            <div data-id="118" id="pp-dashboard-section" class="mb-8">
+                <div data-id="119" class="bg-bg-card border border-border rounded-2xl overflow-hidden" style="border-left: 3px solid #f472b6;">
+                    <div data-id="120" class="px-5 md:px-6 py-4 border-b border-border flex items-center justify-between">
+                        <div data-id="121" class="flex items-center gap-2">
+                            <span data-id="122" class="text-base">📋</span>
+                            <h2 data-id="123" class="text-base md:text-lg font-semibold text-white">From ProposalPro</h2>
+                        </div>
+                    </div>
+                    <div data-id="124" id="pp-dashboard-body" class="p-5 md:p-6">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Chart -->
+            <div data-id="125" class="bg-bg-card border border-border rounded-2xl p-5 md:p-6 mb-8">
+                <div data-id="126" class="flex items-center justify-between mb-6">
+                    <h2 data-id="127" class="text-base md:text-lg font-semibold text-white">Revenue Overview</h2>
+                    <span data-id="128" class="text-xs text-muted">Last 6 months</span>
+                </div>
+                <div data-id="129" id="chart-container-q7r8" class="flex items-end gap-2 md:gap-4 h-48 md:h-56">
+                </div>
+            </div>
+
+            <!-- Recent Invoices -->
+            <div data-id="130" class="bg-bg-card border border-border rounded-2xl overflow-hidden">
+                <div data-id="131" class="px-5 md:px-6 py-4 border-b border-border flex items-center justify-between">
+                    <h2 data-id="132" class="text-base md:text-lg font-semibold text-white">Recent Invoices</h2>
+                    <button data-id="133" class="text-accent text-sm font-medium hover:underline view-all-invoices-btn">View All</button>
+                </div>
+                <div data-id="134" class="overflow-x-auto">
+                    <table data-id="135" class="w-full text-sm">
+                        <thead data-id="136">
+                            <tr data-id="137" class="text-xs text-muted uppercase tracking-wide border-b border-border">
+                                <th data-id="138" class="text-left px-5 md:px-6 py-3">Invoice #</th>
+                                <th data-id="139" class="text-left px-3 py-3">Client</th>
+                                <th data-id="140" class="text-right px-3 py-3">Amount</th>
+                                <th data-id="141" class="text-left px-3 py-3 hidden md:table-cell">Due Date</th>
+                                <th data-id="142" class="text-left px-5 md:px-6 py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody data-id="143" id="recent-invoices-body-s9t0">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== INVOICES TAB ===== -->
+        <section data-id="144" id="tab-invoices-u1v2" class="tab-content section-hidden">
+            <!-- ReviewBoost Pairing Banner -->
+            <div data-id="145" id="rb-pairing-banner-inv" class="pairing-banner gold-border mb-6">
+                <button data-id="146" id="rb-banner-inv-dismiss" class="absolute top-3 right-3 p-1.5 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                    <i data-id="147" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+                <div data-id="148" class="flex flex-col md:flex-row md:items-center gap-4">
+                    <div data-id="149" class="flex items-center gap-3 flex-1">
+                        <div data-id="150" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(250,204,21,0.12);">
+                            <i data-id="151" data-lucide="star" class="w-5 h-5 text-gold"></i>
+                        </div>
+                        <div data-id="152">
+                            <div data-id="153" class="flex items-center gap-2 mb-0.5">
+                                <span data-id="154" class="text-sm font-bold text-white">ReviewBoost</span>
+                                <span data-id="155" id="rb-banner-status-pill" class="hidden rb-connected-pill text-xs"><span data-id="156" class="w-2 h-2 rounded-full bg-accent inline-block"></span> Active</span>
+                            </div>
+                            <p data-id="157" id="rb-banner-tagline" class="text-xs text-muted leading-relaxed max-w-xl">Every paid invoice is your best shot at a 5-star review. ReviewBoost sends the request automatically the moment you mark an invoice paid — your reputation builds itself.</p>
+                        </div>
+                    </div>
+                    <div data-id="158" id="rb-banner-ctas" class="flex items-center gap-2 shrink-0">
+                        <a data-id="159" href="https://shopreneur.constructivedesignsinc.org" target="_blank" class="btn-primary text-xs px-4 py-2 inline-flex items-center gap-1.5" style="background:#facc15;color:#0f1117;">Connect Now</a>
+                        <a data-id="160" href="https://shopreneur.constructivedesignsinc.org" target="_blank" class="btn-outline text-xs px-4 py-2">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <div data-id="161" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h1 data-id="162" class="text-xl md:text-2xl font-bold text-white">Invoices</h1>
+                <button data-id="163" id="new-invoice-btn-invoices-w3x4" class="btn-primary flex items-center gap-2 text-sm justify-center">
+                    <i data-id="164" data-lucide="plus" class="w-4 h-4"></i> New Invoice
+                </button>
+            </div>
+
+            <!-- Search and Filters -->
+            <div data-id="165" class="flex flex-col md:flex-row gap-3 mb-5">
+                <div data-id="166" class="relative flex-1">
+                    <i data-id="167" data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted"></i>
+                    <input data-id="168" id="invoice-search-y5z6" type="text" placeholder="Search invoices..." class="pl-10 h-10 text-sm" />
+                </div>
+                <div data-id="169" class="flex gap-2 flex-wrap">
+                    <button data-id="170" class="filter-btn btn-outline text-xs px-3 py-2 active" data-filter="all">All</button>
+                    <button data-id="171" class="filter-btn btn-outline text-xs px-3 py-2" data-filter="draft">Draft</button>
+                    <button data-id="172" class="filter-btn btn-outline text-xs px-3 py-2" data-filter="sent">Sent</button>
+                    <button data-id="173" class="filter-btn btn-outline text-xs px-3 py-2" data-filter="paid">Paid</button>
+                    <button data-id="174" class="filter-btn btn-outline text-xs px-3 py-2" data-filter="overdue">Overdue</button>
+                </div>
+            </div>
+
+            <!-- Invoice Table -->
+            <div data-id="175" class="bg-bg-card border border-border rounded-2xl overflow-hidden">
+                <div data-id="176" class="overflow-x-auto">
+                    <table data-id="177" class="w-full text-sm">
+                        <thead data-id="178">
+                            <tr data-id="179" class="text-xs text-muted uppercase tracking-wide border-b border-border">
+                                <th data-id="180" class="text-left px-5 md:px-6 py-3">Invoice #</th>
+                                <th data-id="181" class="text-left px-3 py-3">Client</th>
+                                <th data-id="182" class="text-left px-3 py-3 hidden lg:table-cell">Issue Date</th>
+                                <th data-id="183" class="text-left px-3 py-3 hidden md:table-cell">Due Date</th>
+                                <th data-id="184" class="text-right px-3 py-3">Amount</th>
+                                <th data-id="185" class="text-left px-3 py-3">Status</th>
+                                <th data-id="186" class="text-center px-3 py-3" title="ReviewBoost"><i data-id="187" data-lucide="star" class="w-3.5 h-3.5 inline text-gold"></i></th>
+                                <th data-id="188" class="text-right px-5 md:px-6 py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody data-id="189" id="invoices-table-body-a7b8">
+                        </tbody>
+                    </table>
+                </div>
+                <div data-id="190" id="invoices-empty-c9d0" class="hidden py-12 text-center text-muted">
+                    <i data-id="191" data-lucide="file-x" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
+                    <p data-id="192">No invoices found</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== CLIENTS TAB ===== -->
+        <section data-id="193" id="tab-clients-e1f2" class="tab-content section-hidden">
+            <div data-id="194" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h1 data-id="195" class="text-xl md:text-2xl font-bold text-white">Clients</h1>
+                <button data-id="196" id="add-client-btn-g3h4" class="btn-primary flex items-center gap-2 text-sm justify-center">
+                    <i data-id="197" data-lucide="user-plus" class="w-4 h-4"></i> Add Client
+                </button>
+            </div>
+            <div data-id="198" id="clients-grid-i5j6" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+        </section>
+
+        <!-- ===== RECURRING TAB ===== -->
+        <section data-id="199" id="tab-recurring-k7l8" class="tab-content section-hidden">
+            <div data-id="200" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h1 data-id="201" class="text-xl md:text-2xl font-bold text-white">Recurring Invoices</h1>
+                <button data-id="202" id="add-recurring-btn-m9n0" class="btn-primary flex items-center gap-2 text-sm justify-center">
+                    <i data-id="203" data-lucide="plus" class="w-4 h-4"></i> Create Recurring
+                </button>
+            </div>
+            <div data-id="204" id="recurring-list-o1p2" class="space-y-3">
+            </div>
+            <div data-id="205" id="recurring-empty-q3r4" class="hidden py-12 text-center text-muted">
+                <i data-id="206" data-lucide="repeat" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
+                <p data-id="207">No recurring invoices yet</p>
+            </div>
+        </section>
+
+        <!-- ===== SETTINGS TAB ===== -->
+        <section data-id="208" id="tab-settings-rb01" class="tab-content section-hidden">
+            <div data-id="209" class="mb-6">
+                <h1 data-id="210" class="text-xl md:text-2xl font-bold text-white">Settings</h1>
+                <p data-id="211" class="text-muted text-sm mt-1">Manage integrations and preferences</p>
+            </div>
+
+            <!-- Connected Apps Card -->
+            <div data-id="212" class="bg-bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+                <h2 data-id="213" class="text-base md:text-lg font-semibold text-white mb-5">Connected Apps</h2>
+                <div data-id="214" class="space-y-4">
+                    <!-- ProposalPro Row -->
+                    <div data-id="215" class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-bg">
+                        <div data-id="216" class="flex items-center gap-3">
+                            <div data-id="217" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(244,114,182,0.12);">
+                                <i data-id="218" data-lucide="file-signature" class="w-5 h-5 text-pink"></i>
+                            </div>
+                            <div data-id="219">
+                                <div data-id="220" class="flex items-center gap-2 flex-wrap">
+                                    <span data-id="221" class="text-sm font-semibold text-white">ProposalPro</span>
+                                    <span data-id="222" class="pp-connected-pill text-xs"><span data-id="223" class="w-2 h-2 rounded-full bg-accent inline-block"></span> Auto-invoice on acceptance</span>
+                                </div>
+                                <p data-id="224" class="text-xs text-muted mt-0.5" id="pp-settings-count">0 invoices received from ProposalPro</p>
+                            </div>
+                        </div>
+                        <div data-id="225" class="flex flex-col gap-3">
+                            <div data-id="226" class="flex items-center gap-3">
+                                <div data-id="227" id="pp-settings-auto-toggle" class="toggle-track on-pink">
+                                    <div data-id="228" class="toggle-thumb"></div>
+                                </div>
+                                <span data-id="229" class="text-xs text-white">Auto-create invoice on acceptance</span>
+                            </div>
+                            <div data-id="230" class="flex items-center gap-2">
+                                <span data-id="231" class="text-xs text-muted whitespace-nowrap">Payment terms:</span>
+                                <select data-id="232" id="pp-settings-terms-select" class="h-8 text-xs w-auto" style="width:130px;">
+                                    <option data-id="233" value="30" selected>Net 30</option>
+                                    <option data-id="234" value="15">Net 15</option>
+                                    <option data-id="235" value="0">Due on Receipt</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ReviewBoost Row -->
+                    <div data-id="236" class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-bg">
+                        <div data-id="237" class="flex items-center gap-3">
+                            <div data-id="238" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(250,204,21,0.12);">
+                                <i data-id="239" data-lucide="star" class="w-5 h-5 text-gold"></i>
+                            </div>
+                            <div data-id="240">
+                                <div data-id="241" class="flex items-center gap-2 flex-wrap">
+                                    <span data-id="242" class="text-sm font-semibold text-white">ReviewBoost</span>
+                                    <span data-id="243" class="rb-connected-pill text-xs"><span data-id="244" class="w-2 h-2 rounded-full bg-accent inline-block"></span> Connected</span>
+                                </div>
+                                <p data-id="245" class="text-xs text-muted mt-0.5">Automate review requests on payment</p>
+                            </div>
+                        </div>
+                        <span data-id="246" class="text-gold text-xs font-medium cursor-pointer hover:underline">Manage in ReviewBoost →</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ReviewBoost Connection Card -->
+            <div data-id="247" class="bg-bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+                <div data-id="248" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                    <div data-id="249" class="flex items-center gap-3">
+                        <div data-id="250" class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(250,204,21,0.12);">
+                            <i data-id="251" data-lucide="star" class="w-5 h-5 text-gold"></i>
+                        </div>
+                        <div data-id="252">
+                            <h2 data-id="253" class="text-base md:text-lg font-semibold text-white">ReviewBoost Integration</h2>
+                            <p data-id="254" class="text-xs text-muted mt-0.5">Automate review requests when invoices are paid</p>
+                        </div>
+                    </div>
+                    <div data-id="255" class="flex items-center gap-3 flex-wrap">
+                        <span data-id="256" class="rb-connected-pill"><span data-id="257" class="w-2 h-2 rounded-full bg-accent inline-block"></span> Connected to ReviewBoost</span>
+                        <span data-id="258" class="text-gold text-xs font-medium cursor-pointer hover:underline">Manage in ReviewBoost →</span>
+                    </div>
+                </div>
+
+                <div data-id="259" class="border-t border-border pt-5">
+                    <h3 data-id="260" class="text-sm font-semibold text-white mb-4">Default ReviewBoost Settings</h3>
+                    <div data-id="261" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div data-id="262" class="space-y-4">
+                            <div data-id="263" class="flex items-center gap-3">
+                                <div data-id="264" id="rb-settings-default-toggle" class="toggle-track on-gold">
+                                    <div data-id="265" class="toggle-thumb"></div>
+                                </div>
+                                <span data-id="266" class="text-sm text-white">Enable ReviewBoost on new invoices by default</span>
+                            </div>
+                            <div data-id="267" class="text-xs text-muted font-medium mb-1">Default Platforms</div>
+                            <div data-id="268" class="flex flex-col gap-2">
+                                <label data-id="269" class="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input data-id="270" type="checkbox" class="rb-checkbox rb-default-platform" data-platform="google" checked /> <span data-id="271" class="text-white">Google</span>
+                                </label>
+                                <label data-id="272" class="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input data-id="273" type="checkbox" class="rb-checkbox rb-default-platform" data-platform="yelp" checked /> <span data-id="274" class="text-white">Yelp</span>
+                                </label>
+                                <label data-id="275" class="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input data-id="276" type="checkbox" class="rb-checkbox rb-default-platform" data-platform="facebook" checked /> <span data-id="277" class="text-white">Facebook</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div data-id="278">
+                            <label data-id="279" class="block text-xs text-muted mb-1.5 font-medium">Default Review Request Message</label>
+                            <textarea data-id="280" id="rb-settings-default-msg" rows="4" class="text-sm resize-y" style="border-color:rgba(250,204,21,0.2);">Thank you for your payment! We'd love to hear about your experience. Click below to leave us a quick review — it means the world to us!</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review Requests Sent -->
+            <div data-id="281" class="bg-bg-card border border-border rounded-2xl p-5 md:p-6">
+                <div data-id="282" class="flex items-center justify-between mb-5">
+                    <div data-id="283" class="flex items-center gap-3">
+                        <h2 data-id="284" class="text-base md:text-lg font-semibold text-white">Review Requests Sent</h2>
+                        <span data-id="285" id="rb-requests-count-badge" class="badge text-xs font-bold" style="background:rgba(250,204,21,0.15);color:#facc15;">0</span>
+                    </div>
+                </div>
+                <div data-id="286" class="overflow-x-auto">
+                    <table data-id="287" class="w-full text-sm">
+                        <thead data-id="288">
+                            <tr data-id="289" class="text-xs text-muted uppercase tracking-wide border-b border-border">
+                                <th data-id="290" class="text-left px-4 py-3">Invoice #</th>
+                                <th data-id="291" class="text-left px-3 py-3">Client</th>
+                                <th data-id="292" class="text-left px-3 py-3 hidden md:table-cell">Date Sent</th>
+                                <th data-id="293" class="text-left px-3 py-3">Platforms</th>
+                                <th data-id="294" class="text-left px-4 py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody data-id="295" id="rb-requests-table-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div data-id="296" id="rb-requests-empty" class="py-8 text-center text-muted">
+                    <i data-id="297" data-lucide="star" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>
+                    <p data-id="298" class="text-sm">No review requests sent yet</p>
+                    <p data-id="299" class="text-xs mt-1">Enable ReviewBoost on an invoice and mark it as paid to get started</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== NEW/EDIT INVOICE MODAL ===== -->
+    <div data-id="300" id="invoice-modal-s5t6" class="modal-overlay">
+        <div data-id="301" class="modal-content">
+            <div data-id="302" class="flex items-center justify-between mb-6">
+                <h2 data-id="303" id="modal-title-u7v8" class="text-lg font-bold text-white">New Invoice</h2>
+                <button data-id="304" id="close-invoice-modal-w9x0" class="p-2 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                    <i data-id="305" data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- PP origin badge -->
+            <div data-id="306" id="modal-pp-origin-badge" class="hidden mb-4">
+                <span data-id="307" class="badge badge-pp text-xs">📋 From ProposalPro</span>
+            </div>
+
+            <div data-id="308" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div data-id="309">
+                    <label data-id="310" class="block text-xs text-muted mb-1.5 font-medium">From (Your Business)</label>
+                    <div data-id="311" class="bg-bg rounded-xl p-3 border border-border text-sm">
+                        <p data-id="312" class="font-semibold text-white" id="biz-name-a1b1">Heather's Creative Studio</p>
+                        <p data-id="313" class="text-muted text-xs mt-0.5" id="biz-address-c1d1">Trotwood, OH, United States</p>
+                        <p data-id="314" class="text-muted text-xs" id="biz-email-e1f1">heather@creativestudio.com</p>
+                    </div>
+                </div>
+                <div data-id="315">
+                    <label data-id="316" class="block text-xs text-muted mb-1.5 font-medium">Bill To</label>
+                    <select data-id="317" id="modal-client-select-g1h1" class="h-10 text-sm">
+                        <option data-id="318" value="">Select a client...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div data-id="319" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div data-id="320">
+                    <label data-id="321" class="block text-xs text-muted mb-1.5 font-medium">Invoice #</label>
+                    <input data-id="322" id="modal-inv-number-i1j1" type="text" readonly class="h-10 text-sm bg-bg-elevated" />
+                </div>
+                <div data-id="323">
+                    <label data-id="324" class="block text-xs text-muted mb-1.5 font-medium">Issue Date</label>
+                    <input data-id="325" id="modal-issue-date-k1l1" type="date" class="h-10 text-sm" />
+                </div>
+                <div data-id="326">
+                    <label data-id="327" class="block text-xs text-muted mb-1.5 font-medium">Due Date</label>
+                    <input data-id="328" id="modal-due-date-m1n1" type="date" class="h-10 text-sm" />
+                </div>
+            </div>
+
+            <!-- Line Items -->
+            <div data-id="329" class="mb-4">
+                <label data-id="330" class="block text-xs text-muted mb-2 font-medium">Line Items</label>
+                <div data-id="331" class="overflow-x-auto">
+                    <table data-id="332" class="w-full text-sm">
+                        <thead data-id="333">
+                            <tr data-id="334" class="text-xs text-muted uppercase tracking-wide">
+                                <th data-id="335" class="text-left py-2 pr-2" style="min-width:200px">Description</th>
+                                <th data-id="336" class="text-center py-2 px-2" style="width:70px">Qty</th>
+                                <th data-id="337" class="text-center py-2 px-2" style="width:100px">Rate</th>
+                                <th data-id="338" class="text-right py-2 px-2" style="width:100px">Amount</th>
+                                <th data-id="339" class="py-2 pl-2" style="width:40px"></th>
+                            </tr>
+                        </thead>
+                        <tbody data-id="340" id="line-items-body-o1p1">
+                        </tbody>
+                    </table>
+                </div>
+                <button data-id="341" id="add-line-item-btn-q1r1" class="btn-outline text-xs mt-3 flex items-center gap-1.5">
+                    <i data-id="342" data-lucide="plus" class="w-3 h-3"></i> Add Row
+                </button>
+            </div>
+
+            <!-- Totals -->
+            <div data-id="343" class="flex justify-end mb-6">
+                <div data-id="344" class="w-full sm:w-64 space-y-2 text-sm">
+                    <div data-id="345" class="flex justify-between">
+                        <span data-id="346" class="text-muted">Subtotal</span>
+                        <span data-id="347" id="modal-subtotal-s1t1" class="tabular text-white">$0.00</span>
+                    </div>
+                    <div data-id="348" class="flex items-center justify-between gap-3">
+                        <span data-id="349" class="text-muted">Tax (%)</span>
+                        <input data-id="350" id="modal-tax-rate-u1v1" type="number" min="0" max="100" step="0.5" value="0" class="w-20 h-8 text-sm text-right" />
+                    </div>
+                    <div data-id="351" class="flex justify-between pt-2 border-t border-border text-base font-bold">
+                        <span data-id="352" class="text-white">Total</span>
+                        <span data-id="353" id="modal-total-w1x1" class="tabular text-accent">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div data-id="354" class="mb-6">
+                <label data-id="355" class="block text-xs text-muted mb-1.5 font-medium">Notes / Terms</label>
+                <textarea data-id="356" id="modal-notes-y1z1" rows="2" placeholder="Payment terms, thank you note, etc." class="text-sm resize-y"></textarea>
+            </div>
+
+            <!-- ReviewBoost Section -->
+            <div data-id="357" id="rb-modal-section-wrap" class="rb-section mb-6">
+                <div data-id="358" class="flex items-center gap-2.5 mb-4">
+                    <div data-id="359" class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(250,204,21,0.12);">
+                        <i data-id="360" data-lucide="star" class="w-4 h-4 text-gold"></i>
+                    </div>
+                    <h3 data-id="361" class="text-sm font-semibold text-gold">ReviewBoost Integration</h3>
+                </div>
+                <div data-id="362" class="flex items-center gap-3 mb-3">
+                    <div data-id="363" id="rb-modal-toggle" class="toggle-track on-gold">
+                        <div data-id="364" class="toggle-thumb"></div>
+                    </div>
+                    <span data-id="365" class="text-sm text-white">Send review request when this invoice is paid</span>
+                </div>
+                <div data-id="366" id="rb-modal-details" class="">
+                    <p data-id="367" class="text-xs text-muted mb-4 leading-relaxed pl-1">When marked as paid, your client will automatically receive their final invoice + a review request link.</p>
+                    <div data-id="368" class="text-xs text-muted font-medium mb-2">Platforms to request reviews</div>
+                    <div data-id="369" class="flex flex-wrap gap-4 mb-4">
+                        <label data-id="370" class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input data-id="371" type="checkbox" class="rb-checkbox rb-modal-platform" data-platform="google" checked /> <span data-id="372" class="text-white">Google</span>
+                        </label>
+                        <label data-id="373" class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input data-id="374" type="checkbox" class="rb-checkbox rb-modal-platform" data-platform="yelp" checked /> <span data-id="375" class="text-white">Yelp</span>
+                        </label>
+                        <label data-id="376" class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input data-id="377" type="checkbox" class="rb-checkbox rb-modal-platform" data-platform="facebook" checked /> <span data-id="378" class="text-white">Facebook</span>
+                        </label>
+                    </div>
+                    <div data-id="379">
+                        <label data-id="380" class="block text-xs text-muted mb-1.5 font-medium">Review request message</label>
+                        <textarea data-id="381" id="rb-modal-message" rows="3" class="text-sm resize-y" style="border-color:rgba(250,204,21,0.2);">Thank you for your payment! We'd love to hear about your experience. Click below to leave us a quick review — it means the world to us!</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div data-id="382" class="flex flex-col sm:flex-row justify-end gap-3">
+                <button data-id="383" id="save-draft-btn-a2b2" class="btn-outline flex items-center justify-center gap-2 text-sm">
+                    <i data-id="384" data-lucide="save" class="w-4 h-4"></i> Save as Draft
+                </button>
+                <button data-id="385" id="send-invoice-btn-c2d2" class="btn-primary flex items-center justify-center gap-2 text-sm">
+                    <i data-id="386" data-lucide="send" class="w-4 h-4"></i> Send Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VIEW INVOICE MODAL ===== -->
+    <div data-id="387" id="view-invoice-modal-e2f2" class="modal-overlay">
+        <div data-id="388" class="modal-content print-view" id="print-area-g2h2">
+            <div data-id="389" class="flex items-center justify-between mb-6 no-print">
+                <h2 data-id="390" class="text-lg font-bold text-white">Invoice Details</h2>
+                <div data-id="391" class="flex items-center gap-2">
+                    <button data-id="392" id="print-invoice-btn-i2j2" class="btn-outline flex items-center gap-2 text-xs">
+                        <i data-id="393" data-lucide="printer" class="w-4 h-4"></i> Print / PDF
+                    </button>
+                    <button data-id="394" id="close-view-modal-k2l2" class="p-2 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                        <i data-id="395" data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div data-id="396" id="view-invoice-content-m2n2">
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CLIENT MODAL ===== -->
+    <div data-id="397" id="client-modal-o2p2" class="modal-overlay">
+        <div data-id="398" class="modal-content" style="max-width:500px">
+            <div data-id="399" class="flex items-center justify-between mb-6">
+                <h2 data-id="400" id="client-modal-title-q2r2" class="text-lg font-bold text-white">Add Client</h2>
+                <button data-id="401" id="close-client-modal-s2t2" class="p-2 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                    <i data-id="402" data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div data-id="403" class="space-y-4">
+                <div data-id="404">
+                    <label data-id="405" class="block text-xs text-muted mb-1.5 font-medium">Client Name *</label>
+                    <input data-id="406" id="client-name-input-u2v2" type="text" placeholder="Company or person name" class="h-10 text-sm" />
+                </div>
+                <div data-id="407">
+                    <label data-id="408" class="block text-xs text-muted mb-1.5 font-medium">Email *</label>
+                    <input data-id="409" id="client-email-input-w2x2" type="email" placeholder="client@example.com" class="h-10 text-sm" />
+                </div>
+                <div data-id="410">
+                    <label data-id="411" class="block text-xs text-muted mb-1.5 font-medium">Phone</label>
+                    <input data-id="412" id="client-phone-input-y2z2" type="tel" placeholder="(555) 123-4567" class="h-10 text-sm" />
+                </div>
+                <div data-id="413">
+                    <label data-id="414" class="block text-xs text-muted mb-1.5 font-medium">Address</label>
+                    <input data-id="415" id="client-address-input-a3b3" type="text" placeholder="Street, City, State" class="h-10 text-sm" />
+                </div>
+                <input data-id="416" id="client-edit-id-c3d3" type="hidden" value="" />
+                <button data-id="417" id="save-client-btn-e3f3" class="btn-primary w-full py-2.5 text-sm">Save Client</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== RECURRING MODAL ===== -->
+    <div data-id="418" id="recurring-modal-g3h3" class="modal-overlay">
+        <div data-id="419" class="modal-content" style="max-width:500px">
+            <div data-id="420" class="flex items-center justify-between mb-6">
+                <h2 data-id="421" class="text-lg font-bold text-white">Create Recurring Invoice</h2>
+                <button data-id="422" id="close-recurring-modal-i3j3" class="p-2 text-muted hover:text-white rounded-lg hover:bg-white/5">
+                    <i data-id="423" data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div data-id="424" class="space-y-4">
+                <div data-id="425">
+                    <label data-id="426" class="block text-xs text-muted mb-1.5 font-medium">Client *</label>
+                    <select data-id="427" id="recurring-client-select-k3l3" class="h-10 text-sm">
+                        <option data-id="428" value="">Select a client...</option>
+                    </select>
+                </div>
+                <div data-id="429">
+                    <label data-id="430" class="block text-xs text-muted mb-1.5 font-medium">Amount *</label>
+                    <input data-id="431" id="recurring-amount-input-m3n3" type="number" min="0" step="0.01" placeholder="0.00" class="h-10 text-sm" />
+                </div>
+                <div data-id="432">
+                    <label data-id="433" class="block text-xs text-muted mb-1.5 font-medium">Description</label>
+                    <input data-id="434" id="recurring-desc-input-o3p3" type="text" placeholder="Monthly retainer, Hosting, etc." class="h-10 text-sm" />
+                </div>
+                <div data-id="435">
+                    <label data-id="436" class="block text-xs text-muted mb-1.5 font-medium">Frequency *</label>
+                    <select data-id="437" id="recurring-freq-select-q3r3" class="h-10 text-sm">
+                        <option data-id="438" value="weekly">Weekly</option>
+                        <option data-id="439" value="monthly" selected>Monthly</option>
+                        <option data-id="440" value="quarterly">Quarterly</option>
+                    </select>
+                </div>
+                <div data-id="441">
+                    <label data-id="442" class="block text-xs text-muted mb-1.5 font-medium">Next Send Date</label>
+                    <input data-id="443" id="recurring-next-date-s3t3" type="date" class="h-10 text-sm" />
+                </div>
+                <button data-id="444" id="save-recurring-btn-u3v3" class="btn-primary w-full py-2.5 text-sm">Save Recurring Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== HELP MODAL ===== -->
+    <div data-id="445" id="help-modal-overlay" class="help-overlay no-print">
+        <div data-id="446" class="help-modal">
+            <button data-id="447" id="help-modal-close" class="absolute top-5 right-5 p-2 text-muted hover:text-white rounded-lg hover:bg-white/5 transition-colors">
+                <i data-id="448" data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div data-id="449" class="flex items-center gap-3 mb-2">
+                <div data-id="450" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center">
+                    <i data-id="451" data-lucide="receipt" class="w-5 h-5 text-accent"></i>
+                </div>
+                <h2 data-id="452" class="text-xl font-bold text-white">How to Use InvoiceReady</h2>
+            </div>
+            <p data-id="453" class="text-sm text-muted mb-6 leading-relaxed">InvoiceReady is your all-in-one invoicing companion. Create professional invoices, manage clients, track payments, and automate recurring billing — all from one beautiful dashboard.</p>
+
+            <div data-id="454" class="space-y-3 mb-8" id="help-accordion-container">
+                <div data-id="455" class="help-accordion-item">
+                    <div data-id="456" class="accordion-header" data-accordion="help-dashboard">
+                        <div data-id="457" class="flex items-center gap-2.5">
+                            <i data-id="458" data-lucide="layout-dashboard" class="w-4 h-4 text-accent"></i>
+                            <span data-id="459" class="text-sm font-semibold text-white">Dashboard</span>
+                        </div>
+                        <i data-id="460" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="461" class="accordion-body" id="help-dashboard">
+                        <p data-id="462" class="text-xs text-muted mb-3">Your at-a-glance business overview with key metrics and recent activity.</p>
+                        <ol data-id="463" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="464" class="flex gap-2"><span data-id="465" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span><span data-id="466">Review your <strong data-id="467" class="text-white">stat cards</strong> for total outstanding, paid this month, overdue count, and total invoices.</span></li>
+                            <li data-id="468" class="flex gap-2"><span data-id="469" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span><span data-id="470">Check the <strong data-id="471" class="text-white">Revenue Overview</strong> chart to see your income trend over the past 6 months.</span></li>
+                            <li data-id="472" class="flex gap-2"><span data-id="473" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span><span data-id="474">Scan <strong data-id="475" class="text-white">Recent Invoices</strong> to quickly spot any overdue or pending payments.</span></li>
+                            <li data-id="476" class="flex gap-2"><span data-id="477" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span><span data-id="478">Click <strong data-id="479" class="text-white">"View All"</strong> to jump to the full Invoices tab for detailed management.</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div data-id="480" class="help-accordion-item">
+                    <div data-id="481" class="accordion-header" data-accordion="help-invoices">
+                        <div data-id="482" class="flex items-center gap-2.5">
+                            <i data-id="483" data-lucide="file-text" class="w-4 h-4 text-accent"></i>
+                            <span data-id="484" class="text-sm font-semibold text-white">Invoices</span>
+                        </div>
+                        <i data-id="485" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="486" class="accordion-body" id="help-invoices">
+                        <p data-id="487" class="text-xs text-muted mb-3">Create, send, and manage all your invoices in one place.</p>
+                        <ol data-id="488" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="489" class="flex gap-2"><span data-id="490" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span><span data-id="491">Click <strong data-id="492" class="text-white">"New Invoice"</strong> to open the invoice builder. Select a client, set dates, and add line items.</span></li>
+                            <li data-id="493" class="flex gap-2"><span data-id="494" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span><span data-id="495">Add multiple <strong data-id="496" class="text-white">line items</strong> with description, quantity, and rate. The totals update automatically.</span></li>
+                            <li data-id="497" class="flex gap-2"><span data-id="498" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span><span data-id="499">Set a <strong data-id="500" class="text-white">tax rate</strong> (percentage) and add optional notes or payment terms.</span></li>
+                            <li data-id="501" class="flex gap-2"><span data-id="502" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span><span data-id="503">Save as <strong data-id="504" class="text-white">Draft</strong> to finalize later, or click <strong data-id="505" class="text-white">"Send Invoice"</strong> to mark it as sent immediately.</span></li>
+                            <li data-id="506" class="flex gap-2"><span data-id="507" class="text-accent font-bold text-xs mt-0.5 shrink-0">5.</span><span data-id="508">Use the <strong data-id="509" class="text-white">action buttons</strong> on each row to view details, send drafts, mark as paid, or delete invoices.</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div data-id="510" class="help-accordion-item">
+                    <div data-id="511" class="accordion-header" data-accordion="help-clients">
+                        <div data-id="512" class="flex items-center gap-2.5">
+                            <i data-id="513" data-lucide="users" class="w-4 h-4 text-accent"></i>
+                            <span data-id="514" class="text-sm font-semibold text-white">Clients</span>
+                        </div>
+                        <i data-id="515" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="516" class="accordion-body" id="help-clients">
+                        <p data-id="517" class="text-xs text-muted mb-3">Manage your client directory with contact info and financial summaries.</p>
+                        <ol data-id="518" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="519" class="flex gap-2"><span data-id="520" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span><span data-id="521">Click <strong data-id="522" class="text-white">"Add Client"</strong> to create a new client with name, email, phone, and address.</span></li>
+                            <li data-id="523" class="flex gap-2"><span data-id="524" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span><span data-id="525">Each client card shows <strong data-id="526" class="text-white">Total Invoiced</strong> and <strong data-id="527" class="text-white">Outstanding</strong> amounts at a glance.</span></li>
+                            <li data-id="528" class="flex gap-2"><span data-id="529" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span><span data-id="530">Click the <strong data-id="531" class="text-white">pencil icon</strong> to edit a client's details at any time.</span></li>
+                            <li data-id="532" class="flex gap-2"><span data-id="533" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span><span data-id="534">Click the <strong data-id="535" class="text-white">trash icon</strong> to remove a client (you'll be asked to confirm first).</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div data-id="536" class="help-accordion-item">
+                    <div data-id="537" class="accordion-header" data-accordion="help-recurring">
+                        <div data-id="538" class="flex items-center gap-2.5">
+                            <i data-id="539" data-lucide="repeat" class="w-4 h-4 text-accent"></i>
+                            <span data-id="540" class="text-sm font-semibold text-white">Recurring</span>
+                        </div>
+                        <i data-id="541" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="542" class="accordion-body" id="help-recurring">
+                        <p data-id="543" class="text-xs text-muted mb-3">Automate your billing with scheduled recurring invoices.</p>
+                        <ol data-id="544" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="545" class="flex gap-2"><span data-id="546" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span><span data-id="547">Click <strong data-id="548" class="text-white">"Create Recurring"</strong> and select a client, amount, description, and frequency.</span></li>
+                            <li data-id="549" class="flex gap-2"><span data-id="550" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span><span data-id="551">Set the <strong data-id="552" class="text-white">Next Send Date</strong> to control when the first automatic invoice will be generated.</span></li>
+                            <li data-id="553" class="flex gap-2"><span data-id="554" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span><span data-id="555">Use the <strong data-id="556" class="text-white">toggle switch</strong> to enable or disable it without deleting.</span></li>
+                            <li data-id="557" class="flex gap-2"><span data-id="558" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span><span data-id="559">Click the <strong data-id="560" class="text-white">trash icon</strong> to permanently remove a recurring invoice.</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- ReviewBoost Help -->
+                <div data-id="561" class="help-accordion-item">
+                    <div data-id="562" class="accordion-header" data-accordion="help-reviewboost">
+                        <div data-id="563" class="flex items-center gap-2.5">
+                            <i data-id="564" data-lucide="star" class="w-4 h-4 text-gold"></i>
+                            <span data-id="565" class="text-sm font-semibold text-white">ReviewBoost</span>
+                        </div>
+                        <i data-id="566" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="567" class="accordion-body" id="help-reviewboost">
+                        <p data-id="568" class="text-xs text-muted mb-3">Automatically request reviews from clients when invoices are paid.</p>
+                        <ol data-id="569" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="570" class="flex gap-2"><span data-id="571" class="text-gold font-bold text-xs mt-0.5 shrink-0">1.</span><span data-id="572">Enable <strong data-id="573" class="text-white">ReviewBoost</strong> when creating or editing an invoice using the gold toggle.</span></li>
+                            <li data-id="574" class="flex gap-2"><span data-id="575" class="text-gold font-bold text-xs mt-0.5 shrink-0">2.</span><span data-id="576">Choose which <strong data-id="577" class="text-white">platforms</strong> (Google, Yelp, Facebook) to request reviews for.</span></li>
+                            <li data-id="578" class="flex gap-2"><span data-id="579" class="text-gold font-bold text-xs mt-0.5 shrink-0">3.</span><span data-id="580">When you <strong data-id="581" class="text-white">mark an invoice as paid</strong>, a review request is automatically sent to the client.</span></li>
+                            <li data-id="582" class="flex gap-2"><span data-id="583" class="text-gold font-bold text-xs mt-0.5 shrink-0">4.</span><span data-id="584">Track all sent requests in the <strong data-id="585" class="text-white">Settings → ReviewBoost</strong> section.</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- ProposalPro Help -->
+                <div data-id="586" class="help-accordion-item">
+                    <div data-id="587" class="accordion-header" data-accordion="help-proposalpro">
+                        <div data-id="588" class="flex items-center gap-2.5">
+                            <i data-id="589" data-lucide="file-signature" class="w-4 h-4 text-pink"></i>
+                            <span data-id="590" class="text-sm font-semibold text-white">ProposalPro</span>
+                        </div>
+                        <i data-id="591" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+                    </div>
+                    <div data-id="592" class="accordion-body" id="help-proposalpro">
+                        <p data-id="593" class="text-xs text-muted mb-3">Automatically create invoices from accepted proposals.</p>
+                        <ol data-id="594" class="space-y-2 text-sm text-[var(--text)]">
+                            <li data-id="595" class="flex gap-2"><span data-id="596" class="font-bold text-xs mt-0.5 shrink-0" style="color:#f472b6;">1.</span><span data-id="597">When a proposal is accepted in <strong data-id="598" class="text-white">ProposalPro</strong>, an invoice is automatically created here as a Draft.</span></li>
+                            <li data-id="599" class="flex gap-2"><span data-id="600" class="font-bold text-xs mt-0.5 shrink-0" style="color:#f472b6;">2.</span><span data-id="601">New clients are <strong data-id="602" class="text-white">auto-created</strong> if they don't already exist in your client list.</span></li>
+                            <li data-id="603" class="flex gap-2"><span data-id="604" class="font-bold text-xs mt-0.5 shrink-0" style="color:#f472b6;">3.</span><span data-id="605">Review auto-created invoices on the <strong data-id="606" class="text-white">Dashboard → From ProposalPro</strong> section.</span></li>
+                            <li data-id="607" class="flex gap-2"><span data-id="608" class="font-bold text-xs mt-0.5 shrink-0" style="color:#f472b6;">4.</span><span data-id="609">Manage integration settings in <strong data-id="610" class="text-white">Settings → Connected Apps</strong>.</span></li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div data-id="611" class="bg-bg rounded-xl border border-border p-5">
+                <div data-id="612" class="flex items-center gap-2.5 mb-4">
+                    <div data-id="613" class="w-8 h-8 rounded-lg bg-yellow-400/10 flex items-center justify-center">
+                        <i data-id="614" data-lucide="lightbulb" class="w-4 h-4 text-yellow-400"></i>
+                    </div>
+                    <h3 data-id="615" class="text-sm font-semibold text-white">Tips & Tricks</h3>
+                </div>
+                <div data-id="616" class="space-y-3">
+                    <div data-id="617" class="flex gap-3 items-start">
+                        <div data-id="618" class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <span data-id="619" class="text-accent text-xs font-bold">1</span>
+                        </div>
+                        <p data-id="620" class="text-sm text-[var(--text)]"><strong data-id="621" class="text-white">Auto-numbering:</strong> Invoice numbers increment automatically (INV-001, INV-002…).</p>
+                    </div>
+                    <div data-id="622" class="flex gap-3 items-start">
+                        <div data-id="623" class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <span data-id="624" class="text-accent text-xs font-bold">2</span>
+                        </div>
+                        <p data-id="625" class="text-sm text-[var(--text)]"><strong data-id="626" class="text-white">Overdue detection:</strong> Sent invoices past their due date are automatically flagged as overdue.</p>
+                    </div>
+                    <div data-id="627" class="flex gap-3 items-start">
+                        <div data-id="628" class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <span data-id="629" class="text-accent text-xs font-bold">3</span>
+                        </div>
+                        <p data-id="630" class="text-sm text-[var(--text)]"><strong data-id="631" class="text-white">Print / PDF:</strong> Open any invoice and click "Print / PDF" to generate a clean, print-ready version.</p>
+                    </div>
+                    <div data-id="632" class="flex gap-3 items-start">
+                        <div data-id="633" class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background:rgba(250,204,21,0.1);">
+                            <span data-id="634" class="text-gold text-xs font-bold">4</span>
+                        </div>
+                        <p data-id="635" class="text-sm text-[var(--text)]"><strong data-id="636" class="text-white">ReviewBoost:</strong> Enable it on invoices to automatically send review requests when paid — grow your online reputation effortlessly.</p>
+                    </div>
+                    <div data-id="637" class="flex gap-3 items-start">
+                        <div data-id="638" class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background:rgba(244,114,182,0.1);">
+                            <span data-id="639" class="text-xs font-bold" style="color:#f472b6;">5</span>
+                        </div>
+                        <p data-id="640" class="text-sm text-[var(--text)]"><strong data-id="641" class="text-white">ProposalPro:</strong> Accepted proposals auto-create invoices and clients — no manual data entry needed.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== REVIEWBOOST SUCCESS TOAST ===== -->
+    <div data-id="642" id="rb-toast-overlay" class="rb-toast-overlay">
+        <div data-id="643" class="rb-toast-card">
+            <div data-id="644" class="text-3xl mb-2">✅</div>
+            <h3 data-id="645" class="text-lg font-bold text-white mb-1">Invoice marked as paid!</h3>
+            <p data-id="646" id="rb-toast-inv-number" class="text-sm text-muted mb-5"></p>
+            <div data-id="647" id="rb-toast-rb-section" class="border-t border-border pt-4">
+                <div data-id="648" class="flex items-center justify-center gap-2 mb-3">
+                    <i data-id="649" data-lucide="star" class="w-5 h-5 text-gold"></i>
+                    <span data-id="650" class="text-sm font-semibold text-gold">ReviewBoost Triggered</span>
+                </div>
+                <p data-id="651" id="rb-toast-rb-email" class="text-sm text-muted mb-4"></p>
+                <div data-id="652" id="rb-toast-platforms" class="flex items-center justify-center gap-6 mb-4">
+                </div>
+            </div>
+            <button data-id="653" id="rb-toast-close-btn" class="btn-primary mt-2 px-6 text-sm">Done</button>
+        </div>
+    </div>
+
+    <!-- ===== CDI SUITE STICKY FOOTER ===== -->
+    <div data-id="654" class="cdi-footer no-print">
+        <div data-id="655" class="flex items-center gap-2 min-w-0">
+            <i data-id="656" data-lucide="sparkles" class="w-4 h-4 text-accent shrink-0"></i>
+            <span data-id="657" class="text-white font-semibold text-xs whitespace-nowrap hidden md:inline">CDI Business Suite</span>
+            <span data-id="658" class="text-white font-semibold text-xs whitespace-nowrap md:hidden">CDI Suite</span>
+            <span data-id="659" class="text-muted text-xs hidden md:inline truncate"> · Part of 8 powerful business tools</span>
+        </div>
+        <a data-id="660" id="cdi-footer-explore-btn" href="https://shopreneur.constructivedesignsinc.org" target="_blank" class="cdi-footer-btn flex items-center gap-1.5">
+            <span data-id="661">✨</span> <span data-id="662" class="hidden sm:inline">Explore All 8 Apps →</span><span data-id="663" class="sm:hidden">Explore →</span>
+        </a>
+    </div>
+
+    <footer data-id="664" class="no-print border-t border-border py-6 mt-12 text-center text-xs text-muted mb-12">
+        Made by Copilot
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // ═══════════════════════════════════════════════
+        // SUPABASE INITIALIZATION
+        // ═══════════════════════════════════════════════
+        const SUPABASE_URL = 'https://lizbvlcogvjgycsyiqrc.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si';
+        let db = null;
+        let currentUser = null;
+        let supabaseAvailable = false;
+
+        try {
+            if (typeof supabase !== 'undefined' && supabase.createClient) {
+                db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                supabaseAvailable = true;
+            }
+        } catch(e) {
+            console.warn('Supabase SDK not available, running in local mode.');
+        }
+
+        // ═══════════════════════════════════════════════
+        // AUTH UI LOGIC
+        // ═══════════════════════════════════════════════
+        const authOverlay = document.getElementById('auth-overlay');
+        const authSigninForm = document.getElementById('auth-signin-form');
+        const authSignupForm = document.getElementById('auth-signup-form');
+        const authTabSignin = document.getElementById('auth-tab-signin');
+        const authTabSignup = document.getElementById('auth-tab-signup');
+        const authErrorEl = document.getElementById('auth-error');
+        const authSuccessEl = document.getElementById('auth-success');
+        const dataLoadingOverlay = document.getElementById('data-loading-overlay');
+
+        authTabSignin.addEventListener('click', () => {
+            authTabSignin.classList.add('active');
+            authTabSignup.classList.remove('active');
+            authSigninForm.style.display = '';
+            authSignupForm.style.display = 'none';
+            clearAuthMessages();
+        });
+
+        authTabSignup.addEventListener('click', () => {
+            authTabSignup.classList.add('active');
+            authTabSignin.classList.remove('active');
+            authSignupForm.style.display = '';
+            authSigninForm.style.display = 'none';
+            clearAuthMessages();
+        });
+
+        function showAuthError(msg) {
+            authErrorEl.textContent = msg;
+            authErrorEl.classList.add('visible');
+            authSuccessEl.classList.remove('visible');
+        }
+        function showAuthSuccess(msg) {
+            authSuccessEl.textContent = msg;
+            authSuccessEl.classList.add('visible');
+            authErrorEl.classList.remove('visible');
+        }
+        function clearAuthMessages() {
+            authErrorEl.classList.remove('visible');
+            authSuccessEl.classList.remove('visible');
+        }
+        function showAuthModal() {
+            authOverlay.classList.remove('hidden');
+        }
+        function hideAuthModal() {
+            authOverlay.classList.add('hidden');
+        }
+
+        // Sign In
+        document.getElementById('auth-signin-btn').addEventListener('click', async () => {
+            const email = document.getElementById('auth-signin-email').value.trim();
+            const password = document.getElementById('auth-signin-password').value;
+            if (!email || !password) { showAuthError('Please enter email and password.'); return; }
+            if (!supabaseAvailable) { showAuthError('Database connection unavailable. Please try again.'); return; }
+
+            const btn = document.getElementById('auth-signin-btn');
+            btn.disabled = true; btn.textContent = 'Signing in...';
+            clearAuthMessages();
+
+            try {
+                const { error } = await db.auth.signInWithPassword({ email, password });
+                if (error) showAuthError(error.message);
+            } catch(e) {
+                showAuthError('Connection error. Please try again.');
+            }
+            btn.disabled = false; btn.textContent = 'Sign In';
+        });
+
+        // Sign Up
+        document.getElementById('auth-signup-btn').addEventListener('click', async () => {
+            const biz = document.getElementById('auth-signup-biz').value.trim();
+            const email = document.getElementById('auth-signup-email').value.trim();
+            const password = document.getElementById('auth-signup-password').value;
+            const confirm = document.getElementById('auth-signup-confirm').value;
+
+            if (!biz) { showAuthError('Please enter your business name.'); return; }
+            if (!email) { showAuthError('Please enter your email.'); return; }
+            if (!password) { showAuthError('Please enter a password.'); return; }
+            if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+            if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+            if (!supabaseAvailable) { showAuthError('Database connection unavailable. Please try again.'); return; }
+
+            const btn = document.getElementById('auth-signup-btn');
+            btn.disabled = true; btn.textContent = 'Creating account...';
+            clearAuthMessages();
+
+            try {
+                const { error } = await db.auth.signUp({
+                    email, password,
+                    options: { data: { business_name: biz } }
+                });
+                if (error) { showAuthError(error.message); }
+                else { showAuthSuccess('Check your email to confirm your account!'); }
+            } catch(e) {
+                showAuthError('Connection error. Please try again.');
+            }
+            btn.disabled = false; btn.textContent = 'Create Account';
+        });
+
+        // Forgot Password
+        document.getElementById('auth-forgot-btn').addEventListener('click', async () => {
+            const email = document.getElementById('auth-signin-email').value.trim();
+            if (!email) { showAuthError('Enter your email above, then click Forgot password.'); return; }
+            if (!supabaseAvailable) { showAuthError('Database connection unavailable.'); return; }
+            clearAuthMessages();
+            try {
+                const { error } = await db.auth.resetPasswordForEmail(email);
+                if (error) showAuthError(error.message);
+                else showAuthSuccess('Password reset email sent! Check your inbox.');
+            } catch(e) {
+                showAuthError('Connection error.');
+            }
+        });
+
+        // Sign Out
+        async function signOut() {
+            if (supabaseAvailable && db) {
+                await db.auth.signOut();
+            }
+            currentUser = null;
+            showAuthModal();
+            updateUserBadge();
+        }
+
+        document.getElementById('nav-signout-btn').addEventListener('click', signOut);
+        document.getElementById('mobile-signout-btn').addEventListener('click', signOut);
+
+        // Enter key support
+        document.getElementById('auth-signin-password').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+        });
+        document.getElementById('auth-signup-confirm').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('auth-signup-btn').click();
+        });
+
+        // ═══════════════════════════════════════════════
+        // USER BADGE
+        // ═══════════════════════════════════════════════
+        function updateUserBadge() {
+            const badge = document.getElementById('nav-user-badge');
+            const avatar = document.getElementById('nav-user-avatar');
+            const emailSpan = document.getElementById('nav-user-email');
+            const mobileInfo = document.getElementById('mobile-user-info');
+            const mobileAvatar = document.getElementById('mobile-user-avatar');
+            const mobileEmail = document.getElementById('mobile-user-email');
+
+            if (currentUser) {
+                const email = currentUser.email || '';
+                const initial = email.charAt(0).toUpperCase() || 'U';
+                badge.classList.remove('hidden');
+                avatar.textContent = initial;
+                emailSpan.textContent = email;
+                mobileInfo.classList.remove('hidden');
+                mobileAvatar.textContent = initial;
+                mobileEmail.textContent = email;
+            } else {
+                badge.classList.add('hidden');
+                mobileInfo.classList.add('hidden');
+            }
+        }
+
+        // ═══════════════════════════════════════════════
+        // AUTH STATE MANAGEMENT
+        // ═══════════════════════════════════════════════
+        async function initAuth() {
+            if (!supabaseAvailable) {
+                // No Supabase — fall back to local mode, hide auth
+                hideAuthModal();
+                initLocalMode();
+                return;
+            }
+
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (session) {
+                    currentUser = session.user;
+                    hideAuthModal();
+                    updateUserBadge();
+                    await loadAllData();
+                } else {
+                    showAuthModal();
+                }
+            } catch(e) {
+                // Fallback to local mode
+                hideAuthModal();
+                initLocalMode();
+            }
+
+            db.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    currentUser = session.user;
+                    hideAuthModal();
+                    updateUserBadge();
+                    loadAllData();
+                }
+                if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    showAuthModal();
+                    updateUserBadge();
+                }
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // DATA LAYER — SUPABASE + LOCAL FALLBACK
+        // ═══════════════════════════════════════════════
+        const TODAY = '2026-05-19';
+        const DEFAULT_RB_MESSAGE = "Thank you for your payment! We'd love to hear about your experience. Click below to leave us a quick review — it means the world to us!";
+
+        const defaultClients = [
+            { id: 'c1', name: 'Oakwood Design Co.', email: 'billing@oakwooddesign.com', phone: '(937) 555-0142', address: '45 Elm St, Dayton, OH' },
+            { id: 'c2', name: 'Greenleaf Marketing', email: 'ap@greenleafmktg.com', phone: '(937) 555-0298', address: '112 Main Ave, Kettering, OH' },
+            { id: 'c3', name: 'Summit Tech Solutions', email: 'invoices@summittech.io', phone: '(614) 555-0377', address: '890 High St, Columbus, OH' },
+            { id: 'c4', name: 'Riverside Wellness Spa', email: 'admin@riversidewellness.com', phone: '(937) 555-0481', address: '220 River Rd, Dayton, OH', fromProposalPro: true, ppNote: 'Auto-created from accepted ProposalPro proposal: Website Redesign Project on May 15, 2026' }
+        ];
+
+        const defaultInvoices = [
+            { id: 'inv1', number: 'INV-001', clientId: 'c1', issueDate: '2026-04-01', dueDate: '2026-04-30', status: 'paid', items: [{ desc: 'Brand Identity Package', qty: 1, rate: 3500 }, { desc: 'Social Media Templates (10)', qty: 1, rate: 1200 }], taxRate: 7.5, notes: 'Thank you for your business!', reviewBoost: { enabled: true, platforms: ['google','yelp','facebook'], message: DEFAULT_RB_MESSAGE, sent: true } },
+            { id: 'inv2', number: 'INV-002', clientId: 'c2', issueDate: '2026-04-10', dueDate: '2026-05-10', status: 'overdue', items: [{ desc: 'Q2 Marketing Strategy', qty: 1, rate: 4200 }, { desc: 'Content Calendar Creation', qty: 1, rate: 800 }], taxRate: 7.5, notes: 'Net 30 terms.', reviewBoost: { enabled: true, platforms: ['google','yelp','facebook'], message: DEFAULT_RB_MESSAGE, sent: false } },
+            { id: 'inv3', number: 'INV-003', clientId: 'c3', issueDate: '2026-05-01', dueDate: '2026-05-31', status: 'sent', items: [{ desc: 'Website Redesign - Phase 1', qty: 1, rate: 6500 }, { desc: 'SEO Audit', qty: 1, rate: 1500 }], taxRate: 0, notes: '', reviewBoost: { enabled: false, platforms: [], message: '', sent: false } },
+            { id: 'inv4', number: 'INV-004', clientId: 'c1', issueDate: '2026-05-05', dueDate: '2026-06-04', status: 'draft', items: [{ desc: 'Monthly Retainer - May', qty: 1, rate: 2000 }], taxRate: 7.5, notes: 'Ongoing retainer agreement.', reviewBoost: { enabled: true, platforms: ['google','facebook'], message: DEFAULT_RB_MESSAGE, sent: false } },
+            { id: 'inv5', number: 'INV-005', clientId: 'c3', issueDate: '2026-03-15', dueDate: '2026-04-14', status: 'paid', items: [{ desc: 'App UI Mockups', qty: 8, rate: 350 }, { desc: 'User Testing Sessions', qty: 3, rate: 250 }], taxRate: 0, notes: '', reviewBoost: { enabled: false, platforms: [], message: '', sent: false } },
+            { id: 'inv-pp1', number: 'INV-024', clientId: 'c4', issueDate: '2026-05-15', dueDate: '2026-06-14', status: 'draft', items: [{ desc: 'Website Redesign Project', qty: 1, rate: 2800 }, { desc: 'Content Migration', qty: 1, rate: 700 }], taxRate: 0, notes: 'Auto-created from ProposalPro proposal.', reviewBoost: { enabled: true, platforms: ['google','yelp','facebook'], message: DEFAULT_RB_MESSAGE, sent: false }, fromProposalPro: true, ppProposalTitle: 'Website Redesign Project' }
+        ];
+
+        const defaultRecurring = [
+            { id: 'r1', clientId: 'c1', description: 'Monthly Design Retainer', amount: 2000, frequency: 'monthly', nextDate: '2026-06-01', enabled: true },
+            { id: 'r2', clientId: 'c3', description: 'Quarterly Hosting & Maintenance', amount: 1500, frequency: 'quarterly', nextDate: '2026-07-01', enabled: true }
+        ];
+
+        const defaultRBRequests = [
+            { id: 'rbr1', invoiceId: 'inv1', invoiceNumber: 'INV-001', clientName: 'Oakwood Design Co.', clientEmail: 'billing@oakwooddesign.com', amount: 5052.50, paidDate: '2026-04-28', platforms: ['google','yelp','facebook'], message: DEFAULT_RB_MESSAGE, status: 'sent', reviewSubmitted: false }
+        ];
+
+        const defaultRBSettings = {
+            defaultEnabled: true,
+            defaultPlatforms: ['google','yelp','facebook'],
+            defaultMessage: DEFAULT_RB_MESSAGE
+        };
+
+        const defaultPPSettings = {
+            autoCreateEnabled: true,
+            defaultTermsDays: 30
+        };
+
+        const defaultDismissedBanners = [];
+
+        const revenueData = [
+            { month: 'Dec', amount: 8200 },
+            { month: 'Jan', amount: 6800 },
+            { month: 'Feb', amount: 9400 },
+            { month: 'Mar', amount: 7550 },
+            { month: 'Apr', amount: 10450 },
+            { month: 'May', amount: 4700 }
+        ];
+
+        let clients = JSON.parse(JSON.stringify(defaultClients));
+        let invoices = JSON.parse(JSON.stringify(defaultInvoices));
+        let recurring = JSON.parse(JSON.stringify(defaultRecurring));
+        let rbRequests = JSON.parse(JSON.stringify(defaultRBRequests));
+        let rbSettings = JSON.parse(JSON.stringify(defaultRBSettings));
+        let ppSettings = JSON.parse(JSON.stringify(defaultPPSettings));
+        let dismissedBanners = JSON.parse(JSON.stringify(defaultDismissedBanners));
+
+        // ═══════════════════════════════════════════════
+        // SUPABASE DATA OPERATIONS
+        // ═══════════════════════════════════════════════
+        async function loadAllData() {
+            if (!supabaseAvailable || !currentUser) { initLocalMode(); return; }
+
+            dataLoadingOverlay.classList.remove('hidden');
+
+            try {
+                // Try loading from Supabase tables
+                const [clientsRes, invoicesRes, recurringRes, rbReqRes, rbSettRes, ppSettRes, bannersRes] = await Promise.allSettled([
+                    db.from('ir_clients').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+                    db.from('ir_invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+                    db.from('ir_recurring').select('*').eq('user_id', currentUser.id),
+                    db.from('ir_rb_requests').select('*').eq('user_id', currentUser.id),
+                    db.from('ir_settings').select('*').eq('user_id', currentUser.id).eq('setting_key', 'rb_settings').maybeSingle(),
+                    db.from('ir_settings').select('*').eq('user_id', currentUser.id).eq('setting_key', 'pp_settings').maybeSingle(),
+                    db.from('ir_settings').select('*').eq('user_id', currentUser.id).eq('setting_key', 'dismissed_banners').maybeSingle()
+                ]);
+
+                let dbHasData = false;
+
+                if (clientsRes.status === 'fulfilled' && clientsRes.value.data && clientsRes.value.data.length > 0) {
+                    clients = clientsRes.value.data.map(mapClientFromDB);
+                    dbHasData = true;
+                }
+                if (invoicesRes.status === 'fulfilled' && invoicesRes.value.data && invoicesRes.value.data.length > 0) {
+                    invoices = invoicesRes.value.data.map(mapInvoiceFromDB);
+                    dbHasData = true;
+                }
+                if (recurringRes.status === 'fulfilled' && recurringRes.value.data && recurringRes.value.data.length > 0) {
+                    recurring = recurringRes.value.data.map(mapRecurringFromDB);
+                    dbHasData = true;
+                }
+                if (rbReqRes.status === 'fulfilled' && rbReqRes.value.data && rbReqRes.value.data.length > 0) {
+                    rbRequests = rbReqRes.value.data.map(mapRBRequestFromDB);
+                    dbHasData = true;
+                }
+                if (rbSettRes.status === 'fulfilled' && rbSettRes.value.data) {
+                    rbSettings = rbSettRes.value.data.setting_value || defaultRBSettings;
+                    dbHasData = true;
+                }
+                if (ppSettRes.status === 'fulfilled' && ppSettRes.value.data) {
+                    ppSettings = ppSettRes.value.data.setting_value || defaultPPSettings;
+                    dbHasData = true;
+                }
+                if (bannersRes.status === 'fulfilled' && bannersRes.value.data) {
+                    dismissedBanners = bannersRes.value.data.setting_value || [];
+                    dbHasData = true;
+                }
+
+                if (!dbHasData) {
+                    // Use defaults for new users
+                    clients = JSON.parse(JSON.stringify(defaultClients));
+                    invoices = JSON.parse(JSON.stringify(defaultInvoices));
+                    recurring = JSON.parse(JSON.stringify(defaultRecurring));
+                    rbRequests = JSON.parse(JSON.stringify(defaultRBRequests));
+                    rbSettings = JSON.parse(JSON.stringify(defaultRBSettings));
+                    ppSettings = JSON.parse(JSON.stringify(defaultPPSettings));
+                    dismissedBanners = JSON.parse(JSON.stringify(defaultDismissedBanners));
+
+                    // Seed defaults to Supabase
+                    seedDefaultData();
+                }
+
+                // Check for ProposalPro bridge
+                await checkProposalBridge();
+
+            } catch(e) {
+                console.warn('Error loading data from Supabase, using defaults:', e);
+                initLocalFallback();
+            }
+
+            dataLoadingOverlay.classList.add('hidden');
+
+            // Migrate old invoices
+            invoices.forEach(inv => {
+                if (!inv.reviewBoost) {
+                    inv.reviewBoost = { enabled: false, platforms: [], message: '', sent: false };
+                }
+            });
+
+            checkOverdue();
+            updateBannerStates();
+            initBannerDismissals();
+            renderDashboard();
+        }
+
+        // DB mapping helpers
+        function mapClientFromDB(row) {
+            return {
+                id: row.id, name: row.name || '', email: row.email || '',
+                phone: row.phone || '', address: row.address || '',
+                fromProposalPro: row.from_proposal_pro || false,
+                ppNote: row.pp_note || ''
+            };
+        }
+
+        function mapInvoiceFromDB(row) {
+            return {
+                id: row.id, number: row.invoice_number || '', clientId: row.client_id || '',
+                issueDate: row.issue_date || '', dueDate: row.due_date || '',
+                status: row.status || 'draft',
+                items: row.line_items || [],
+                taxRate: row.tax_rate || 0, notes: row.notes || '',
+                reviewBoost: row.review_boost || { enabled: false, platforms: [], message: '', sent: false },
+                fromProposalPro: row.from_proposal_pro || false,
+                ppProposalTitle: row.pp_proposal_title || ''
+            };
+        }
+
+        function mapRecurringFromDB(row) {
+            return {
+                id: row.id, clientId: row.client_id || '',
+                description: row.description || '', amount: row.amount || 0,
+                frequency: row.frequency || 'monthly',
+                nextDate: row.next_date || '', enabled: row.enabled !== false
+            };
+        }
+
+        function mapRBRequestFromDB(row) {
+            return {
+                id: row.id, invoiceId: row.invoice_id || '',
+                invoiceNumber: row.invoice_number || '', clientName: row.client_name || '',
+                clientEmail: row.client_email || '', amount: row.amount || 0,
+                paidDate: row.paid_date || '', platforms: row.platforms || [],
+                message: row.message || '', status: row.status || 'sent',
+                reviewSubmitted: row.review_submitted || false
+            };
+        }
+
+        // Seed defaults to Supabase for new user
+        async function seedDefaultData() {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                // Seed clients
+                for (const c of clients) {
+                    await db.from('ir_clients').upsert({
+                        id: c.id, user_id: currentUser.id, name: c.name, email: c.email,
+                        phone: c.phone, address: c.address,
+                        from_proposal_pro: c.fromProposalPro || false, pp_note: c.ppNote || ''
+                    }, { onConflict: 'id' });
+                }
+                // Seed invoices
+                for (const inv of invoices) {
+                    await db.from('ir_invoices').upsert({
+                        id: inv.id, user_id: currentUser.id, invoice_number: inv.number,
+                        client_id: inv.clientId, issue_date: inv.issueDate, due_date: inv.dueDate,
+                        status: inv.status, line_items: inv.items, tax_rate: inv.taxRate,
+                        notes: inv.notes, review_boost: inv.reviewBoost,
+                        from_proposal_pro: inv.fromProposalPro || false,
+                        pp_proposal_title: inv.ppProposalTitle || ''
+                    }, { onConflict: 'id' });
+                }
+                // Seed recurring
+                for (const r of recurring) {
+                    await db.from('ir_recurring').upsert({
+                        id: r.id, user_id: currentUser.id, client_id: r.clientId,
+                        description: r.description, amount: r.amount, frequency: r.frequency,
+                        next_date: r.nextDate, enabled: r.enabled
+                    }, { onConflict: 'id' });
+                }
+                // Seed RB requests
+                for (const rr of rbRequests) {
+                    await db.from('ir_rb_requests').upsert({
+                        id: rr.id, user_id: currentUser.id, invoice_id: rr.invoiceId,
+                        invoice_number: rr.invoiceNumber, client_name: rr.clientName,
+                        client_email: rr.clientEmail, amount: rr.amount,
+                        paid_date: rr.paidDate, platforms: rr.platforms, message: rr.message,
+                        status: rr.status, review_submitted: rr.reviewSubmitted
+                    }, { onConflict: 'id' });
+                }
+                // Settings
+                await db.from('ir_settings').upsert({ user_id: currentUser.id, setting_key: 'rb_settings', setting_value: rbSettings }, { onConflict: 'user_id,setting_key' });
+                await db.from('ir_settings').upsert({ user_id: currentUser.id, setting_key: 'pp_settings', setting_value: ppSettings }, { onConflict: 'user_id,setting_key' });
+                await db.from('ir_settings').upsert({ user_id: currentUser.id, setting_key: 'dismissed_banners', setting_value: dismissedBanners }, { onConflict: 'user_id,setting_key' });
+            } catch(e) {
+                console.warn('Error seeding default data:', e);
+            }
+        }
+
+        async function checkProposalBridge() {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                const { data } = await db.from('ir_invoices')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('status', 'draft')
+                    .not('pp_proposal_title', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                if (data && data.length > 0) {
+                    const ppInvs = data.filter(d => d.from_proposal_pro);
+                    if (ppInvs.length > 0) {
+                        showProposalBridgeNotification(ppInvs.map(mapInvoiceFromDB));
+                    }
+                }
+            } catch(e) {}
+        }
+
+        function showProposalBridgeNotification(ppInvs) {
+            if (!ppInvs.length) return;
+            const lastInv = ppInvs[0];
+            const client = getClient(lastInv.clientId);
+            const notifBanner = document.getElementById('pp-notif-banner');
+            const notifText = document.getElementById('pp-notif-text');
+            notifText.textContent = ppInvs.length + ' draft invoice(s) from ProposalPro — ' + client.name + ' · ' + lastInv.number + ' · ' + fmt(calcInvoiceTotal(lastInv));
+            notifBanner.classList.remove('hidden');
+        }
+
+        // Save helpers for Supabase
+        async function saveClientToDB(c) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_clients').upsert({
+                    id: c.id, user_id: currentUser.id, name: c.name, email: c.email,
+                    phone: c.phone || '', address: c.address || '',
+                    from_proposal_pro: c.fromProposalPro || false, pp_note: c.ppNote || ''
+                }, { onConflict: 'id' });
+            } catch(e) { console.warn('Error saving client:', e); }
+        }
+
+        async function deleteClientFromDB(id) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_clients').delete().eq('id', id).eq('user_id', currentUser.id);
+            } catch(e) { console.warn('Error deleting client:', e); }
+        }
+
+        async function saveInvoiceToDB(inv) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_invoices').upsert({
+                    id: inv.id, user_id: currentUser.id, invoice_number: inv.number,
+                    client_id: inv.clientId, issue_date: inv.issueDate, due_date: inv.dueDate,
+                    status: inv.status, line_items: inv.items, tax_rate: inv.taxRate,
+                    notes: inv.notes, review_boost: inv.reviewBoost,
+                    from_proposal_pro: inv.fromProposalPro || false,
+                    pp_proposal_title: inv.ppProposalTitle || ''
+                }, { onConflict: 'id' });
+            } catch(e) { console.warn('Error saving invoice:', e); }
+        }
+
+        async function deleteInvoiceFromDB(id) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_invoices').delete().eq('id', id).eq('user_id', currentUser.id);
+            } catch(e) { console.warn('Error deleting invoice:', e); }
+        }
+
+        async function saveRecurringToDB(r) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_recurring').upsert({
+                    id: r.id, user_id: currentUser.id, client_id: r.clientId,
+                    description: r.description, amount: r.amount, frequency: r.frequency,
+                    next_date: r.nextDate, enabled: r.enabled
+                }, { onConflict: 'id' });
+            } catch(e) { console.warn('Error saving recurring:', e); }
+        }
+
+        async function deleteRecurringFromDB(id) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_recurring').delete().eq('id', id).eq('user_id', currentUser.id);
+            } catch(e) { console.warn('Error deleting recurring:', e); }
+        }
+
+        async function saveRBRequestToDB(rr) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_rb_requests').upsert({
+                    id: rr.id, user_id: currentUser.id, invoice_id: rr.invoiceId,
+                    invoice_number: rr.invoiceNumber, client_name: rr.clientName,
+                    client_email: rr.clientEmail, amount: rr.amount,
+                    paid_date: rr.paidDate, platforms: rr.platforms, message: rr.message,
+                    status: rr.status, review_submitted: rr.reviewSubmitted
+                }, { onConflict: 'id' });
+            } catch(e) { console.warn('Error saving RB request:', e); }
+        }
+
+        async function saveSettingToDB(key, value) {
+            if (!supabaseAvailable || !currentUser) return;
+            try {
+                await db.from('ir_settings').upsert({
+                    user_id: currentUser.id, setting_key: key, setting_value: value
+                }, { onConflict: 'user_id,setting_key' });
+            } catch(e) { console.warn('Error saving setting:', e); }
+        }
+
+        // Also persist to AppSDK if available
+        async function persistToSDK() {
+            if (!window.AppSDK) return;
+            try {
+                await AppSDK.upsert('invoiceready', 'clients', { items: clients });
+                await AppSDK.upsert('invoiceready', 'invoices', { items: invoices });
+                await AppSDK.upsert('invoiceready', 'recurring', { items: recurring });
+                await AppSDK.upsert('reviewboost_requests', 'all', { items: rbRequests });
+                await AppSDK.upsert('reviewboost_settings', 'defaults', rbSettings);
+                await AppSDK.upsert('proposalpro_settings', 'defaults', ppSettings);
+                await AppSDK.upsert('dismissed_banners', 'all', { items: dismissedBanners });
+            } catch(e) {}
+        }
+
+        function persist() {
+            // Persist to Supabase + SDK
+            persistToSDK();
+        }
+
+        // Local fallback when Supabase is unavailable
+        function initLocalFallback() {
+            clients = JSON.parse(JSON.stringify(defaultClients));
+            invoices = JSON.parse(JSON.stringify(defaultInvoices));
+            recurring = JSON.parse(JSON.stringify(defaultRecurring));
+            rbRequests = JSON.parse(JSON.stringify(defaultRBRequests));
+            rbSettings = JSON.parse(JSON.stringify(defaultRBSettings));
+            ppSettings = JSON.parse(JSON.stringify(defaultPPSettings));
+            dismissedBanners = JSON.parse(JSON.stringify(defaultDismissedBanners));
+        }
+
+        function initLocalMode() {
+            initLocalFallback();
+            invoices.forEach(inv => {
+                if (!inv.reviewBoost) {
+                    inv.reviewBoost = { enabled: false, platforms: [], message: '', sent: false };
+                }
+            });
+            checkOverdue();
+            updateBannerStates();
+            initBannerDismissals();
+            renderDashboard();
+        }
+
+        // ═══════════════════════════════════════════════
+        // PROPOSALPRO SDK INTEGRATION (kept for compat)
+        // ═══════════════════════════════════════════════
+        async function checkProposalProAccepted() {
+            if (!window.AppSDK) return;
+            try {
+                const result = await AppSDK.get('proposalpro_accepted', 'all');
+                if (!result || !result.data || !result.data.items) return;
+                const accepted = result.data.items;
+
+                let processedResult;
+                try { processedResult = await AppSDK.get('invoiceready_processed_proposals', 'all'); } catch(e) {}
+                const processedIds = (processedResult && processedResult.data && processedResult.data.ids) ? processedResult.data.ids : [];
+
+                let newCount = 0;
+                let lastCreatedInv = null;
+
+                for (const proposal of accepted) {
+                    if (processedIds.includes(proposal.id)) continue;
+                    let clientId = null;
+                    const existingClient = clients.find(c => c.email === proposal.clientEmail);
+                    if (existingClient) { clientId = existingClient.id; }
+                    else {
+                        const newClient = {
+                            id: 'c' + Date.now() + Math.random().toString(36).slice(2,5),
+                            name: proposal.clientName || proposal.clientCompany || 'Unknown Client',
+                            email: proposal.clientEmail || '', phone: proposal.clientPhone || '',
+                            address: '', fromProposalPro: true,
+                            ppNote: 'Auto-created from accepted ProposalPro proposal: ' + (proposal.title || 'Untitled') + ' on ' + fmtDate(TODAY)
+                        };
+                        clients.push(newClient);
+                        clientId = newClient.id;
+                        saveClientToDB(newClient);
+                    }
+
+                    const termsDays = ppSettings.defaultTermsDays || 30;
+                    const dueDate = new Date(TODAY + 'T00:00:00');
+                    dueDate.setDate(dueDate.getDate() + termsDays);
+                    const dueDateStr = dueDate.toISOString().split('T')[0];
+
+                    const invNumber = proposal.invoiceNumber || getNextInvNumber();
+                    const newInv = {
+                        id: 'inv-pp-' + Date.now() + Math.random().toString(36).slice(2,5),
+                        number: invNumber, clientId: clientId, issueDate: TODAY, dueDate: dueDateStr,
+                        status: 'draft',
+                        items: (proposal.lineItems || []).map(li => ({ desc: li.description || li.desc || '', qty: li.qty || li.quantity || 1, rate: li.rate || li.price || 0 })),
+                        taxRate: proposal.taxRate || proposal.tax || 0,
+                        notes: 'Auto-created from ProposalPro proposal.',
+                        reviewBoost: { enabled: rbSettings.defaultEnabled, platforms: [...rbSettings.defaultPlatforms], message: rbSettings.defaultMessage, sent: false },
+                        fromProposalPro: true, ppProposalTitle: proposal.title || 'Untitled Proposal'
+                    };
+                    invoices.push(newInv);
+                    lastCreatedInv = newInv;
+                    processedIds.push(proposal.id);
+                    newCount++;
+                    saveInvoiceToDB(newInv);
+                }
+
+                if (newCount > 0) {
+                    persist();
+                    await AppSDK.upsert('invoiceready_processed_proposals', 'all', { ids: processedIds });
+                    const notifBanner = document.getElementById('pp-notif-banner');
+                    const notifText = document.getElementById('pp-notif-text');
+                    const client = getClient(lastCreatedInv.clientId);
+                    notifText.textContent = newCount + ' invoice(s) auto-created from ProposalPro — ' + client.name + ' · ' + lastCreatedInv.number + ' · ' + fmt(calcInvoiceTotal(lastCreatedInv));
+                    notifBanner.classList.remove('hidden');
+                }
+            } catch(e) {}
+        }
+
+        // ─────────── HELPERS ───────────
+        function fmt(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function fmtDate(d) {
+            if (!d) return '—';
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        function getClient(id) { return clients.find(c => c.id === id) || { name: 'Unknown', email: '' }; }
+        function calcInvoiceSubtotal(items) { return items.reduce((s, i) => s + (i.qty * i.rate), 0); }
+        function calcInvoiceTotal(inv) {
+            const sub = calcInvoiceSubtotal(inv.items);
+            return sub + (sub * (inv.taxRate || 0) / 100);
+        }
+        function getNextInvNumber() {
+            let max = 0;
+            invoices.forEach(inv => {
+                const m = inv.number.match(/INV-(\d+)/);
+                if (m) max = Math.max(max, parseInt(m[1]));
+            });
+            return 'INV-' + String(max + 1).padStart(3, '0');
+        }
+        function checkOverdue() {
+            invoices.forEach(inv => {
+                if (inv.status === 'sent' && inv.dueDate < TODAY) {
+                    inv.status = 'overdue';
+                    saveInvoiceToDB(inv);
+                }
+            });
+        }
+        function statusBadge(s) {
+            const cls = { draft: 'badge-draft', sent: 'badge-sent', paid: 'badge-paid', overdue: 'badge-overdue' };
+            return `<span class="badge ${cls[s] || 'badge-draft'}">${s}</span>`;
+        }
+        function ppBadge(inv) {
+            if (!inv.fromProposalPro) return '';
+            return ' <span class="badge badge-pp">📋 From ProposalPro</span>';
+        }
+        function rbStarIcon(inv) {
+            if (!inv.reviewBoost || !inv.reviewBoost.enabled) return '<span class="text-muted text-xs">—</span>';
+            if (inv.status === 'paid' && inv.reviewBoost.sent) return `<span class="rb-tooltip-wrap"><i data-lucide="star" class="w-4 h-4 text-gold" style="fill:#facc15;"></i><span class="rb-tip">ReviewBoost — request sent</span></span>`;
+            return `<span class="rb-tooltip-wrap"><i data-lucide="star" class="w-4 h-4 text-gold"></i><span class="rb-tip">ReviewBoost enabled</span></span>`;
+        }
+        function rbInlineIcon(inv) {
+            if (!inv.reviewBoost || !inv.reviewBoost.enabled) return '';
+            const fill = (inv.status === 'paid' && inv.reviewBoost.sent) ? ' style="fill:#facc15;"' : '';
+            return `<span class="rb-tooltip-wrap ml-1.5 inline-flex align-middle"><i data-lucide="star" class="w-3.5 h-3.5 text-gold"${fill}></i><span class="rb-tip">${inv.reviewBoost.sent ? 'ReviewBoost sent' : 'ReviewBoost enabled'}</span></span>`;
+        }
+
+        // ─────────── BANNER DISMISS LOGIC ───────────
+        function isBannerDismissed(id) { return dismissedBanners.includes(id); }
+        function dismissBanner(id) {
+            if (!dismissedBanners.includes(id)) {
+                dismissedBanners.push(id);
+                persist();
+                saveSettingToDB('dismissed_banners', dismissedBanners);
+            }
+        }
+
+        function initBannerDismissals() {
+            const ppBannerDash = document.getElementById('pp-pairing-banner-dash');
+            if (isBannerDismissed('invoiceready_proposalpro_banner')) {
+                ppBannerDash.classList.add('dismissed');
+            }
+            const rbBannerInv = document.getElementById('rb-pairing-banner-inv');
+            if (isBannerDismissed('invoiceready_reviewboost_banner')) {
+                rbBannerInv.classList.add('dismissed');
+            }
+        }
+
+        document.getElementById('pp-banner-dash-dismiss').addEventListener('click', () => {
+            dismissBanner('invoiceready_proposalpro_banner');
+            document.getElementById('pp-pairing-banner-dash').classList.add('dismissed');
+        });
+
+        document.getElementById('rb-banner-inv-dismiss').addEventListener('click', () => {
+            dismissBanner('invoiceready_reviewboost_banner');
+            document.getElementById('rb-pairing-banner-inv').classList.add('dismissed');
+        });
+
+        document.getElementById('pp-notif-dismiss-btn').addEventListener('click', () => {
+            document.getElementById('pp-notif-banner').classList.add('dismissed');
+        });
+
+        document.getElementById('pp-notif-view-btn').addEventListener('click', () => {
+            switchTab('invoices');
+            document.getElementById('pp-notif-banner').classList.add('dismissed');
+        });
+
+        function updateBannerStates() {
+            if (rbRequests.length > 0) {
+                const rbPill = document.getElementById('rb-banner-status-pill');
+                rbPill.classList.remove('hidden');
+                document.getElementById('rb-banner-tagline').textContent = 'ReviewBoost is active — review requests send automatically on payment.';
+                document.getElementById('rb-banner-ctas').innerHTML = '<span class="text-gold text-xs font-medium">🟢 Active</span>';
+            }
+            const ppInvoices = invoices.filter(i => i.fromProposalPro);
+            if (ppInvoices.length > 0) {
+                const ppPill = document.getElementById('pp-banner-status-pill');
+                ppPill.classList.remove('hidden');
+                document.getElementById('pp-banner-tagline').textContent = 'ProposalPro is connected — accepted proposals auto-create invoices here.';
+                document.getElementById('pp-banner-ctas').innerHTML = '<span class="text-xs font-medium" style="color:#f472b6;">🟢 Connected</span>';
+            }
+        }
+
+        // ─────────── HELP MODAL ───────────
+        const helpOverlay = document.getElementById('help-modal-overlay');
+        document.getElementById('help-btn-nav').addEventListener('click', () => { helpOverlay.classList.add('active'); });
+        document.getElementById('help-modal-close').addEventListener('click', () => { helpOverlay.classList.remove('active'); });
+        helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.remove('active'); });
+
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const targetId = header.dataset.accordion;
+                const body = document.getElementById(targetId);
+                const isOpen = header.classList.contains('open');
+                document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('open'));
+                document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('open'));
+                if (!isOpen) { header.classList.add('open'); body.classList.add('open'); }
+            });
+        });
+
+        // ─────────── TAB NAVIGATION ───────────
+        const tabSections = {
+            dashboard: document.getElementById('tab-dashboard-m3n4'),
+            invoices: document.getElementById('tab-invoices-u1v2'),
+            clients: document.getElementById('tab-clients-e1f2'),
+            recurring: document.getElementById('tab-recurring-k7l8'),
+            settings: document.getElementById('tab-settings-rb01')
+        };
+
+        function switchTab(name) {
+            Object.values(tabSections).forEach(s => s.classList.add('section-hidden'));
+            tabSections[name].classList.remove('section-hidden');
+            document.querySelectorAll('.nav-tab').forEach(t => {
+                t.classList.toggle('tab-active', t.dataset.tab === name);
+                t.classList.toggle('tab-inactive', t.dataset.tab !== name);
+            });
+            document.querySelectorAll('.mobile-nav-tab').forEach(t => {
+                t.classList.toggle('bg-accent/10', t.dataset.tab === name);
+                t.classList.toggle('text-white', t.dataset.tab === name);
+                t.classList.toggle('text-muted', t.dataset.tab !== name);
+            });
+            closeMobileMenu();
+            if (name === 'dashboard') renderDashboard();
+            if (name === 'invoices') renderInvoicesTab();
+            if (name === 'clients') renderClientsTab();
+            if (name === 'recurring') renderRecurringTab();
+            if (name === 'settings') renderSettingsTab();
+        }
+
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+        document.querySelectorAll('.mobile-nav-tab').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        const mobileMenu = document.getElementById('mobile-menu-g7h8');
+        document.getElementById('mobile-menu-btn-e5f6').addEventListener('click', () => mobileMenu.classList.remove('hidden'));
+        document.getElementById('mobile-menu-close-i9j0').addEventListener('click', closeMobileMenu);
+        function closeMobileMenu() { mobileMenu.classList.add('hidden'); }
+
+        document.querySelector('.view-all-invoices-btn').addEventListener('click', () => switchTab('invoices'));
+
+        // ─────────── DASHBOARD ───────────
+        function renderDashboard() {
+            const paid = invoices.filter(i => i.status === 'paid');
+            const outstanding = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + calcInvoiceTotal(i), 0);
+            const paidThisMonth = paid.filter(i => i.issueDate && i.issueDate.startsWith('2026-05')).reduce((s, i) => s + calcInvoiceTotal(i), 0);
+            const overdueCount = invoices.filter(i => i.status === 'overdue').length;
+
+            const stats = [
+                { icon: 'dollar-sign', label: 'Total Outstanding', value: fmt(outstanding), color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+                { icon: 'check-circle', label: 'Paid This Month', value: fmt(paidThisMonth), color: 'text-accent', bg: 'bg-accent/10' },
+                { icon: 'alert-triangle', label: 'Overdue', value: overdueCount, color: 'text-coral', bg: 'bg-coral/10' },
+                { icon: 'file-text', label: 'Total Invoices', value: invoices.length, color: 'text-blue-400', bg: 'bg-blue-400/10' }
+            ];
+
+            document.getElementById('stats-grid-o5p6').innerHTML = stats.map(s => `
+                <div class="stat-card">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center">
+                            <i data-lucide="${s.icon}" class="w-4 h-4 ${s.color}"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted mb-1">${s.label}</p>
+                    <p class="text-xl md:text-2xl font-bold text-white tabular">${s.value}</p>
+                </div>
+            `).join('');
+
+            renderPPDashboardSection();
+
+            const maxAmt = Math.max(...revenueData.map(d => d.amount));
+            document.getElementById('chart-container-q7r8').innerHTML = revenueData.map(d => {
+                const pct = Math.max(8, (d.amount / maxAmt) * 100);
+                return `
+                    <div class="flex-1 flex flex-col items-center gap-2">
+                        <span class="text-xs text-muted tabular">${fmt(d.amount)}</span>
+                        <div class="w-full flex justify-center" style="height:${pct}%">
+                            <div class="chart-bar w-full max-w-[48px] bg-gradient-to-t from-accent/60 to-accent" style="height:100%"></div>
+                        </div>
+                        <span class="text-xs text-muted font-medium">${d.month}</span>
+                    </div>
+                `;
+            }).join('');
+
+            const recent = [...invoices].sort((a, b) => b.issueDate.localeCompare(a.issueDate)).slice(0, 5);
+            document.getElementById('recent-invoices-body-s9t0').innerHTML = recent.map(inv => `
+                <tr class="table-row border-b border-border/50">
+                    <td class="px-5 md:px-6 py-3 font-medium text-white">
+                        <span class="inline-flex items-center gap-1.5 flex-wrap">${inv.number}${ppBadge(inv)}</span>
+                    </td>
+                    <td class="px-3 py-3">${getClient(inv.clientId).name}</td>
+                    <td class="px-3 py-3 text-right tabular font-medium text-white">${fmt(calcInvoiceTotal(inv))}</td>
+                    <td class="px-3 py-3 hidden md:table-cell text-muted">${fmtDate(inv.dueDate)}</td>
+                    <td class="px-5 md:px-6 py-3">
+                        <span class="inline-flex items-center gap-1.5">${statusBadge(inv.status)}${rbInlineIcon(inv)}</span>
+                    </td>
+                </tr>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderPPDashboardSection() {
+            const ppInvoices = invoices.filter(i => i.fromProposalPro);
+            const body = document.getElementById('pp-dashboard-body');
+            if (ppInvoices.length === 0) {
+                body.innerHTML = `<div class="text-center py-6"><i data-lucide="file-signature" class="w-8 h-8 mx-auto mb-2 opacity-30" style="color:#f472b6;"></i><p class="text-sm text-muted">No proposals converted yet.</p><p class="text-xs text-muted mt-1">When a client accepts a proposal in ProposalPro, their invoice appears here automatically.</p></div>`;
+                lucide.createIcons(); return;
+            }
+            body.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-muted uppercase tracking-wide border-b border-border"><th class="text-left py-2 px-2">Client</th><th class="text-left py-2 px-2">Invoice #</th><th class="text-right py-2 px-2">Amount</th><th class="text-left py-2 px-2 hidden md:table-cell">Date</th><th class="text-left py-2 px-2">Status</th><th class="text-right py-2 px-2"></th></tr></thead><tbody>${ppInvoices.map(inv => `<tr class="table-row border-b border-border/50"><td class="py-2.5 px-2 font-medium text-white">${getClient(inv.clientId).name}</td><td class="py-2.5 px-2"><span class="inline-flex items-center gap-1.5">${inv.number} <span class="badge badge-pp text-[0.6rem]">📋</span></span></td><td class="py-2.5 px-2 text-right tabular font-medium text-white">${fmt(calcInvoiceTotal(inv))}</td><td class="py-2.5 px-2 text-muted hidden md:table-cell">${fmtDate(inv.issueDate)}</td><td class="py-2.5 px-2">${statusBadge(inv.status)}</td><td class="py-2.5 px-2 text-right"><button class="pp-view-inv-btn text-accent text-xs font-medium hover:underline" data-id="${inv.id}">View</button></td></tr>`).join('')}</tbody></table></div>`;
+            body.querySelectorAll('.pp-view-inv-btn').forEach(btn => {
+                btn.addEventListener('click', () => { const inv = invoices.find(i => i.id === btn.dataset.id); if (inv) openViewInvoice(inv); });
+            });
+            lucide.createIcons();
+        }
+
+        // ─────────── INVOICES TAB ───────────
+        let invoiceFilter = 'all';
+        let invoiceSearch = '';
+
+        function renderInvoicesTab() {
+            let list = [...invoices];
+            if (invoiceFilter !== 'all') list = list.filter(i => i.status === invoiceFilter);
+            if (invoiceSearch) {
+                const q = invoiceSearch.toLowerCase();
+                list = list.filter(i => i.number.toLowerCase().includes(q) || getClient(i.clientId).name.toLowerCase().includes(q));
+            }
+            list.sort((a, b) => b.issueDate.localeCompare(a.issueDate));
+
+            const tbody = document.getElementById('invoices-table-body-a7b8');
+            const empty = document.getElementById('invoices-empty-c9d0');
+
+            if (list.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); lucide.createIcons(); return; }
+            empty.classList.add('hidden');
+
+            tbody.innerHTML = list.map(inv => `
+                <tr class="table-row border-b border-border/50">
+                    <td class="px-5 md:px-6 py-3 font-medium text-white"><span class="inline-flex items-center gap-1.5 flex-wrap">${inv.number}${ppBadge(inv)}</span></td>
+                    <td class="px-3 py-3">${getClient(inv.clientId).name}</td>
+                    <td class="px-3 py-3 hidden lg:table-cell text-muted">${fmtDate(inv.issueDate)}</td>
+                    <td class="px-3 py-3 hidden md:table-cell text-muted">${fmtDate(inv.dueDate)}</td>
+                    <td class="px-3 py-3 text-right tabular font-medium text-white">${fmt(calcInvoiceTotal(inv))}</td>
+                    <td class="px-3 py-3">${statusBadge(inv.status)}</td>
+                    <td class="px-3 py-3 text-center">${rbStarIcon(inv)}</td>
+                    <td class="px-5 md:px-6 py-3 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <button class="inv-action p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-white" data-action="view" data-id="${inv.id}" title="View"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button>
+                            ${inv.status === 'draft' ? `<button class="inv-action p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-accent" data-action="send" data-id="${inv.id}" title="Send"><i data-lucide="send" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                            ${inv.status !== 'paid' ? `<button class="inv-action p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-accent" data-action="paid" data-id="${inv.id}" title="Mark Paid"><i data-lucide="check-circle" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                            <button class="inv-action p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-coral" data-action="delete" data-id="${inv.id}" title="Delete"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbody.querySelectorAll('.inv-action').forEach(btn => {
+                btn.addEventListener('click', () => handleInvoiceAction(btn.dataset.action, btn.dataset.id));
+            });
+            lucide.createIcons();
+        }
+
+        function handleInvoiceAction(action, id) {
+            const inv = invoices.find(i => i.id === id);
+            if (!inv) return;
+            if (action === 'view') { openViewInvoice(inv); return; }
+            if (action === 'send') { inv.status = 'sent'; saveInvoiceToDB(inv); }
+            if (action === 'paid') {
+                inv.status = 'paid';
+                saveInvoiceToDB(inv);
+                // Also record payment in Supabase
+                if (supabaseAvailable && currentUser) {
+                    const paymentId = 'pay-' + Date.now();
+                    db.from('ir_payments').insert({
+                        id: paymentId, invoice_id: inv.id, user_id: currentUser.id,
+                        amount: calcInvoiceTotal(inv),
+                        payment_date: new Date().toISOString().split('T')[0],
+                        method: 'manual'
+                    }).then(() => {}).catch(() => {});
+                }
+                persist();
+                showPaidToast(inv);
+                renderInvoicesTab();
+                renderDashboard();
+                return;
+            }
+            if (action === 'delete') {
+                if (!confirm('Delete ' + inv.number + '?')) return;
+                invoices = invoices.filter(i => i.id !== id);
+                deleteInvoiceFromDB(id);
+            }
+            persist();
+            renderInvoicesTab();
+            renderDashboard();
+        }
+
+        // ─────────── REVIEWBOOST PAID TOAST ───────────
+        function showPaidToast(inv) {
+            const overlay = document.getElementById('rb-toast-overlay');
+            document.getElementById('rb-toast-inv-number').textContent = inv.number + ' — ' + fmt(calcInvoiceTotal(inv));
+            const rbSection = document.getElementById('rb-toast-rb-section');
+            const platformsDiv = document.getElementById('rb-toast-platforms');
+
+            if (inv.reviewBoost && inv.reviewBoost.enabled) {
+                const client = getClient(inv.clientId);
+                inv.reviewBoost.sent = true;
+                saveInvoiceToDB(inv);
+
+                const rbReq = {
+                    id: 'rbr' + Date.now(), invoiceId: inv.id, invoiceNumber: inv.number,
+                    clientName: client.name, clientEmail: client.email,
+                    amount: calcInvoiceTotal(inv), paidDate: TODAY,
+                    platforms: inv.reviewBoost.platforms || [],
+                    message: inv.reviewBoost.message || DEFAULT_RB_MESSAGE,
+                    status: 'sent', reviewSubmitted: false
+                };
+                rbRequests.push(rbReq);
+                saveRBRequestToDB(rbReq);
+                persist();
+
+                rbSection.style.display = '';
+                document.getElementById('rb-toast-rb-email').textContent = 'A review request has been sent to ' + client.email + ' along with their final invoice.';
+                const platforms = inv.reviewBoost.platforms || [];
+                const platformLabels = { google: 'Google', yelp: 'Yelp', facebook: 'Facebook' };
+                platformsDiv.innerHTML = platforms.map(p => `<div class="rb-platform-check flex flex-col items-center gap-1.5" data-platform="${p}"><div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(250,204,21,0.12);border:1.5px solid rgba(250,204,21,0.3);"><i data-lucide="check" class="w-5 h-5 text-gold"></i></div><span class="text-xs text-muted font-medium">${platformLabels[p] || p}</span></div>`).join('');
+                lucide.createIcons();
+                platformsDiv.querySelectorAll('.rb-platform-check').forEach((el, idx) => {
+                    setTimeout(() => el.classList.add('visible'), 300 + idx * 350);
+                });
+            } else {
+                rbSection.style.display = 'none';
+                platformsDiv.innerHTML = '';
+            }
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('rb-toast-close-btn').addEventListener('click', () => {
+            document.getElementById('rb-toast-overlay').classList.remove('active');
+        });
+        document.getElementById('rb-toast-overlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('rb-toast-overlay')) document.getElementById('rb-toast-overlay').classList.remove('active');
+        });
+
+        // Filters
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => { b.classList.remove('active'); b.style.borderColor = ''; b.style.color = ''; });
+                btn.classList.add('active'); btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)';
+                invoiceFilter = btn.dataset.filter;
+                renderInvoicesTab();
+            });
+        });
+        document.querySelector('.filter-btn.active').style.borderColor = 'var(--accent)';
+        document.querySelector('.filter-btn.active').style.color = 'var(--accent)';
+
+        document.getElementById('invoice-search-y5z6').addEventListener('input', (e) => {
+            invoiceSearch = e.target.value;
+            renderInvoicesTab();
+        });
+
+        // ─────────── VIEW INVOICE ───────────
+        function openViewInvoice(inv) {
+            const client = getClient(inv.clientId);
+            const sub = calcInvoiceSubtotal(inv.items);
+            const tax = sub * (inv.taxRate || 0) / 100;
+            const total = sub + tax;
+
+            document.getElementById('view-invoice-content-m2n2').innerHTML = `
+                <div class="flex flex-col md:flex-row justify-between gap-4 mb-8">
+                    <div>
+                        <div class="flex items-center gap-2 mb-2"><div class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center"><i data-lucide="receipt" class="w-4 h-4 text-accent"></i></div><span class="font-bold text-lg text-white">InvoiceReady</span></div>
+                        <p class="text-sm text-muted">Heather's Creative Studio</p>
+                        <p class="text-xs text-muted">Trotwood, OH, United States</p>
+                    </div>
+                    <div class="text-left md:text-right">
+                        <h3 class="text-2xl font-bold text-white mb-1">${inv.number}</h3>
+                        <p class="text-sm"><span class="inline-flex items-center gap-1.5 flex-wrap">${statusBadge(inv.status)}${ppBadge(inv)}${inv.reviewBoost && inv.reviewBoost.enabled ? ' <span class="inline-flex items-center ml-1.5 align-middle"><i data-lucide="star" class="w-3.5 h-3.5 text-gold"' + (inv.reviewBoost.sent ? ' style="fill:#facc15;"' : '') + '></i></span>' : ''}</span></p>
+                        <p class="text-xs text-muted mt-2">Issue: ${fmtDate(inv.issueDate)}</p>
+                        <p class="text-xs text-muted">Due: ${fmtDate(inv.dueDate)}</p>
+                    </div>
+                </div>
+                <div class="bg-bg rounded-xl p-4 mb-6 border border-border">
+                    <p class="text-xs text-muted mb-1 uppercase tracking-wide">Bill To</p>
+                    <p class="font-semibold text-white">${client.name}</p>
+                    <p class="text-sm text-muted">${client.email}</p>
+                    ${client.address ? `<p class="text-sm text-muted">${client.address}</p>` : ''}
+                    ${client.fromProposalPro ? '<p class="text-xs mt-1" style="color:#f472b6;">📋 via ProposalPro</p>' : ''}
+                </div>
+                <table class="w-full text-sm mb-6"><thead><tr class="border-b border-border text-xs text-muted uppercase tracking-wide"><th class="text-left py-2">Description</th><th class="text-center py-2" style="width:60px">Qty</th><th class="text-right py-2" style="width:100px">Rate</th><th class="text-right py-2" style="width:100px">Amount</th></tr></thead><tbody>${inv.items.map(item => `<tr class="border-b border-border/50"><td class="py-2.5">${item.desc}</td><td class="py-2.5 text-center tabular">${item.qty}</td><td class="py-2.5 text-right tabular">${fmt(item.rate)}</td><td class="py-2.5 text-right tabular font-medium text-white">${fmt(item.qty * item.rate)}</td></tr>`).join('')}</tbody></table>
+                <div class="flex justify-end mb-6"><div class="w-64 space-y-1.5 text-sm"><div class="flex justify-between"><span class="text-muted">Subtotal</span><span class="tabular">${fmt(sub)}</span></div>${inv.taxRate ? `<div class="flex justify-between"><span class="text-muted">Tax (${inv.taxRate}%)</span><span class="tabular">${fmt(tax)}</span></div>` : ''}<div class="flex justify-between pt-2 border-t border-border font-bold text-base"><span class="text-white">Total</span><span class="tabular text-accent">${fmt(total)}</span></div></div></div>
+                ${inv.notes ? `<div class="bg-bg rounded-xl p-4 border border-border mb-4"><p class="text-xs text-muted uppercase tracking-wide mb-1">Notes</p><p class="text-sm">${inv.notes}</p></div>` : ''}
+                ${inv.fromProposalPro ? `<div class="pp-section mb-4"><div class="flex items-center gap-2 mb-1"><i data-lucide="file-signature" class="w-4 h-4" style="color:#f472b6;"></i><span class="text-sm font-semibold" style="color:#f472b6;">Created from ProposalPro</span></div><p class="text-xs text-muted">Proposal: ${inv.ppProposalTitle || 'Untitled'}</p></div>` : ''}
+                ${inv.reviewBoost && inv.reviewBoost.enabled && inv.reviewBoost.sent ? `<div class="rb-section"><div class="flex items-center gap-2 mb-2"><i data-lucide="star" class="w-4 h-4 text-gold" style="fill:#facc15;"></i><span class="text-sm font-semibold text-gold">ReviewBoost request sent</span></div><p class="text-xs text-muted">Platforms: ${(inv.reviewBoost.platforms || []).map(p => p.charAt(0).toUpperCase()+p.slice(1)).join(', ')}</p></div>` : ''}
+            `;
+            document.getElementById('view-invoice-modal-e2f2').classList.add('active');
+            lucide.createIcons();
+        }
+
+        document.getElementById('close-view-modal-k2l2').addEventListener('click', () => {
+            document.getElementById('view-invoice-modal-e2f2').classList.remove('active');
+        });
+        document.getElementById('print-invoice-btn-i2j2').addEventListener('click', () => window.print());
+
+        // ─────────── NEW/EDIT INVOICE MODAL ───────────
+        let editingInvoiceId = null;
+        let lineItems = [{ desc: '', qty: 1, rate: 0 }];
+        let rbModalEnabled = true;
+
+        const rbModalToggle = document.getElementById('rb-modal-toggle');
+        const rbModalDetails = document.getElementById('rb-modal-details');
+
+        rbModalToggle.addEventListener('click', () => {
+            rbModalEnabled = !rbModalEnabled;
+            rbModalToggle.classList.toggle('on-gold', rbModalEnabled);
+            rbModalDetails.style.display = rbModalEnabled ? '' : 'none';
+        });
+
+        function openInvoiceModal(inv) {
+            editingInvoiceId = inv ? inv.id : null;
+            document.getElementById('modal-title-u7v8').textContent = inv ? 'Edit Invoice' : 'New Invoice';
+            const ppOrigin = document.getElementById('modal-pp-origin-badge');
+            if (inv && inv.fromProposalPro) ppOrigin.classList.remove('hidden');
+            else ppOrigin.classList.add('hidden');
+
+            const sel = document.getElementById('modal-client-select-g1h1');
+            sel.innerHTML = '<option value="">Select a client...</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            if (inv) {
+                sel.value = inv.clientId;
+                document.getElementById('modal-inv-number-i1j1').value = inv.number;
+                document.getElementById('modal-issue-date-k1l1').value = inv.issueDate;
+                document.getElementById('modal-due-date-m1n1').value = inv.dueDate;
+                document.getElementById('modal-tax-rate-u1v1').value = inv.taxRate || 0;
+                document.getElementById('modal-notes-y1z1').value = inv.notes || '';
+                lineItems = inv.items.map(i => ({ ...i }));
+                const rb = inv.reviewBoost || { enabled: false, platforms: [], message: '' };
+                rbModalEnabled = rb.enabled;
+                rbModalToggle.classList.toggle('on-gold', rbModalEnabled);
+                rbModalDetails.style.display = rbModalEnabled ? '' : 'none';
+                document.querySelectorAll('.rb-modal-platform').forEach(cb => { cb.checked = rb.platforms && rb.platforms.includes(cb.dataset.platform); });
+                document.getElementById('rb-modal-message').value = rb.message || DEFAULT_RB_MESSAGE;
+            } else {
+                sel.value = '';
+                document.getElementById('modal-inv-number-i1j1').value = getNextInvNumber();
+                document.getElementById('modal-issue-date-k1l1').value = TODAY;
+                document.getElementById('modal-due-date-m1n1').value = '2026-06-18';
+                document.getElementById('modal-tax-rate-u1v1').value = 7.5;
+                document.getElementById('modal-notes-y1z1').value = '';
+                lineItems = [{ desc: '', qty: 1, rate: 0 }];
+                rbModalEnabled = rbSettings.defaultEnabled;
+                rbModalToggle.classList.toggle('on-gold', rbModalEnabled);
+                rbModalDetails.style.display = rbModalEnabled ? '' : 'none';
+                document.querySelectorAll('.rb-modal-platform').forEach(cb => { cb.checked = rbSettings.defaultPlatforms.includes(cb.dataset.platform); });
+                document.getElementById('rb-modal-message').value = rbSettings.defaultMessage || DEFAULT_RB_MESSAGE;
+            }
+            renderLineItems();
+            document.getElementById('invoice-modal-s5t6').classList.add('active');
+        }
+
+        function renderLineItems() {
+            const tbody = document.getElementById('line-items-body-o1p1');
+            tbody.innerHTML = lineItems.map((item, i) => `
+                <tr class="border-b border-border/30">
+                    <td class="py-1.5 pr-2"><input type="text" class="line-desc h-9 text-sm" data-idx="${i}" value="${item.desc}" placeholder="Description" /></td>
+                    <td class="py-1.5 px-2"><input type="number" min="1" class="line-qty h-9 text-sm text-center" data-idx="${i}" value="${item.qty}" /></td>
+                    <td class="py-1.5 px-2"><input type="number" min="0" step="0.01" class="line-rate h-9 text-sm text-right" data-idx="${i}" value="${item.rate}" /></td>
+                    <td class="py-1.5 px-2 text-right tabular font-medium text-white text-sm">${fmt(item.qty * item.rate)}</td>
+                    <td class="py-1.5 pl-2">${lineItems.length > 1 ? `<button class="remove-line p-1 text-muted hover:text-coral rounded" data-idx="${i}"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>` : ''}</td>
+                </tr>
+            `).join('');
+
+            tbody.querySelectorAll('.line-desc').forEach(el => el.addEventListener('input', (e) => { lineItems[e.target.dataset.idx].desc = e.target.value; }));
+            tbody.querySelectorAll('.line-qty').forEach(el => el.addEventListener('input', (e) => { lineItems[e.target.dataset.idx].qty = Math.max(1, parseInt(e.target.value) || 1); updateTotals(); }));
+            tbody.querySelectorAll('.line-rate').forEach(el => el.addEventListener('input', (e) => { lineItems[e.target.dataset.idx].rate = Math.max(0, parseFloat(e.target.value) || 0); updateTotals(); }));
+            tbody.querySelectorAll('.remove-line').forEach(el => el.addEventListener('click', (e) => { lineItems.splice(parseInt(e.currentTarget.dataset.idx), 1); renderLineItems(); }));
+            updateTotals();
+            lucide.createIcons();
+        }
+
+        function updateTotals() {
+            const sub = lineItems.reduce((s, i) => s + (i.qty * i.rate), 0);
+            const taxRate = parseFloat(document.getElementById('modal-tax-rate-u1v1').value) || 0;
+            const total = sub + (sub * taxRate / 100);
+            document.getElementById('modal-subtotal-s1t1').textContent = fmt(sub);
+            document.getElementById('modal-total-w1x1').textContent = fmt(total);
+            document.querySelectorAll('#line-items-body-o1p1 tr').forEach((row, i) => {
+                if (lineItems[i]) { const amtCell = row.querySelectorAll('td')[3]; if (amtCell) amtCell.textContent = fmt(lineItems[i].qty * lineItems[i].rate); }
+            });
+        }
+
+        document.getElementById('modal-tax-rate-u1v1').addEventListener('input', updateTotals);
+        document.getElementById('add-line-item-btn-q1r1').addEventListener('click', () => { lineItems.push({ desc: '', qty: 1, rate: 0 }); renderLineItems(); });
+
+        function getModalRBData() {
+            const platforms = [];
+            document.querySelectorAll('.rb-modal-platform').forEach(cb => { if (cb.checked) platforms.push(cb.dataset.platform); });
+            return { enabled: rbModalEnabled, platforms, message: document.getElementById('rb-modal-message').value, sent: false };
+        }
+
+        function saveInvoice(status) {
+            const clientId = document.getElementById('modal-client-select-g1h1').value;
+            if (!clientId) { alert('Please select a client.'); return; }
+            if (lineItems.every(i => !i.desc)) { alert('Please add at least one line item.'); return; }
+
+            let existingRB = null; let existingPP = false; let existingPPTitle = '';
+            if (editingInvoiceId) {
+                const existing = invoices.find(i => i.id === editingInvoiceId);
+                if (existing) { if (existing.reviewBoost) existingRB = existing.reviewBoost; existingPP = existing.fromProposalPro || false; existingPPTitle = existing.ppProposalTitle || ''; }
+            }
+            const rbData = getModalRBData();
+            if (existingRB && existingRB.sent) rbData.sent = true;
+
+            const invData = {
+                id: editingInvoiceId || 'inv' + Date.now(),
+                number: document.getElementById('modal-inv-number-i1j1').value,
+                clientId, issueDate: document.getElementById('modal-issue-date-k1l1').value,
+                dueDate: document.getElementById('modal-due-date-m1n1').value, status,
+                items: lineItems.filter(i => i.desc),
+                taxRate: parseFloat(document.getElementById('modal-tax-rate-u1v1').value) || 0,
+                notes: document.getElementById('modal-notes-y1z1').value, reviewBoost: rbData
+            };
+            if (existingPP) { invData.fromProposalPro = true; invData.ppProposalTitle = existingPPTitle; }
+
+            if (editingInvoiceId) { const idx = invoices.findIndex(i => i.id === editingInvoiceId); if (idx >= 0) invoices[idx] = invData; }
+            else { invoices.push(invData); }
+
+            saveInvoiceToDB(invData);
+            persist();
+            document.getElementById('invoice-modal-s5t6').classList.remove('active');
+            renderInvoicesTab();
+            renderDashboard();
+        }
+
+        document.getElementById('save-draft-btn-a2b2').addEventListener('click', () => saveInvoice('draft'));
+        document.getElementById('send-invoice-btn-c2d2').addEventListener('click', () => saveInvoice('sent'));
+        document.getElementById('close-invoice-modal-w9x0').addEventListener('click', () => { document.getElementById('invoice-modal-s5t6').classList.remove('active'); });
+
+        document.getElementById('new-invoice-btn-top-c3d4').addEventListener('click', () => openInvoiceModal(null));
+        document.getElementById('new-invoice-btn-invoices-w3x4').addEventListener('click', () => openInvoiceModal(null));
+        document.getElementById('mobile-new-invoice-btn-k1l2').addEventListener('click', () => { closeMobileMenu(); openInvoiceModal(null); });
+
+        // ─────────── CLIENTS TAB ───────────
+        function renderClientsTab() {
+            const grid = document.getElementById('clients-grid-i5j6');
+            grid.innerHTML = clients.map(c => {
+                const clientInvoices = invoices.filter(i => i.clientId === c.id);
+                const totalInvoiced = clientInvoices.reduce((s, i) => s + calcInvoiceTotal(i), 0);
+                const outstanding = clientInvoices.filter(i => i.status !== 'paid').reduce((s, i) => s + calcInvoiceTotal(i), 0);
+                return `
+                    <div class="bg-bg-card border border-border rounded-2xl p-5 hover:border-accent/30 transition-colors">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-sm">${c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
+                            <div class="flex gap-1">
+                                <button class="edit-client-btn p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-white" data-id="${c.id}" title="Edit"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button class="delete-client-btn p-1.5 rounded-lg hover:bg-white/5 text-muted hover:text-coral" data-id="${c.id}" title="Delete"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-white text-base mb-0.5">${c.name}</h3>
+                        <p class="text-xs text-muted mb-1">${c.email}</p>
+                        ${c.fromProposalPro ? '<p class="mb-2"><span class="badge badge-pp text-[0.6rem]">📋 via ProposalPro</span></p>' : '<div class="mb-2"></div>'}
+                        <div class="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+                            <div><p class="text-xs text-muted">Total Invoiced</p><p class="text-sm font-semibold text-white tabular">${fmt(totalInvoiced)}</p></div>
+                            <div><p class="text-xs text-muted">Outstanding</p><p class="text-sm font-semibold tabular ${outstanding > 0 ? 'text-coral' : 'text-accent'}">${fmt(outstanding)}</p></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            grid.querySelectorAll('.edit-client-btn').forEach(btn => {
+                btn.addEventListener('click', () => { const c = clients.find(cl => cl.id === btn.dataset.id); if (c) openClientModal(c); });
+            });
+            grid.querySelectorAll('.delete-client-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const c = clients.find(cl => cl.id === btn.dataset.id);
+                    if (c && confirm('Delete client "' + c.name + '"?')) {
+                        clients = clients.filter(cl => cl.id !== c.id);
+                        deleteClientFromDB(c.id);
+                        persist();
+                        renderClientsTab();
+                    }
+                });
+            });
+            lucide.createIcons();
+        }
+
+        function openClientModal(c) {
+            document.getElementById('client-modal-title-q2r2').textContent = c ? 'Edit Client' : 'Add Client';
+            document.getElementById('client-name-input-u2v2').value = c ? c.name : '';
+            document.getElementById('client-email-input-w2x2').value = c ? c.email : '';
+            document.getElementById('client-phone-input-y2z2').value = c ? (c.phone || '') : '';
+            document.getElementById('client-address-input-a3b3').value = c ? (c.address || '') : '';
+            document.getElementById('client-edit-id-c3d3').value = c ? c.id : '';
+            document.getElementById('client-modal-o2p2').classList.add('active');
+        }
+
+        document.getElementById('add-client-btn-g3h4').addEventListener('click', () => openClientModal(null));
+        document.getElementById('close-client-modal-s2t2').addEventListener('click', () => { document.getElementById('client-modal-o2p2').classList.remove('active'); });
+        document.getElementById('save-client-btn-e3f3').addEventListener('click', () => {
+            const name = document.getElementById('client-name-input-u2v2').value.trim();
+            const email = document.getElementById('client-email-input-w2x2').value.trim();
+            if (!name || !email) { alert('Name and email are required.'); return; }
+
+            const editId = document.getElementById('client-edit-id-c3d3').value;
+            const existingClient = editId ? clients.find(c => c.id === editId) : null;
+            const data = {
+                id: editId || 'c' + Date.now(), name, email,
+                phone: document.getElementById('client-phone-input-y2z2').value.trim(),
+                address: document.getElementById('client-address-input-a3b3').value.trim()
+            };
+            if (existingClient && existingClient.fromProposalPro) { data.fromProposalPro = true; data.ppNote = existingClient.ppNote; }
+
+            if (editId) { const idx = clients.findIndex(c => c.id === editId); if (idx >= 0) clients[idx] = data; }
+            else { clients.push(data); }
+
+            saveClientToDB(data);
+            persist();
+            document.getElementById('client-modal-o2p2').classList.remove('active');
+            renderClientsTab();
+        });
+
+        // ─────────── RECURRING TAB ───────────
+        function renderRecurringTab() {
+            const list = document.getElementById('recurring-list-o1p2');
+            const empty = document.getElementById('recurring-empty-q3r4');
+            if (recurring.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); lucide.createIcons(); return; }
+            empty.classList.add('hidden');
+
+            list.innerHTML = recurring.map(r => {
+                const client = getClient(r.clientId);
+                const freqLabel = { weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly' }[r.frequency] || r.frequency;
+                return `
+                    <div class="bg-bg-card border border-border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1"><h3 class="font-semibold text-white">${r.description || 'Recurring Invoice'}</h3><span class="badge badge-sent">${freqLabel}</span></div>
+                            <p class="text-sm text-muted">${client.name} · ${fmt(r.amount)}</p>
+                            <p class="text-xs text-muted mt-1"><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>Next: ${fmtDate(r.nextDate)}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="toggle-track ${r.enabled ? 'on' : ''}" data-recurring-id="${r.id}"><div class="toggle-thumb"></div></div>
+                            <button class="delete-recurring-btn p-2 rounded-lg hover:bg-white/5 text-muted hover:text-coral" data-id="${r.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            list.querySelectorAll('.toggle-track').forEach(el => {
+                el.addEventListener('click', () => {
+                    const r = recurring.find(rc => rc.id === el.dataset.recurringId);
+                    if (r) { r.enabled = !r.enabled; saveRecurringToDB(r); persist(); renderRecurringTab(); }
+                });
+            });
+            list.querySelectorAll('.delete-recurring-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (confirm('Delete this recurring invoice?')) {
+                        recurring = recurring.filter(r => r.id !== btn.dataset.id);
+                        deleteRecurringFromDB(btn.dataset.id);
+                        persist(); renderRecurringTab();
+                    }
+                });
+            });
+            lucide.createIcons();
+        }
+
+        document.getElementById('add-recurring-btn-m9n0').addEventListener('click', () => {
+            const sel = document.getElementById('recurring-client-select-k3l3');
+            sel.innerHTML = '<option value="">Select a client...</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            document.getElementById('recurring-amount-input-m3n3').value = '';
+            document.getElementById('recurring-desc-input-o3p3').value = '';
+            document.getElementById('recurring-freq-select-q3r3').value = 'monthly';
+            document.getElementById('recurring-next-date-s3t3').value = '2026-06-01';
+            document.getElementById('recurring-modal-g3h3').classList.add('active');
+        });
+        document.getElementById('close-recurring-modal-i3j3').addEventListener('click', () => { document.getElementById('recurring-modal-g3h3').classList.remove('active'); });
+        document.getElementById('save-recurring-btn-u3v3').addEventListener('click', () => {
+            const clientId = document.getElementById('recurring-client-select-k3l3').value;
+            const amount = parseFloat(document.getElementById('recurring-amount-input-m3n3').value);
+            if (!clientId || !amount) { alert('Client and amount are required.'); return; }
+
+            const newRec = {
+                id: 'r' + Date.now(), clientId,
+                description: document.getElementById('recurring-desc-input-o3p3').value.trim(),
+                amount, frequency: document.getElementById('recurring-freq-select-q3r3').value,
+                nextDate: document.getElementById('recurring-next-date-s3t3').value || '2026-06-01', enabled: true
+            };
+            recurring.push(newRec);
+            saveRecurringToDB(newRec);
+            persist();
+            document.getElementById('recurring-modal-g3h3').classList.remove('active');
+            renderRecurringTab();
+        });
+
+        // ─────────── SETTINGS TAB ───────────
+        function renderSettingsTab() {
+            document.getElementById('rb-requests-count-badge').textContent = rbRequests.length;
+            const defToggle = document.getElementById('rb-settings-default-toggle');
+            defToggle.classList.toggle('on-gold', rbSettings.defaultEnabled);
+            document.querySelectorAll('.rb-default-platform').forEach(cb => { cb.checked = rbSettings.defaultPlatforms.includes(cb.dataset.platform); });
+            document.getElementById('rb-settings-default-msg').value = rbSettings.defaultMessage;
+
+            const ppCount = invoices.filter(i => i.fromProposalPro).length;
+            document.getElementById('pp-settings-count').textContent = ppCount + ' invoice(s) received from ProposalPro';
+            const ppAutoToggle = document.getElementById('pp-settings-auto-toggle');
+            ppAutoToggle.classList.toggle('on-pink', ppSettings.autoCreateEnabled);
+            document.getElementById('pp-settings-terms-select').value = String(ppSettings.defaultTermsDays);
+
+            const tbody = document.getElementById('rb-requests-table-body');
+            const empty = document.getElementById('rb-requests-empty');
+            const recent = [...rbRequests].sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || '')).slice(0, 5);
+            if (recent.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+            empty.style.display = 'none';
+            tbody.innerHTML = recent.map(r => `
+                <tr class="table-row border-b border-border/50">
+                    <td class="px-4 py-3 font-medium text-white">${r.invoiceNumber}</td>
+                    <td class="px-3 py-3">${r.clientName}</td>
+                    <td class="px-3 py-3 hidden md:table-cell text-muted">${fmtDate(r.paidDate)}</td>
+                    <td class="px-3 py-3"><div class="flex gap-1.5 flex-wrap">${(r.platforms || []).map(p => `<span class="badge text-xs" style="background:rgba(250,204,21,0.12);color:#facc15;">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}</div></td>
+                    <td class="px-4 py-3"><span class="badge ${r.reviewSubmitted ? 'badge-paid' : 'badge-sent'}">${r.reviewSubmitted ? 'Review Received' : 'Sent'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('rb-settings-default-toggle').addEventListener('click', () => {
+            rbSettings.defaultEnabled = !rbSettings.defaultEnabled;
+            saveSettingToDB('rb_settings', rbSettings);
+            persist(); renderSettingsTab();
+        });
+
+        document.querySelectorAll('.rb-default-platform').forEach(cb => {
+            cb.addEventListener('change', () => {
+                rbSettings.defaultPlatforms = [];
+                document.querySelectorAll('.rb-default-platform').forEach(c => { if (c.checked) rbSettings.defaultPlatforms.push(c.dataset.platform); });
+                saveSettingToDB('rb_settings', rbSettings);
+                persist();
+            });
+        });
+
+        document.getElementById('rb-settings-default-msg').addEventListener('input', (e) => {
+            rbSettings.defaultMessage = e.target.value;
+            saveSettingToDB('rb_settings', rbSettings);
+            persist();
+        });
+
+        document.getElementById('pp-settings-auto-toggle').addEventListener('click', () => {
+            ppSettings.autoCreateEnabled = !ppSettings.autoCreateEnabled;
+            document.getElementById('pp-settings-auto-toggle').classList.toggle('on-pink', ppSettings.autoCreateEnabled);
+            saveSettingToDB('pp_settings', ppSettings);
+            persist();
+        });
+
+        document.getElementById('pp-settings-terms-select').addEventListener('change', (e) => {
+            ppSettings.defaultTermsDays = parseInt(e.target.value);
+            saveSettingToDB('pp_settings', ppSettings);
+            persist();
+        });
+
+        // ─────────── CLOSE MODALS ON OVERLAY CLICK ───────────
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('active'); });
+        });
+
+        // ─────────── INIT ───────────
+        initAuth();
+        checkProposalProAccepted();
+    </script>
+</body>
+</html>

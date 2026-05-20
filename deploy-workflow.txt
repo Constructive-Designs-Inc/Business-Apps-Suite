@@ -1,0 +1,22 @@
+# ============================================================
+#  CDI Business Apps Suite — Master Template Repo
+#  Auto-deploys to Firebase Hosting on every push to main
+#  Setup: Add FIREBASE_SERVICE_ACCOUNT in repo Secrets
+# ============================================================
+name: Deploy CDI Master to Firebase
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: business-apps-suite

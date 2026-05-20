@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>CDI Business App Suite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0f1117',
+                        card: '#1a1d2e',
+                        cardHover: '#222640',
+                        accent: '#7c5cfc',
+                        accentLight: '#9b82fd',
+                        accentDark: '#5a3de8',
+                        coral: '#ff6b6b',
+                        coralDark: '#e05555',
+                        success: '#4ade80',
+                        muted: '#8b8fa8',
+                        border: 'rgba(255,255,255,0.08)',
+                        gold: '#f59e0b',
+                        goldDark: '#d97706',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0f1117; color: #ffffff; overflow-x: hidden; }
+        :root {
+            --bg: #0f1117;
+            --card: #1a1d2e;
+            --accent: #7c5cfc;
+            --accent-light: #9b82fd;
+            --coral: #ff6b6b;
+            --muted: #8b8fa8;
+            --success: #4ade80;
+            --border: rgba(255,255,255,0.08);
+            --gold: #f59e0b;
+        }
+        .nav-scrolled { background: rgba(15, 17, 23, 0.85) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+        .hero-orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.35; animation: orbFloat 8s ease-in-out infinite alternate; pointer-events: none; }
+        .hero-orb-1 { width: 500px; height: 500px; background: var(--accent); top: -150px; left: 10%; }
+        .hero-orb-2 { width: 400px; height: 400px; background: var(--coral); bottom: -100px; right: 5%; animation-delay: 3s; }
+        .hero-orb-3 { width: 300px; height: 300px; background: #6366f1; top: 40%; left: 55%; animation-delay: 5s; }
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -20px) scale(1.1); }
+        }
+        .mesh-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(124,92,252,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(124,92,252,0.05) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; }
+        .float-card { animation: floatCard 6s ease-in-out infinite; }
+        .float-card:nth-child(2) { animation-delay: 1.5s; }
+        .float-card:nth-child(3) { animation-delay: 3s; }
+        @keyframes floatCard {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+        }
+        .app-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; border-top: 3px solid transparent; }
+        .app-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+        .pricing-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .pricing-card:hover { transform: translateY(-4px); }
+        .pricing-featured { border: 2px solid var(--accent); box-shadow: 0 0 40px rgba(124,92,252,0.2); }
+        .pricing-gold { border: 2px solid var(--gold); box-shadow: 0 0 40px rgba(245,158,11,0.2); }
+        .glow-ring { position: absolute; width: 400px; height: 400px; border-radius: 50%; border: 2px solid rgba(124,92,252,0.15); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        .glow-ring::after { content: ''; position: absolute; inset: -40px; border-radius: 50%; border: 1px solid rgba(124,92,252,0.08); }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; }
+        .faq-answer.open { max-height: 300px; }
+        .faq-chevron { transition: transform 0.3s ease; }
+        .faq-chevron.open { transform: rotate(180deg); }
+        .fade-in-up { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .fade-in-up.visible { opacity: 1; transform: translateY(0); }
+        .avatar-circle { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--bg); }
+        .badge-scroll::-webkit-scrollbar { display: none; }
+        .badge-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .brand-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(124,92,252,0.15); color: #b8a4fd; font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 9999px; letter-spacing: 0.02em; border: 1px solid rgba(124,92,252,0.25); }
+        .branding-arrow { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--accent); animation: pulseArrow 2s ease-in-out infinite; }
+        @keyframes pulseArrow { 0%,100%{ opacity:0.6; transform:scale(1); } 50%{ opacity:1; transform:scale(1.15); } }
+        .before-after-card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; padding: 1.5rem; text-align: center; min-width: 160px; }
+        .after-card { background: linear-gradient(135deg, rgba(124,92,252,0.15), rgba(99,102,241,0.10)); border: 1.5px solid rgba(124,92,252,0.4); box-shadow: 0 0 30px rgba(124,92,252,0.15); }
+        .secure-checkout-label { display: block; text-align: center; font-size: 0.7rem; color: var(--muted); margin-top: 0.5rem; letter-spacing: 0.01em; }
+        .payment-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 14px; border-radius: 9999px; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; }
+        .checkout-security-bar { background: #0d0f1a; border-top: 1px solid rgba(255,255,255,0.05); }
+
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; padding: 1rem; }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-content { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; transform: scale(0.92); transition: transform 0.3s ease; padding: 2rem; position: relative; }
+        .modal-backdrop.active .modal-content { transform: scale(1); }
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-track { background: transparent; }
+        .modal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .suite-app-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.4rem 0; }
+
+        .toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.06); border-radius: 9999px; padding: 4px; }
+        .toggle-option { padding: 6px 16px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; color: var(--muted); }
+        .toggle-option.active { background: var(--accent); color: #fff; }
+
+        .managed-service-card { border: 2px dashed rgba(255,255,255,0.12); background: #141725; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
+        .managed-service-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.2); }
+        .managed-service-card.ms-featured { border-color: var(--accent); border-style: dashed; box-shadow: 0 0 30px rgba(124,92,252,0.15); }
+        .managed-service-card.ms-gold { border-color: var(--gold); border-style: dashed; box-shadow: 0 0 30px rgba(245,158,11,0.15); }
+
+        .step-card { position: relative; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .step-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+        .step-number { position: absolute; top: -10px; right: -5px; font-size: 7rem; font-weight: 900; color: rgba(124,92,252,0.07); line-height: 1; pointer-events: none; }
+
+        @media (max-width: 767px) {
+            .hero-orb-1 { width: 250px; height: 250px; }
+            .hero-orb-2 { width: 200px; height: 200px; }
+            .hero-orb-3 { width: 150px; height: 150px; }
+            .modal-content { max-height: 95vh; padding: 1.25rem; border-radius: 0.75rem; }
+        }
+        @media (max-width: 480px) {
+            .modal-backdrop { padding: 0; }
+            .modal-content { max-height: 100vh; border-radius: 0; min-height: 100vh; }
+        }
+    </style>
+</head>
+<body data-id="0" class="font-inter">
+    <app-icon data-id="1" hidden data-icon="layout-grid" data-palette="Dark"></app-icon>
+
+    <!-- STICKY NAVIGATION -->
+    <header data-id="2" id="navbar-xk4m" class="fixed top-0 left-0 w-full z-50 transition-all duration-300">
+        <div data-id="3" class="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+            <a data-id="4" href="#" class="flex items-center gap-2 group">
+                <svg data-id="5" class="w-8 h-8 text-accent" viewBox="0 0 32 32" fill="none">
+                    <rect data-id="6" x="2" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.9"/>
+                    <rect data-id="7" x="18" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                    <rect data-id="8" x="2" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                    <rect data-id="9" x="18" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.35"/>
+                </svg>
+                <span data-id="10" class="text-xl font-bold tracking-tight">AppSuite</span>
+            </a>
+            <nav data-id="11" id="desktop-nav-r82f" class="hidden md:flex items-center gap-8">
+                <a data-id="12" href="#features" class="text-sm text-muted hover:text-white transition-colors duration-200">Features</a>
+                <a data-id="13" href="#apps" class="text-sm text-muted hover:text-white transition-colors duration-200">Apps</a>
+                <a data-id="14" href="#pricing" class="text-sm text-muted hover:text-white transition-colors duration-200">Pricing</a>
+                <a data-id="15" href="#faq" class="text-sm text-muted hover:text-white transition-colors duration-200">FAQ</a>
+                <button data-id="16" id="nav-get-started-btn-a9z2" class="inline-flex items-center gap-2 bg-accent hover:bg-accentDark text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-all duration-200">Get Started</button>
+            </nav>
+            <button data-id="17" id="mobile-menu-btn-n3v2" class="md:hidden p-2 text-white" aria-label="Open menu">
+                <i data-id="18" data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MOBILE MENU -->
+    <nav data-id="19" id="mobile-menu-p8k1" class="hidden fixed inset-0 bg-bg z-[60] flex flex-col p-6">
+        <div data-id="20" class="flex items-center justify-between mb-10">
+            <div data-id="21" class="flex items-center gap-2">
+                <svg data-id="22" class="w-8 h-8 text-accent" viewBox="0 0 32 32" fill="none">
+                    <rect data-id="23" x="2" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.9"/>
+                    <rect data-id="24" x="18" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                    <rect data-id="25" x="2" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                    <rect data-id="26" x="18" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.35"/>
+                </svg>
+                <span data-id="27" class="text-xl font-bold">AppSuite</span>
+            </div>
+            <button data-id="28" id="mobile-menu-close-q2w7" class="p-2 text-white" aria-label="Close menu">
+                <i data-id="29" data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <div data-id="30" class="flex flex-col gap-6 text-lg">
+            <a data-id="31" href="#features" class="mobile-nav-link text-muted hover:text-white transition-colors py-2">Features</a>
+            <a data-id="32" href="#apps" class="mobile-nav-link text-muted hover:text-white transition-colors py-2">Apps</a>
+            <a data-id="33" href="#pricing" class="mobile-nav-link text-muted hover:text-white transition-colors py-2">Pricing</a>
+            <a data-id="34" href="#faq" class="mobile-nav-link text-muted hover:text-white transition-colors py-2">FAQ</a>
+            <button data-id="35" id="mobile-get-started-btn-r7m4" class="mobile-nav-link inline-flex items-center justify-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-lg mt-4">Get Started</button>
+        </div>
+    </nav>
+
+    <main data-id="36">
+        <!-- HERO SECTION -->
+        <section data-id="37" id="hero-j9d3" class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-20 md:py-0">
+            <div data-id="38" class="hero-orb hero-orb-1"></div>
+            <div data-id="39" class="hero-orb hero-orb-2"></div>
+            <div data-id="40" class="hero-orb hero-orb-3"></div>
+            <div data-id="41" class="mesh-grid"></div>
+            <div data-id="42" class="relative z-10 max-w-5xl mx-auto px-4 md:px-8 text-center">
+                <h1 data-id="43" class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[1.08] tracking-tight mb-6">
+                    8 Powerful Apps.<br data-id="44"/>
+                    <span data-id="45" class="bg-gradient-to-r from-accent via-accentLight to-accent bg-clip-text text-transparent">One Suite Built for Your Business.</span>
+                </h1>
+                <p data-id="46" class="text-base md:text-xl text-muted max-w-2xl mx-auto mb-4 leading-relaxed">
+                    Custom-built for your brand · Hosted on your accounts · Managed by our team.
+                </p>
+                <p data-id="47" class="text-sm md:text-base font-bold text-white max-w-2xl mx-auto mb-10 leading-relaxed">🎨 Every app is customized with your business name and brand — $497 flat fee per app, yours to keep forever.</p>
+                <div data-id="48" class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-3">
+                    <a data-id="49" href="#apps" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-accent hover:bg-accentDark text-white font-semibold px-8 py-4 rounded-lg text-base transition-all duration-200 shadow-lg shadow-accent/20">
+                        Explore the Suite <i data-id="50" data-lucide="arrow-right" class="w-5 h-5"></i>
+                    </a>
+                    <button data-id="51" id="hero-suite-btn-g5k8" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-gold to-amber-500 hover:from-goldDark hover:to-amber-600 text-black font-bold px-8 py-4 rounded-lg text-base transition-all duration-200 shadow-lg shadow-gold/20">
+                        <i data-id="52" data-lucide="sparkles" class="w-5 h-5"></i> Get the Full Suite — $2,497
+                    </button>
+                </div>
+                <p data-id="53" class="text-sm text-muted mb-10">Or try any app free — no credit card required</p>
+                <div data-id="54" class="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-muted">
+                    <div data-id="55" class="flex items-center -space-x-2">
+                        <div data-id="56" class="avatar-circle bg-gradient-to-br from-accent to-purple-400"></div>
+                        <div data-id="57" class="avatar-circle bg-gradient-to-br from-coral to-orange-400"></div>
+                        <div data-id="58" class="avatar-circle bg-gradient-to-br from-emerald-400 to-teal-500"></div>
+                        <div data-id="59" class="avatar-circle bg-gradient-to-br from-amber-400 to-yellow-500"></div>
+                        <div data-id="60" class="avatar-circle bg-gradient-to-br from-sky-400 to-blue-500"></div>
+                    </div>
+                    <div data-id="61" class="flex items-center gap-1">
+                        <span data-id="62" class="text-amber-400">★★★★★</span>
+                        <span data-id="63">Trusted by <strong data-id="64" class="text-white">1,200+</strong> business owners</span>
+                    </div>
+                </div>
+                <div data-id="65" class="hidden md:flex justify-center gap-6 mt-16">
+                    <div data-id="66" class="float-card w-44 h-28 bg-card/80 backdrop-blur-sm border border-white/10 rounded-2xl p-4 flex flex-col gap-2 shadow-xl">
+                        <div data-id="67" class="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center"><i data-id="68" data-lucide="users" class="w-4 h-4 text-accent"></i></div>
+                        <div data-id="69" class="text-xs font-semibold">ClientFlow CRM</div>
+                        <div data-id="70" class="w-full h-1.5 bg-white/10 rounded-full"><div data-id="71" class="w-3/4 h-full bg-accent rounded-full"></div></div>
+                    </div>
+                    <div data-id="72" class="float-card w-44 h-28 bg-card/80 backdrop-blur-sm border border-white/10 rounded-2xl p-4 flex flex-col gap-2 shadow-xl">
+                        <div data-id="73" class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center"><i data-id="74" data-lucide="receipt" class="w-4 h-4 text-emerald-400"></i></div>
+                        <div data-id="75" class="text-xs font-semibold">InvoiceReady</div>
+                        <div data-id="76" class="w-full h-1.5 bg-white/10 rounded-full"><div data-id="77" class="w-1/2 h-full bg-emerald-400 rounded-full"></div></div>
+                    </div>
+                    <div data-id="78" class="float-card w-44 h-28 bg-card/80 backdrop-blur-sm border border-white/10 rounded-2xl p-4 flex flex-col gap-2 shadow-xl">
+                        <div data-id="79" class="w-8 h-8 rounded-lg bg-coral/20 flex items-center justify-center"><i data-id="80" data-lucide="calendar" class="w-4 h-4 text-coral"></i></div>
+                        <div data-id="81" class="text-xs font-semibold">Book It</div>
+                        <div data-id="82" class="w-full h-1.5 bg-white/10 rounded-full"><div data-id="83" class="w-2/3 h-full bg-coral rounded-full"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VALUE PROPOSITION -->
+        <section data-id="84" id="features" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="85" class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div data-id="86" class="fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-accent/20 transition-all duration-300">
+                    <div data-id="87" class="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-5">
+                        <i data-id="88" data-lucide="rocket" class="w-7 h-7 text-accent"></i>
+                    </div>
+                    <h3 data-id="89" class="text-lg font-bold mb-2">Built for Real Business</h3>
+                    <p data-id="90" class="text-muted text-sm leading-relaxed">These aren't generic tools. Every app was designed around the exact workflows small business owners face every day.</p>
+                </div>
+                <div data-id="91" class="fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-accent/20 transition-all duration-300" style="transition-delay: 0.1s;">
+                    <div data-id="92" class="w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5">
+                        <i data-id="93" data-lucide="zap" class="w-7 h-7 text-amber-400"></i>
+                    </div>
+                    <h3 data-id="94" class="text-lg font-bold mb-2">Launch in Minutes</h3>
+                    <p data-id="95" class="text-muted text-sm leading-relaxed">No complicated setup or learning curve. Each app works out of the box so you can focus on your business, not your software.</p>
+                </div>
+                <div data-id="96" class="fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-accent/20 transition-all duration-300" style="transition-delay: 0.2s;">
+                    <div data-id="97" class="w-14 h-14 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5">
+                        <i data-id="98" data-lucide="key-round" class="w-7 h-7 text-emerald-400"></i>
+                    </div>
+                    <h3 data-id="99" class="text-lg font-bold mb-2">You Own Everything</h3>
+                    <p data-id="100" class="text-muted text-sm leading-relaxed">Your app runs on your own Google Cloud account. You own your data, your code, and your brand — always.</p>
+                </div>
+                <div data-id="101" class="fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-accent/20 transition-all duration-300" style="transition-delay: 0.3s;">
+                    <div data-id="102" class="w-14 h-14 rounded-xl bg-violet-500/10 flex items-center justify-center mb-5">
+                        <i data-id="103" data-lucide="palette" class="w-7 h-7 text-violet-400"></i>
+                    </div>
+                    <h3 data-id="104" class="text-lg font-bold mb-2">Branded as Your Own</h3>
+                    <p data-id="105" class="text-muted text-sm leading-relaxed">Every app is personalized with your business name, logo, and brand colors before delivery. Your clients see your brand — not ours.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- APP SUITE OVERVIEW -->
+        <section data-id="106" id="overview-s5t2" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="107" class="max-w-5xl mx-auto text-center">
+                <h2 data-id="108" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 fade-in-up">Everything Your Business Needs,<br data-id="109" class="hidden md:block"/> All in One Suite</h2>
+                <p data-id="110" class="text-muted text-base md:text-lg mb-10 fade-in-up">8 purpose-built apps covering the full lifecycle of running a business.</p>
+                <div data-id="111" class="badge-scroll flex flex-wrap justify-center gap-3 mb-12 fade-in-up">
+                    <span data-id="112" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Client Management</span>
+                    <span data-id="113" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Invoicing</span>
+                    <span data-id="114" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Scheduling</span>
+                    <span data-id="115" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Content Planning</span>
+                    <span data-id="116" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Lead Capture</span>
+                    <span data-id="117" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Proposals</span>
+                    <span data-id="118" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Expense Tracking</span>
+                    <span data-id="119" class="px-4 py-2 rounded-full bg-card border border-white/10 text-sm font-medium text-white/80 hover:border-accent/40 transition-colors cursor-default">Reviews</span>
+                </div>
+                <div data-id="120" class="fade-in-up bg-card/60 inline-flex items-center gap-3 md:gap-6 px-6 md:px-10 py-4 md:py-5 rounded-2xl border border-white/10 text-sm md:text-base">
+                    <span data-id="121" class="font-bold text-white">8 Apps</span>
+                    <span data-id="122" class="text-white/20">·</span>
+                    <span data-id="123" class="font-bold text-accent">$497 each</span>
+                    <span data-id="124" class="text-white/20">·</span>
+                    <span data-id="125" class="font-bold text-gold">$2,497 full suite</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- INDIVIDUAL APP SUMMARIES -->
+        <section data-id="126" id="apps" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="127" class="max-w-6xl mx-auto">
+                <div data-id="128" class="text-center mb-14">
+                    <h2 data-id="129" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 fade-in-up">Meet the Suite</h2>
+                    <p data-id="130" class="text-muted text-base md:text-lg fade-in-up">Try any app free or get it instantly — $497 one-time per app.</p>
+                </div>
+                <div data-id="131" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="app-cards-grid-v4n2">
+                    <!-- App 1: ClientFlow CRM -->
+                    <div data-id="132" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-accent/40" data-app="clientflow">
+                        <div data-id="133" class="w-12 h-12 rounded-xl bg-accent/15 flex items-center justify-center mb-4">
+                            <i data-id="134" data-lucide="users" class="w-6 h-6 text-accent"></i>
+                        </div>
+                        <h3 data-id="135" class="text-lg font-bold mb-1">ClientFlow CRM</h3>
+                        <span data-id="136" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="137" class="text-muted text-sm mb-1 mt-3">Manage every client relationship in one clean dashboard.</p>
+                        <p data-id="138" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="139" class="space-y-2 mb-5">
+                            <li data-id="140" class="flex items-start gap-2 text-sm text-white/80"><i data-id="141" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Track leads, contacts &amp; deal stages</li>
+                            <li data-id="142" class="flex items-start gap-2 text-sm text-white/80"><i data-id="143" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Automated follow-up reminders</li>
+                            <li data-id="144" class="flex items-start gap-2 text-sm text-white/80"><i data-id="145" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Client notes &amp; communication history</li>
+                        </ul>
+                        <div data-id="146" class="flex gap-3">
+                            <a data-id="147" href="https://clientflow.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-accent/40 text-accent hover:bg-accent/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="148" class="get-app-btn flex-1 text-center bg-accent hover:bg-accentDark text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 2: InvoiceReady -->
+                    <div data-id="149" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-emerald-400/40" data-app="invoiceready" style="transition-delay: 0.05s;">
+                        <div data-id="150" class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-4">
+                            <i data-id="151" data-lucide="receipt" class="w-6 h-6 text-emerald-400"></i>
+                        </div>
+                        <h3 data-id="152" class="text-lg font-bold mb-1">InvoiceReady</h3>
+                        <span data-id="153" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="154" class="text-muted text-sm mb-1 mt-3">Get paid faster with professional invoices in seconds.</p>
+                        <p data-id="155" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="156" class="space-y-2 mb-5">
+                            <li data-id="157" class="flex items-start gap-2 text-sm text-white/80"><i data-id="158" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Branded invoice generator</li>
+                            <li data-id="159" class="flex items-start gap-2 text-sm text-white/80"><i data-id="160" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Payment status tracking</li>
+                            <li data-id="161" class="flex items-start gap-2 text-sm text-white/80"><i data-id="162" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Recurring invoice automation</li>
+                        </ul>
+                        <div data-id="163" class="flex gap-3">
+                            <a data-id="164" href="https://invoiceready.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-emerald-400/40 text-emerald-400 hover:bg-emerald-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="165" class="get-app-btn flex-1 text-center bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 3: Book It -->
+                    <div data-id="166" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-coral/40" data-app="bookit" style="transition-delay: 0.1s;">
+                        <div data-id="167" class="w-12 h-12 rounded-xl bg-coral/15 flex items-center justify-center mb-4">
+                            <i data-id="168" data-lucide="calendar-check" class="w-6 h-6 text-coral"></i>
+                        </div>
+                        <h3 data-id="169" class="text-lg font-bold mb-1">Book It</h3>
+                        <span data-id="170" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="171" class="text-muted text-sm mb-1 mt-3">Let clients book themselves — while you stay focused.</p>
+                        <p data-id="172" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="173" class="space-y-2 mb-5">
+                            <li data-id="174" class="flex items-start gap-2 text-sm text-white/80"><i data-id="175" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Custom booking page</li>
+                            <li data-id="176" class="flex items-start gap-2 text-sm text-white/80"><i data-id="177" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Automated confirmations &amp; reminders</li>
+                            <li data-id="178" class="flex items-start gap-2 text-sm text-white/80"><i data-id="179" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Block off personal time with ease</li>
+                        </ul>
+                        <div data-id="180" class="flex gap-3">
+                            <a data-id="181" href="https://bookit.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-coral/40 text-coral hover:bg-coral/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="182" class="get-app-btn flex-1 text-center bg-coral hover:bg-coralDark text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 4: ContentPlan Pro -->
+                    <div data-id="183" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-sky-400/40" data-app="contentplan" style="transition-delay: 0.15s;">
+                        <div data-id="184" class="w-12 h-12 rounded-xl bg-sky-400/15 flex items-center justify-center mb-4">
+                            <i data-id="185" data-lucide="layout-grid" class="w-6 h-6 text-sky-400"></i>
+                        </div>
+                        <h3 data-id="186" class="text-lg font-bold mb-1">ContentPlan Pro</h3>
+                        <span data-id="187" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="188" class="text-muted text-sm mb-1 mt-3">Plan, schedule, and never miss a post again.</p>
+                        <p data-id="189" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="190" class="space-y-2 mb-5">
+                            <li data-id="191" class="flex items-start gap-2 text-sm text-white/80"><i data-id="192" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>30-day content calendar view</li>
+                            <li data-id="193" class="flex items-start gap-2 text-sm text-white/80"><i data-id="194" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Caption &amp; hashtag drafting space</li>
+                            <li data-id="195" class="flex items-start gap-2 text-sm text-white/80"><i data-id="196" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Platform-by-platform content queue</li>
+                        </ul>
+                        <div data-id="197" class="flex gap-3">
+                            <a data-id="198" href="https://contentplan.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="199" class="get-app-btn flex-1 text-center bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 5: LeadCatcher -->
+                    <div data-id="200" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-orange-400/40" data-app="leadcatcher" style="transition-delay: 0.2s;">
+                        <div data-id="201" class="w-12 h-12 rounded-xl bg-orange-400/15 flex items-center justify-center mb-4">
+                            <i data-id="202" data-lucide="target" class="w-6 h-6 text-orange-400"></i>
+                        </div>
+                        <h3 data-id="203" class="text-lg font-bold mb-1">LeadCatcher</h3>
+                        <span data-id="204" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="205" class="text-muted text-sm mb-1 mt-3">Capture, track, and convert every lead you generate.</p>
+                        <p data-id="206" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="207" class="space-y-2 mb-5">
+                            <li data-id="208" class="flex items-start gap-2 text-sm text-white/80"><i data-id="209" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Custom lead intake forms</li>
+                            <li data-id="210" class="flex items-start gap-2 text-sm text-white/80"><i data-id="211" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Pipeline status tracker</li>
+                            <li data-id="212" class="flex items-start gap-2 text-sm text-white/80"><i data-id="213" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Automated lead scoring</li>
+                        </ul>
+                        <div data-id="214" class="flex gap-3">
+                            <a data-id="215" href="https://leadcatcher.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="216" class="get-app-btn flex-1 text-center bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 6: ProposalPro -->
+                    <div data-id="217" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-pink-400/40" data-app="proposalpro" style="transition-delay: 0.25s;">
+                        <div data-id="218" class="w-12 h-12 rounded-xl bg-pink-400/15 flex items-center justify-center mb-4">
+                            <i data-id="219" data-lucide="file-signature" class="w-6 h-6 text-pink-400"></i>
+                        </div>
+                        <h3 data-id="220" class="text-lg font-bold mb-1">ProposalPro</h3>
+                        <span data-id="221" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="222" class="text-muted text-sm mb-1 mt-3">Win more clients with proposals that look like you mean business.</p>
+                        <p data-id="223" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="224" class="space-y-2 mb-5">
+                            <li data-id="225" class="flex items-start gap-2 text-sm text-white/80"><i data-id="226" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Drag-and-drop proposal builder</li>
+                            <li data-id="227" class="flex items-start gap-2 text-sm text-white/80"><i data-id="228" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>E-signature ready</li>
+                            <li data-id="229" class="flex items-start gap-2 text-sm text-white/80"><i data-id="230" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Track when clients open your proposal</li>
+                        </ul>
+                        <div data-id="231" class="flex gap-3">
+                            <a data-id="232" href="https://proposalpro.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-pink-400/40 text-pink-400 hover:bg-pink-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="233" class="get-app-btn flex-1 text-center bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 7: ExpenseTrack -->
+                    <div data-id="234" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-teal-400/40" data-app="expensetrack" style="transition-delay: 0.3s;">
+                        <div data-id="235" class="w-12 h-12 rounded-xl bg-teal-400/15 flex items-center justify-center mb-4">
+                            <i data-id="236" data-lucide="wallet" class="w-6 h-6 text-teal-400"></i>
+                        </div>
+                        <h3 data-id="237" class="text-lg font-bold mb-1">ExpenseTrack</h3>
+                        <span data-id="238" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="239" class="text-muted text-sm mb-1 mt-3">Know exactly where your money goes — at a glance.</p>
+                        <p data-id="240" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="241" class="space-y-2 mb-5">
+                            <li data-id="242" class="flex items-start gap-2 text-sm text-white/80"><i data-id="243" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Categorized expense logging</li>
+                            <li data-id="244" class="flex items-start gap-2 text-sm text-white/80"><i data-id="245" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Monthly budget overview</li>
+                            <li data-id="246" class="flex items-start gap-2 text-sm text-white/80"><i data-id="247" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Export-ready reports for tax season</li>
+                        </ul>
+                        <div data-id="248" class="flex gap-3">
+                            <a data-id="249" href="https://expensetrack.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-teal-400/40 text-teal-400 hover:bg-teal-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="250" class="get-app-btn flex-1 text-center bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                    <!-- App 8: ReviewBoost -->
+                    <div data-id="251" class="app-card fade-in-up bg-card rounded-2xl p-6 border border-white/5 hover:border-yellow-400/40" data-app="reviewboost" style="transition-delay: 0.35s;">
+                        <div data-id="252" class="w-12 h-12 rounded-xl bg-yellow-400/15 flex items-center justify-center mb-4">
+                            <i data-id="253" data-lucide="star" class="w-6 h-6 text-yellow-400"></i>
+                        </div>
+                        <h3 data-id="254" class="text-lg font-bold mb-1">ReviewBoost</h3>
+                        <span data-id="255" class="brand-pill mb-3 mt-1">✦ Custom Branded for You</span>
+                        <p data-id="256" class="text-muted text-sm mb-1 mt-3">Turn happy customers into your best marketing asset.</p>
+                        <p data-id="257" class="text-muted/60 text-xs mb-4">Custom-branded for your business · $497 one-time</p>
+                        <ul data-id="258" class="space-y-2 mb-5">
+                            <li data-id="259" class="flex items-start gap-2 text-sm text-white/80"><i data-id="260" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>One-click review request tool</li>
+                            <li data-id="261" class="flex items-start gap-2 text-sm text-white/80"><i data-id="262" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Multi-platform routing (Google, Yelp, Facebook)</li>
+                            <li data-id="263" class="flex items-start gap-2 text-sm text-white/80"><i data-id="264" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Review response templates</li>
+                        </ul>
+                        <div data-id="265" class="flex gap-3">
+                            <a data-id="266" href="https://reviewboost.constructivedesignsinc.com" target="_blank" class="try-btn flex-1 text-center border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Try It Free</a>
+                            <button data-id="267" class="get-app-btn flex-1 text-center bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2.5 rounded-lg text-sm transition-all duration-200">Get This App →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CUSTOM BRANDING SECTION -->
+        <section data-id="268" id="custom-branding" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="269" class="max-w-6xl mx-auto fade-in-up">
+                <div data-id="270" class="bg-gradient-to-br from-indigo-600/90 via-violet-600/85 to-accent/80 rounded-2xl p-8 md:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-10 lg:gap-16 relative overflow-hidden">
+                    <div data-id="271" class="absolute inset-0 opacity-10 pointer-events-none">
+                        <div data-id="272" class="absolute top-0 left-0 w-80 h-80 bg-white rounded-full filter blur-[120px]"></div>
+                        <div data-id="273" class="absolute bottom-0 right-0 w-64 h-64 bg-violet-300 rounded-full filter blur-[100px]"></div>
+                    </div>
+                    <div data-id="274" class="relative z-10 flex-1">
+                        <span data-id="275" class="text-xs uppercase tracking-[0.2em] font-semibold text-white/60 mb-3 block">Included with Every Purchase</span>
+                        <h3 data-id="276" class="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 leading-tight">Your Brand. Your App. Your Way.</h3>
+                        <p data-id="277" class="text-white/80 text-base md:text-lg mb-8 leading-relaxed">When you purchase any app for a flat $497, we don't just hand you a generic tool — we customize it to reflect your unique business identity before you ever see it.</p>
+                        <ul data-id="278" class="space-y-3 mb-8">
+                            <li data-id="279" class="flex items-start gap-2.5 text-sm md:text-base text-white/90"><i data-id="280" data-lucide="check" class="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5"></i>Your business name featured throughout the app</li>
+                            <li data-id="281" class="flex items-start gap-2.5 text-sm md:text-base text-white/90"><i data-id="282" data-lucide="check" class="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5"></i>Your logo added to the header and key screens</li>
+                            <li data-id="283" class="flex items-start gap-2.5 text-sm md:text-base text-white/90"><i data-id="284" data-lucide="check" class="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5"></i>Brand colors applied to buttons, accents, and UI elements</li>
+                            <li data-id="285" class="flex items-start gap-2.5 text-sm md:text-base text-white/90"><i data-id="286" data-lucide="check" class="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5"></i>Hosted on your own Google Cloud / Firebase account</li>
+                        </ul>
+                        <p data-id="287" class="text-sm text-white/60 italic">No extra charge. No design skills needed. Just share your brand assets and we handle the rest.</p>
+                    </div>
+                    <div data-id="288" class="relative z-10 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 flex-shrink-0">
+                        <div data-id="289" class="before-after-card w-48 md:w-56">
+                            <div data-id="290" class="text-xs uppercase tracking-widest text-muted mb-3 font-semibold">Before</div>
+                            <div data-id="291" class="w-10 h-10 rounded-lg bg-white/5 border border-white/10 mx-auto mb-3 flex items-center justify-center">
+                                <i data-id="292" data-lucide="box" class="w-5 h-5 text-muted"></i>
+                            </div>
+                            <div data-id="293" class="text-sm font-bold text-white/50 mb-2">Generic App</div>
+                            <div data-id="294" class="flex justify-center gap-1.5 mb-2">
+                                <div data-id="295" class="w-3 h-3 rounded-full bg-gray-600"></div>
+                                <div data-id="296" class="w-3 h-3 rounded-full bg-gray-600"></div>
+                                <div data-id="297" class="w-3 h-3 rounded-full bg-gray-600"></div>
+                            </div>
+                            <div data-id="298" class="w-full h-1.5 bg-white/5 rounded-full"><div data-id="299" class="w-1/2 h-full bg-gray-600 rounded-full"></div></div>
+                        </div>
+                        <div data-id="300" class="branding-arrow flex-shrink-0">
+                            <i data-id="301" data-lucide="arrow-right" class="w-8 h-8 hidden sm:block"></i>
+                            <i data-id="302" data-lucide="arrow-down" class="w-8 h-8 sm:hidden"></i>
+                        </div>
+                        <div data-id="303" class="before-after-card after-card w-48 md:w-56">
+                            <div data-id="304" class="text-xs uppercase tracking-widest text-accent mb-3 font-semibold">After</div>
+                            <div data-id="305" class="w-10 h-10 rounded-lg bg-accent/20 border border-accent/30 mx-auto mb-3 flex items-center justify-center">
+                                <i data-id="306" data-lucide="sparkles" class="w-5 h-5 text-accent"></i>
+                            </div>
+                            <div data-id="307" class="text-sm font-bold text-white mb-2">Your Business Name</div>
+                            <div data-id="308" class="flex justify-center gap-1.5 mb-2">
+                                <div data-id="309" class="w-3 h-3 rounded-full bg-accent"></div>
+                                <div data-id="310" class="w-3 h-3 rounded-full bg-violet-400"></div>
+                                <div data-id="311" class="w-3 h-3 rounded-full bg-indigo-400"></div>
+                            </div>
+                            <div data-id="312" class="w-full h-1.5 bg-accent/20 rounded-full"><div data-id="313" class="w-3/4 h-full bg-accent rounded-full"></div></div>
+                            <span data-id="314" class="brand-pill mt-3 text-[0.6rem]">Customized for You ✦</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS SECTION -->
+        <section data-id="315" id="how-it-works" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="316" class="max-w-6xl mx-auto">
+                <div data-id="317" class="text-center mb-14">
+                    <h2 data-id="318" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 fade-in-up">How It Works</h2>
+                    <p data-id="319" class="text-muted text-base md:text-lg fade-in-up">Your app, your accounts, your business — we just make it happen.</p>
+                </div>
+                <div data-id="320" class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                    <!-- Step 1 -->
+                    <div data-id="321" class="step-card fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-accent/20 transition-all duration-300">
+                        <div data-id="322" class="step-number">1</div>
+                        <div data-id="323" class="relative z-10">
+                            <div data-id="324" class="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-5">
+                                <i data-id="325" data-lucide="hammer" class="w-7 h-7 text-accent"></i>
+                            </div>
+                            <h3 data-id="326" class="text-lg font-bold mb-3">We Build It For You</h3>
+                            <p data-id="327" class="text-muted text-sm leading-relaxed">You purchase your app for a flat $497. We customize it completely to your brand — your colors, your logo, your business name. You get a fully functional, professional business app built specifically for you.</p>
+                        </div>
+                    </div>
+                    <!-- Step 2 -->
+                    <div data-id="328" class="step-card fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-emerald-400/20 transition-all duration-300" style="transition-delay: 0.1s;">
+                        <div data-id="329" class="step-number" style="color: rgba(52,211,153,0.07);">2</div>
+                        <div data-id="330" class="relative z-10">
+                            <div data-id="331" class="w-14 h-14 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5">
+                                <i data-id="332" data-lucide="key-round" class="w-7 h-7 text-emerald-400"></i>
+                            </div>
+                            <h3 data-id="333" class="text-lg font-bold mb-3">You Own Everything</h3>
+                            <p data-id="334" class="text-muted text-sm leading-relaxed">Your app lives on your own Google Cloud / Firebase hosting account — not ours. We'll walk you through setting up your account (and through our Google Workspace Nonprofit Referral Program, you may qualify for deeply discounted or free Google Workspace services). You are the account holder. You own your data. Always.</p>
+                        </div>
+                    </div>
+                    <!-- Step 3 -->
+                    <div data-id="335" class="step-card fade-in-up bg-card rounded-2xl p-8 border border-white/5 hover:border-amber-400/20 transition-all duration-300" style="transition-delay: 0.2s;">
+                        <div data-id="336" class="step-number" style="color: rgba(245,158,11,0.07);">3</div>
+                        <div data-id="337" class="relative z-10">
+                            <div data-id="338" class="w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5">
+                                <i data-id="339" data-lucide="bar-chart-3" class="w-7 h-7 text-amber-400"></i>
+                            </div>
+                            <h3 data-id="340" class="text-lg font-bold mb-3">We Keep It Running</h3>
+                            <p data-id="341" class="text-muted text-sm leading-relaxed">Once live, we monitor your app's performance, usage, and uptime every month. We handle updates, troubleshoot issues, and make sure everything runs smoothly — so you can focus on your business. That's what the monthly service fee covers.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRICING SECTION -->
+        <section data-id="342" id="pricing" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="343" class="max-w-6xl mx-auto">
+                <div data-id="344" class="text-center mb-14">
+                    <h2 data-id="345" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 fade-in-up">Simple, Transparent Pricing</h2>
+                    <p data-id="346" class="text-muted text-base md:text-lg mb-4 fade-in-up">One-time app purchase + optional monthly managed services</p>
+                </div>
+
+                <!-- One-Time Purchase Highlight -->
+                <div data-id="347" class="fade-in-up max-w-3xl mx-auto mb-16">
+                    <div data-id="348" class="bg-card rounded-2xl p-8 md:p-10 border border-accent/30 text-center relative overflow-hidden">
+                        <div data-id="349" class="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent pointer-events-none"></div>
+                        <div data-id="350" class="relative z-10">
+                            <span data-id="351" class="text-xs uppercase tracking-[0.2em] font-semibold text-accent mb-3 block">One-Time App Purchase</span>
+                            <div data-id="352" class="flex items-center justify-center gap-3 mb-2">
+                                <span data-id="353" class="text-5xl md:text-6xl font-black text-white">$497</span>
+                                <span data-id="354" class="text-muted text-base font-medium">per app</span>
+                            </div>
+                            <p data-id="355" class="text-muted text-sm md:text-base mb-6 max-w-lg mx-auto">Your app, built and branded for your business. One flat fee — yours to keep forever. Includes first month of managed services free.</p>
+                            <div data-id="356" class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                                <a data-id="357" href="#apps" class="inline-flex items-center gap-2 bg-accent hover:bg-accentDark text-white font-semibold px-8 py-3.5 rounded-lg transition-all duration-200">Choose Your App <i data-id="358" data-lucide="arrow-right" class="w-4 h-4"></i></a>
+                                <button data-id="359" id="pricing-onetime-suite-btn" class="inline-flex items-center gap-2 bg-gradient-to-r from-gold to-amber-500 hover:from-goldDark hover:to-amber-600 text-black font-bold px-8 py-3.5 rounded-lg transition-all duration-200">
+                                    <i data-id="360" data-lucide="sparkles" class="w-4 h-4"></i> All 8 Apps — $2,497
+                                </button>
+                            </div>
+                            <p data-id="361" class="text-xs text-muted mt-4">Save $1,479 when you get the full suite vs. buying individually</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Managed Services -->
+                <div data-id="362" class="text-center mb-10">
+                    <h3 data-id="363" class="text-2xl md:text-3xl font-bold mb-3 fade-in-up">Monthly Managed Service Plans</h3>
+                    <p data-id="364" class="text-muted text-sm md:text-base mb-8 max-w-2xl mx-auto fade-in-up">After your one-time app purchase, choose a service plan for ongoing monitoring, support, and maintenance.</p>
+                    <!-- Annual/Monthly Toggle -->
+                    <div data-id="365" class="fade-in-up flex items-center justify-center gap-3 mb-2">
+                        <div data-id="366" class="toggle-switch" id="pricing-toggle-w9d4">
+                            <span data-id="367" class="toggle-option active" data-period="monthly">Monthly</span>
+                            <span data-id="368" class="toggle-option" data-period="annual">Annual <span data-id="369" class="text-emerald-400 text-xs font-bold ml-1">(Save 20%)</span></span>
+                        </div>
+                    </div>
+                </div>
+                <div data-id="370" class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-start">
+                    <!-- Starter -->
+                    <div data-id="371" class="managed-service-card fade-in-up rounded-2xl p-8">
+                        <h3 data-id="372" class="text-lg font-bold mb-1">Starter Managed Service</h3>
+                        <p data-id="373" class="text-muted text-sm mb-6">For businesses managing one CDI app</p>
+                        <div data-id="374" class="mb-6">
+                            <span data-id="375" class="text-4xl font-black pricing-amount" data-monthly="19" data-annual="182">$19</span>
+                            <span data-id="376" class="text-muted text-sm ml-1 pricing-period">/mo</span>
+                        </div>
+                        <ul data-id="377" class="space-y-3 mb-8">
+                            <li data-id="378" class="flex items-start gap-2.5 text-sm"><i data-id="379" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>1 app monitored</li>
+                            <li data-id="380" class="flex items-start gap-2.5 text-sm"><i data-id="381" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Monthly usage review</li>
+                            <li data-id="382" class="flex items-start gap-2.5 text-sm"><i data-id="383" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Uptime monitoring</li>
+                            <li data-id="384" class="flex items-start gap-2.5 text-sm"><i data-id="385" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Email support</li>
+                        </ul>
+                        <a data-id="386" href="https://constructivedesignsinc.org/contact" target="_blank" class="block w-full text-center border border-white/20 hover:border-accent text-white font-semibold py-3.5 rounded-lg transition-all duration-200">Select Plan</a>
+                        <span data-id="387" class="secure-checkout-label">First month free with app purchase</span>
+                    </div>
+                    <!-- Growth (Featured) -->
+                    <div data-id="388" class="managed-service-card ms-featured fade-in-up rounded-2xl p-8 relative" style="transition-delay: 0.1s;">
+                        <div data-id="389" class="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-white text-xs font-bold px-4 py-1.5 rounded-full">Most Popular</div>
+                        <h3 data-id="390" class="text-lg font-bold mb-1">Growth Managed Service</h3>
+                        <p data-id="391" class="text-muted text-sm mb-6">For growing businesses running multiple apps</p>
+                        <div data-id="392" class="mb-6">
+                            <span data-id="393" class="text-4xl font-black pricing-amount" data-monthly="49" data-annual="470">$49</span>
+                            <span data-id="394" class="text-muted text-sm ml-1 pricing-period">/mo</span>
+                        </div>
+                        <ul data-id="395" class="space-y-3 mb-8">
+                            <li data-id="396" class="flex items-start gap-2.5 text-sm"><i data-id="397" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Up to 3 apps monitored</li>
+                            <li data-id="398" class="flex items-start gap-2.5 text-sm"><i data-id="399" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Priority support &amp; faster response</li>
+                            <li data-id="400" class="flex items-start gap-2.5 text-sm"><i data-id="401" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Monthly performance report</li>
+                            <li data-id="402" class="flex items-start gap-2.5 text-sm"><i data-id="403" data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Minor updates &amp; tweaks included</li>
+                        </ul>
+                        <a data-id="404" href="https://constructivedesignsinc.org/contact" target="_blank" class="block w-full text-center bg-accent hover:bg-accentDark text-white font-semibold py-4 rounded-lg transition-all duration-200 shadow-lg shadow-accent/25 text-base">Select Plan</a>
+                        <span data-id="405" class="secure-checkout-label">First month free with app purchase</span>
+                    </div>
+                    <!-- Full Suite -->
+                    <div data-id="406" class="managed-service-card ms-gold fade-in-up rounded-2xl p-8 relative" style="transition-delay: 0.2s;">
+                        <div data-id="407" class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-gold to-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-full">Best Value</div>
+                        <h3 data-id="408" class="text-lg font-bold mb-1">Full Suite Managed Service</h3>
+                        <p data-id="409" class="text-muted text-sm mb-6">Complete hands-on management of your entire CDI app suite</p>
+                        <div data-id="410" class="mb-6">
+                            <span data-id="411" class="text-4xl font-black pricing-amount" data-monthly="149" data-annual="1432">$149</span>
+                            <span data-id="412" class="text-muted text-sm ml-1 pricing-period">/mo</span>
+                        </div>
+                        <ul data-id="413" class="space-y-3 mb-8">
+                            <li data-id="414" class="flex items-start gap-2.5 text-sm"><i data-id="415" data-lucide="check" class="w-4 h-4 text-gold flex-shrink-0 mt-0.5"></i>All apps monitored</li>
+                            <li data-id="416" class="flex items-start gap-2.5 text-sm"><i data-id="417" data-lucide="check" class="w-4 h-4 text-gold flex-shrink-0 mt-0.5"></i>Dedicated account manager (Heather)</li>
+                            <li data-id="418" class="flex items-start gap-2.5 text-sm"><i data-id="419" data-lucide="check" class="w-4 h-4 text-gold flex-shrink-0 mt-0.5"></i>Monthly strategy call</li>
+                            <li data-id="420" class="flex items-start gap-2.5 text-sm"><i data-id="421" data-lucide="check" class="w-4 h-4 text-gold flex-shrink-0 mt-0.5"></i>Unlimited minor updates</li>
+                            <li data-id="422" class="flex items-start gap-2.5 text-sm"><i data-id="423" data-lucide="check" class="w-4 h-4 text-gold flex-shrink-0 mt-0.5"></i>First priority support</li>
+                        </ul>
+                        <a data-id="424" href="https://constructivedesignsinc.org/contact" target="_blank" class="block w-full text-center bg-gradient-to-r from-gold to-amber-500 hover:from-goldDark hover:to-amber-600 text-black font-bold py-4 rounded-lg transition-all duration-200 shadow-lg shadow-gold/25 text-base">Select Plan</a>
+                        <span data-id="425" class="secure-checkout-label">First month free with app purchase</span>
+                    </div>
+                </div>
+
+                <!-- Accepted Payment Methods -->
+                <div data-id="426" class="mt-14 fade-in-up">
+                    <div data-id="427" class="bg-card rounded-2xl border border-white/5 px-6 py-8 md:px-10 md:py-10 text-center">
+                        <p data-id="428" class="text-xs uppercase tracking-[0.18em] font-semibold text-muted mb-5">Accepted Payment Methods</p>
+                        <div data-id="429" class="flex flex-wrap items-center justify-center gap-2.5 mb-6">
+                            <span data-id="430" class="payment-badge bg-white text-gray-800" style="font-family:'Inter',sans-serif;">
+                                <svg data-id="431" width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;">
+                                    <path data-id="432" d="M12.24 10.285V14.4h5.92c-.24 1.59-1.44 4.64-5.92 4.64-3.56 0-6.47-2.95-6.47-6.58s2.91-6.58 6.47-6.58c2.03 0 3.39.86 4.17 1.61l2.84-2.73C17.39 3.16 15.09 2 12.24 2 6.71 2 2.24 6.48 2.24 12s4.47 10 10 10c5.77 0 9.6-4.06 9.6-9.77 0-.66-.07-1.16-.16-1.66h-9.44z" fill="#4285F4"/>
+                                </svg>
+                                <span data-id="433" style="color:#4285F4;font-weight:700;">G</span><span data-id="434" style="font-weight:600;color:#333;"> Pay</span>
+                            </span>
+                            <span data-id="435" class="payment-badge bg-black text-white border border-white/10">
+                                <svg data-id="436" width="14" height="14" viewBox="0 0 24 24" fill="white" style="flex-shrink:0;"><path data-id="437" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.81-1.31.05-2.3-1.32-3.14-2.53C4.25 16 2.94 12.45 4.7 10.15c.87-1.14 2.42-1.86 3.89-1.88 1.29-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83l.14.01z"/><path data-id="438" d="M15.84 3.05c.73-.89 1.23-2.12 1.09-3.35-1.06.04-2.34.71-3.1 1.59-.68.78-1.27 2.04-1.11 3.24 1.18.09 2.38-.6 3.12-1.48z"/></svg>
+                                <span data-id="439" style="font-weight:600;"> Pay</span>
+                            </span>
+                            <span data-id="440" class="payment-badge text-white" style="background:#1a1f71;">
+                                <span data-id="441" style="font-weight:700;font-style:italic;letter-spacing:0.04em;">VISA</span>
+                            </span>
+                            <span data-id="442" class="payment-badge text-white" style="background:#1a1d2e;border:1px solid rgba(255,255,255,0.12);">
+                                <span data-id="443" style="display:inline-flex;align-items:center;gap:2px;margin-right:4px;">
+                                    <svg data-id="444" width="20" height="14" viewBox="0 0 20 14" fill="none" style="flex-shrink:0;">
+                                        <circle data-id="445" cx="7" cy="7" r="6" fill="#eb001b" opacity="0.9"/>
+                                        <circle data-id="446" cx="13" cy="7" r="6" fill="#f79e1b" opacity="0.9"/>
+                                        <path data-id="447" d="M10 2.8a6 6 0 010 8.4 6 6 0 000-8.4z" fill="#ff5f00"/>
+                                    </svg>
+                                </span>
+                                <span data-id="448" style="font-weight:600;">Mastercard</span>
+                            </span>
+                            <span data-id="449" class="payment-badge text-white" style="background:#006fcf;">
+                                <span data-id="450" style="font-weight:700;letter-spacing:0.03em;">AMEX</span>
+                            </span>
+                        </div>
+                        <p data-id="451" class="text-xs md:text-sm text-muted leading-relaxed flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                            <span data-id="452" class="flex items-center gap-1"><i data-id="453" data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>Secure checkout</span>
+                            <span data-id="454" class="text-white/15">·</span>
+                            <span data-id="455" class="flex items-center gap-1"><i data-id="456" data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>One-time purchase</span>
+                            <span data-id="457" class="text-white/15">·</span>
+                            <span data-id="458" class="flex items-center gap-1"><i data-id="459" data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>Cancel services anytime</span>
+                            <span data-id="460" class="text-white/15">·</span>
+                            <span data-id="461" class="flex items-center gap-1"><i data-id="462" data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>No contracts</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ SECTION -->
+        <section data-id="463" id="faq" class="py-12 md:py-20 px-4 md:px-8">
+            <div data-id="464" class="max-w-3xl mx-auto">
+                <div data-id="465" class="text-center mb-14">
+                    <h2 data-id="466" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 fade-in-up">Questions? We've Got Answers.</h2>
+                </div>
+                <div data-id="467" class="space-y-3" id="faq-container-g4h7">
+                    <div data-id="468" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden">
+                        <button data-id="469" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="470" class="font-semibold text-sm md:text-base pr-4">What does the $497 one-time fee include?</span>
+                            <i data-id="471" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="472" class="faq-answer px-6">
+                            <p data-id="473" class="text-muted text-sm pb-5 leading-relaxed">The $497 covers the complete custom build of your app — fully branded with your business name, logo, and colors. It also includes Google Cloud / Firebase setup, integration with your existing tools, and your first month of managed services free. You own the app outright.</p>
+                        </div>
+                    </div>
+                    <div data-id="474" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.05s;">
+                        <button data-id="475" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="476" class="font-semibold text-sm md:text-base pr-4">What are the monthly managed service fees for?</span>
+                            <i data-id="477" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="478" class="faq-answer px-6">
+                            <p data-id="479" class="text-muted text-sm pb-5 leading-relaxed">The monthly fee covers ongoing monitoring, uptime checks, performance reviews, updates, troubleshooting, and support. It's not a software subscription — it's a service plan. Your app is yours regardless of whether you continue the managed service.</p>
+                        </div>
+                    </div>
+                    <div data-id="480" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.075s;">
+                        <button data-id="481" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="482" class="font-semibold text-sm md:text-base pr-4">Do I really own the app?</span>
+                            <i data-id="483" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="484" class="faq-answer px-6">
+                            <p data-id="485" class="text-muted text-sm pb-5 leading-relaxed">Yes — 100%. Your app runs on your own Google Cloud / Firebase account. You are the account holder. You own your data, your code, and your brand. If you ever cancel managed services, your app continues to run on your account.</p>
+                        </div>
+                    </div>
+                    <div data-id="486" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.1s;">
+                        <button data-id="487" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="488" class="font-semibold text-sm md:text-base pr-4">Will the app actually have my branding on it?</span>
+                            <i data-id="489" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="490" class="faq-answer px-6">
+                            <p data-id="491" class="text-muted text-sm pb-5 leading-relaxed">Yes — every single purchase includes custom branding. We apply your business name, logo, and brand colors to the app. Your clients will interact with a tool that looks like you built it from scratch.</p>
+                        </div>
+                    </div>
+                    <div data-id="492" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.15s;">
+                        <button data-id="493" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="494" class="font-semibold text-sm md:text-base pr-4">Can I use the app on my own website?</span>
+                            <i data-id="495" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="496" class="faq-answer px-6">
+                            <p data-id="497" class="text-muted text-sm pb-5 leading-relaxed">Absolutely. Each app is designed to be embedded or hosted on your own domain, so it fits seamlessly into your existing brand.</p>
+                        </div>
+                    </div>
+                    <div data-id="498" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.2s;">
+                        <button data-id="499" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="500" class="font-semibold text-sm md:text-base pr-4">Can I cancel managed services anytime?</span>
+                            <i data-id="501" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="502" class="faq-answer px-6">
+                            <p data-id="503" class="text-muted text-sm pb-5 leading-relaxed">Yes, absolutely. There are no contracts or commitments for managed services. Cancel anytime — your app remains yours and continues to run on your own account.</p>
+                        </div>
+                    </div>
+                    <div data-id="504" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.25s;">
+                        <button data-id="505" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="506" class="font-semibold text-sm md:text-base pr-4">Are updates included?</span>
+                            <i data-id="507" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="508" class="faq-answer px-6">
+                            <p data-id="509" class="text-muted text-sm pb-5 leading-relaxed">Minor updates and maintenance are included with your managed service plan. Major feature additions may be quoted separately depending on scope.</p>
+                        </div>
+                    </div>
+                    <div data-id="510" class="faq-item fade-in-up bg-card rounded-xl border border-white/5 overflow-hidden" style="transition-delay: 0.3s;">
+                        <button data-id="511" class="faq-toggle w-full flex items-center justify-between px-6 py-5 text-left">
+                            <span data-id="512" class="font-semibold text-sm md:text-base pr-4">What's the Google Workspace Nonprofit Referral Program?</span>
+                            <i data-id="513" data-lucide="chevron-down" class="w-5 h-5 text-muted faq-chevron flex-shrink-0"></i>
+                        </button>
+                        <div data-id="514" class="faq-answer px-6">
+                            <p data-id="515" class="text-muted text-sm pb-5 leading-relaxed">Through our referral program, qualifying organizations may receive deeply discounted or free Google Workspace services. We'll guide you through the eligibility process and help you get set up during your onboarding.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FINAL CALL TO ACTION -->
+        <section data-id="516" id="cta-final" class="py-16 md:py-28 px-4 md:px-8 relative overflow-hidden">
+            <div data-id="517" class="glow-ring"></div>
+            <div data-id="518" class="absolute inset-0">
+                <div data-id="519" class="hero-orb hero-orb-1" style="top:30%;left:20%;width:350px;height:350px;opacity:0.15;"></div>
+                <div data-id="520" class="hero-orb hero-orb-2" style="bottom:10%;right:15%;width:300px;height:300px;opacity:0.12;"></div>
+            </div>
+            <div data-id="521" class="relative z-10 max-w-3xl mx-auto text-center">
+                <h2 data-id="522" class="text-3xl md:text-4xl lg:text-5xl font-bold mb-5 fade-in-up">Your Business Deserves<br data-id="523"/>Better Tools.</h2>
+                <p data-id="524" class="text-muted text-base md:text-lg mb-3 max-w-2xl mx-auto fade-in-up">Join 1,200+ entrepreneurs who stopped settling for generic software and started running their business on tools built for them.</p>
+                <p data-id="525" class="text-sm md:text-base font-semibold text-white/90 mb-10 max-w-2xl mx-auto fade-in-up">Every app arrives customized with your business name and brand — hosted on your own accounts, managed by our team.</p>
+                <div data-id="526" class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4 fade-in-up">
+                    <button data-id="527" id="cta-suite-btn-m3r7" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-gold to-amber-500 hover:from-goldDark hover:to-amber-600 text-black font-bold px-8 py-4 rounded-lg text-base transition-all duration-200 shadow-lg shadow-gold/25">
+                        <i data-id="528" data-lucide="sparkles" class="w-5 h-5"></i> Get the Full Suite — $2,497
+                    </button>
+                    <a data-id="529" href="#apps" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-white/20 hover:border-white/40 text-white font-semibold px-8 py-4 rounded-lg text-base transition-all duration-200">
+                        Get a Single App — $497
+                    </a>
+                </div>
+                <p data-id="530" class="text-xs text-muted mb-4 fade-in-up">One-time purchase · You own your app · First month of managed services free</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer data-id="531" id="footer-z3q5" class="border-t border-white/5 py-10 px-4 md:px-8">
+        <div data-id="532" class="max-w-6xl mx-auto">
+            <div data-id="533" class="grid grid-cols-1 md:grid-cols-3 gap-10 mb-8">
+                <!-- Brand -->
+                <div data-id="534">
+                    <div data-id="535" class="flex items-center gap-2 mb-4">
+                        <svg data-id="536" class="w-6 h-6 text-accent" viewBox="0 0 32 32" fill="none">
+                            <rect data-id="537" x="2" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.9"/>
+                            <rect data-id="538" x="18" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                            <rect data-id="539" x="2" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.6"/>
+                            <rect data-id="540" x="18" y="18" width="12" height="12" rx="3" fill="currentColor" opacity="0.35"/>
+                        </svg>
+                        <span data-id="541" class="text-sm font-bold">AppSuite</span>
+                    </div>
+                    <p data-id="542" class="text-xs text-muted leading-relaxed mb-3">8 powerful business apps, one ecosystem. Built by Constructive Designs Inc.</p>
+                    <p data-id="543" class="text-[0.65rem] text-muted/60 leading-relaxed">All apps are custom-built and hosted on client-owned Google Cloud accounts. Monthly fees are for ongoing managed services only.</p>
+                </div>
+                <!-- Quick Links -->
+                <div data-id="544">
+                    <h4 data-id="545" class="text-sm font-bold mb-4">Quick Links</h4>
+                    <nav data-id="546" class="flex flex-col gap-2 text-sm text-muted">
+                        <a data-id="547" href="#features" class="hover:text-white transition-colors">Features</a>
+                        <a data-id="548" href="#apps" class="hover:text-white transition-colors">Apps</a>
+                        <a data-id="549" href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+                        <a data-id="550" href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+                        <a data-id="551" href="#faq" class="hover:text-white transition-colors">FAQ</a>
+                        <a data-id="552" href="https://constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">Contact</a>
+                    </nav>
+                </div>
+                <!-- Apps Column -->
+                <div data-id="553">
+                    <h4 data-id="554" class="text-sm font-bold mb-4">Our Apps</h4>
+                    <nav data-id="555" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted">
+                        <a data-id="556" href="https://clientflow.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">ClientFlow CRM</a>
+                        <a data-id="557" href="https://invoiceready.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">InvoiceReady</a>
+                        <a data-id="558" href="https://bookit.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">Book It</a>
+                        <a data-id="559" href="https://contentplan.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">ContentPlan Pro</a>
+                        <a data-id="560" href="https://leadcatcher.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">LeadCatcher</a>
+                        <a data-id="561" href="https://proposalpro.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">ProposalPro</a>
+                        <a data-id="562" href="https://expensetrack.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">ExpenseTrack</a>
+                        <a data-id="563" href="https://reviewboost.constructivedesignsinc.com" target="_blank" class="hover:text-white transition-colors">ReviewBoost</a>
+                    </nav>
+                </div>
+            </div>
+            <div data-id="564" class="border-t border-white/5 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div data-id="565" class="text-xs text-muted text-center md:text-left">
+                    © 2026 Constructive Designs Inc. · All rights reserved.
+                </div>
+                <div data-id="566" class="text-xs text-muted/60 text-center md:text-right">
+                    Made by Copilot
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- PURCHASE MODAL (App-specific) -->
+    <div data-id="567" id="purchase-modal-x7k3" class="modal-backdrop">
+        <div data-id="568" class="modal-content">
+            <button data-id="569" id="purchase-modal-close-b2n4" class="absolute top-4 right-4 text-muted hover:text-white transition-colors p-1">
+                <i data-id="570" data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div data-id="571" id="purchase-modal-body-f9g1"></div>
+        </div>
+    </div>
+
+    <!-- SUITE UPGRADE MODAL -->
+    <div data-id="572" id="suite-modal-a3m8" class="modal-backdrop">
+        <div data-id="573" class="modal-content" style="max-width:540px;">
+            <button data-id="574" id="suite-modal-close-d7p2" class="absolute top-4 right-4 text-muted hover:text-white transition-colors p-1">
+                <i data-id="575" data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div data-id="576" class="text-center mb-6">
+                <div data-id="577" class="w-14 h-14 rounded-xl bg-gold/15 flex items-center justify-center mx-auto mb-4">
+                    <i data-id="578" data-lucide="sparkles" class="w-7 h-7 text-gold"></i>
+                </div>
+                <h3 data-id="579" class="text-xl font-bold mb-1">CDI Business App Suite — All 8 Apps</h3>
+                <p data-id="580" class="text-muted text-sm">Custom-built, branded, and delivered — yours to keep.</p>
+            </div>
+            <!-- One-time price -->
+            <div data-id="581" class="border-2 border-gold/50 rounded-xl p-5 mb-5 bg-gold/5 text-center">
+                <span data-id="582" class="text-xs uppercase tracking-widest text-gold font-semibold block mb-2">One-Time Purchase</span>
+                <div data-id="583" class="flex items-center justify-center gap-3 mb-2">
+                    <span data-id="584" class="text-4xl font-black text-white">$2,497</span>
+                    <span data-id="585" class="bg-gradient-to-r from-gold to-amber-500 text-black text-xs font-bold px-3 py-1 rounded-full">Save $1,479</span>
+                </div>
+                <p data-id="586" class="text-muted text-xs">vs. $3,976 buying all 8 apps individually</p>
+            </div>
+            <!-- Apps grid -->
+            <div data-id="587" class="grid grid-cols-2 gap-2 mb-4">
+                <div data-id="588" class="suite-app-item"><span data-id="589" style="color:#7c5cfc;">●</span> ClientFlow CRM</div>
+                <div data-id="590" class="suite-app-item"><span data-id="591" style="color:#34d399;">●</span> InvoiceReady</div>
+                <div data-id="592" class="suite-app-item"><span data-id="593" style="color:#ff6b6b;">●</span> Book It</div>
+                <div data-id="594" class="suite-app-item"><span data-id="595" style="color:#38bdf8;">●</span> ContentPlan Pro</div>
+                <div data-id="596" class="suite-app-item"><span data-id="597" style="color:#fb923c;">●</span> LeadCatcher</div>
+                <div data-id="598" class="suite-app-item"><span data-id="599" style="color:#f472b6;">●</span> ProposalPro</div>
+                <div data-id="600" class="suite-app-item"><span data-id="601" style="color:#2dd4bf;">●</span> ExpenseTrack</div>
+                <div data-id="602" class="suite-app-item"><span data-id="603" style="color:#facc15;">●</span> ReviewBoost</div>
+            </div>
+            <!-- Feature highlights -->
+            <div data-id="604" class="flex flex-wrap gap-2 mb-5">
+                <span data-id="605" class="text-xs bg-white/5 text-white/70 px-2.5 py-1 rounded-full">Fully branded</span>
+                <span data-id="606" class="text-xs bg-white/5 text-white/70 px-2.5 py-1 rounded-full">Your own hosting</span>
+                <span data-id="607" class="text-xs bg-white/5 text-white/70 px-2.5 py-1 rounded-full">All integrations</span>
+                <span data-id="608" class="text-xs bg-white/5 text-white/70 px-2.5 py-1 rounded-full">You own everything</span>
+                <span data-id="609" class="text-xs bg-white/5 text-white/70 px-2.5 py-1 rounded-full">1st month free service</span>
+            </div>
+            <!-- Managed service selection -->
+            <div data-id="610" class="border-t border-white/5 pt-5 mb-5">
+                <p data-id="611" class="text-xs uppercase tracking-widest text-muted font-semibold mb-3">Add Monthly Managed Service</p>
+                <div data-id="612" class="flex items-center justify-center gap-3 mb-4">
+                    <div data-id="613" class="toggle-switch" id="suite-toggle-v3c8">
+                        <span data-id="614" class="toggle-option active" data-period="monthly">Monthly</span>
+                        <span data-id="615" class="toggle-option" data-period="annual">Annual <span data-id="616" class="text-emerald-400 text-xs font-bold ml-1">(Save 20%)</span></span>
+                    </div>
+                </div>
+                <div data-id="617" class="space-y-2" id="suite-service-plans">
+                    <div data-id="618" class="flex items-center justify-between p-3 rounded-lg border border-white/10 hover:border-white/20 cursor-pointer transition-all text-sm">
+                        <div data-id="619"><span data-id="620" class="font-semibold">Starter</span> <span data-id="621" class="text-muted text-xs ml-1">1 app monitored</span></div>
+                        <span data-id="622" class="font-bold suite-plan-price" data-monthly="19" data-annual="182">$19<span data-id="623" class="text-muted text-xs font-normal">/mo</span></span>
+                    </div>
+                    <div data-id="624" class="flex items-center justify-between p-3 rounded-lg border border-accent/30 bg-accent/5 cursor-pointer transition-all text-sm">
+                        <div data-id="625"><span data-id="626" class="font-semibold">Growth</span> <span data-id="627" class="text-xs text-accent ml-1">Popular</span></div>
+                        <span data-id="628" class="font-bold suite-plan-price" data-monthly="49" data-annual="470">$49<span data-id="629" class="text-muted text-xs font-normal">/mo</span></span>
+                    </div>
+                    <div data-id="630" class="flex items-center justify-between p-3 rounded-lg border border-gold/30 bg-gold/5 cursor-pointer transition-all text-sm">
+                        <div data-id="631"><span data-id="632" class="font-semibold">Full Suite</span> <span data-id="633" class="text-xs text-gold ml-1">Recommended</span></div>
+                        <span data-id="634" class="font-bold suite-plan-price" data-monthly="149" data-annual="1432">$149<span data-id="635" class="text-muted text-xs font-normal">/mo</span></span>
+                    </div>
+                </div>
+            </div>
+            <a data-id="636" href="https://constructivedesignsinc.org/contact" target="_blank" class="block w-full text-center bg-gradient-to-r from-gold to-amber-500 hover:from-goldDark hover:to-amber-600 text-black font-bold py-4 rounded-lg transition-all duration-200 text-base mb-3">
+                Get the Full Suite — $2,497
+            </a>
+            <p data-id="637" class="text-xs text-muted text-center">🔒 One-time fee · You own your apps · First month of managed services free</p>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") {
+            lucide.createIcons();
+        }
+
+        // ========== APP DATA ==========
+        const appData = {
+            clientflow: {
+                name: 'ClientFlow CRM',
+                icon: 'users',
+                color: '#7c5cfc',
+                tryUrl: 'https://clientflow.constructivedesignsinc.com',
+                features: [
+                    'Track leads, contacts & deal stages',
+                    'Automated follow-up reminders',
+                    'Client notes & communication history'
+                ]
+            },
+            invoiceready: {
+                name: 'InvoiceReady',
+                icon: 'receipt',
+                color: '#34d399',
+                tryUrl: 'https://invoiceready.constructivedesignsinc.com',
+                features: [
+                    'Branded invoice generator',
+                    'Payment status tracking',
+                    'Recurring invoice automation'
+                ]
+            },
+            bookit: {
+                name: 'Book It',
+                icon: 'calendar-check',
+                color: '#ff6b6b',
+                tryUrl: 'https://bookit.constructivedesignsinc.com',
+                features: [
+                    'Custom booking page',
+                    'Automated confirmations & reminders',
+                    'Block off personal time with ease'
+                ]
+            },
+            contentplan: {
+                name: 'ContentPlan Pro',
+                icon: 'layout-grid',
+                color: '#38bdf8',
+                tryUrl: 'https://contentplan.constructivedesignsinc.com',
+                features: [
+                    '30-day content calendar view',
+                    'Caption & hashtag drafting space',
+                    'Platform-by-platform content queue'
+                ]
+            },
+            leadcatcher: {
+                name: 'LeadCatcher',
+                icon: 'target',
+                color: '#fb923c',
+                tryUrl: 'https://leadcatcher.constructivedesignsinc.com',
+                features: [
+                    'Custom lead intake forms',
+                    'Pipeline status tracker',
+                    'Automated lead scoring'
+                ]
+            },
+            proposalpro: {
+                name: 'ProposalPro',
+                icon: 'file-signature',
+                color: '#f472b6',
+                tryUrl: 'https://proposalpro.constructivedesignsinc.com',
+                features: [
+                    'Drag-and-drop proposal builder',
+                    'E-signature ready',
+                    'Track when clients open your proposal'
+                ]
+            },
+            expensetrack: {
+                name: 'ExpenseTrack',
+                icon: 'wallet',
+                color: '#2dd4bf',
+                tryUrl: 'https://expensetrack.constructivedesignsinc.com',
+                features: [
+                    'Categorized expense logging',
+                    'Monthly budget overview',
+                    'Export-ready reports for tax season'
+                ]
+            },
+            reviewboost: {
+                name: 'ReviewBoost',
+                icon: 'star',
+                color: '#facc15',
+                tryUrl: 'https://reviewboost.constructivedesignsinc.com',
+                features: [
+                    'One-click review request tool',
+                    'Multi-platform routing (Google, Yelp, Facebook)',
+                    'Review response templates'
+                ]
+            }
+        };
+
+        // ========== STICKY NAV ==========
+        const navbar = document.getElementById('navbar-xk4m');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('nav-scrolled', window.scrollY > 40);
+        });
+
+        // ========== MOBILE MENU ==========
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn-n3v2');
+        const mobileMenu = document.getElementById('mobile-menu-p8k1');
+        const mobileMenuClose = document.getElementById('mobile-menu-close-q2w7');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.remove('hidden');
+            mobileMenu.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        });
+
+        mobileMenuClose.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            mobileMenu.classList.remove('flex');
+            document.body.style.overflow = '';
+        });
+
+        document.querySelectorAll('.mobile-nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                mobileMenu.classList.remove('flex');
+                document.body.style.overflow = '';
+            });
+        });
+
+        // ========== FAQ ACCORDION ==========
+        document.querySelectorAll('.faq-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                const item = toggle.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const chevron = item.querySelector('.faq-chevron');
+                const isOpen = answer.classList.contains('open');
+
+                document.querySelectorAll('.faq-answer.open').forEach(a => {
+                    a.classList.remove('open');
+                    a.style.maxHeight = '0';
+                });
+                document.querySelectorAll('.faq-chevron.open').forEach(c => {
+                    c.classList.remove('open');
+                });
+
+                if (!isOpen) {
+                    answer.classList.add('open');
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                    chevron.classList.add('open');
+                }
+            });
+        });
+
+        // ========== INTERSECTION OBSERVER ==========
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('.fade-in-up').forEach(el => observer.observe(el));
+
+        // ========== MODAL HELPERS ==========
+        const purchaseModal = document.getElementById('purchase-modal-x7k3');
+        const purchaseModalBody = document.getElementById('purchase-modal-body-f9g1');
+        const suiteModal = document.getElementById('suite-modal-a3m8');
+
+        function openModal(modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeModal(modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('purchase-modal-close-b2n4').addEventListener('click', () => closeModal(purchaseModal));
+        document.getElementById('suite-modal-close-d7p2').addEventListener('click', () => closeModal(suiteModal));
+
+        purchaseModal.addEventListener('click', (e) => { if (e.target === purchaseModal) closeModal(purchaseModal); });
+        suiteModal.addEventListener('click', (e) => { if (e.target === suiteModal) closeModal(suiteModal); });
+
+        // ========== PURCHASE MODAL (NEW — $497 one-time) ==========
+        function openPurchaseModal(appKey) {
+            const app = appData[appKey];
+            if (!app) return;
+            renderPurchaseModal(app);
+            openModal(purchaseModal);
+            setTimeout(() => {
+                if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") {
+                    lucide.createIcons();
+                }
+            }, 50);
+        }
+
+        function renderPurchaseModal(app) {
+            const isDark = app.color === '#facc15';
+            purchaseModalBody.innerHTML = `
+                <div class="text-center mb-5">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background:${app.color}22;">
+                        <i data-lucide="${app.icon}" class="w-6 h-6" style="color:${app.color};"></i>
+                    </div>
+                    <h3 class="text-lg font-bold">${app.name}</h3>
+                </div>
+                <!-- One-time purchase card -->
+                <div class="border-2 rounded-xl p-5 mb-5" style="border-color:${app.color}66; background:${app.color}08;">
+                    <div class="text-center mb-3">
+                        <span class="text-xs uppercase tracking-widest font-semibold block mb-2" style="color:${app.color};">Custom App Build</span>
+                        <span class="text-4xl font-black" style="color:${app.color};">$497</span>
+                        <span class="text-muted text-sm ml-2">one-time</span>
+                    </div>
+                    <p class="text-muted text-xs text-center mb-4">Your app, built and branded for your business. One flat fee — yours to keep.</p>
+                </div>
+                <div class="mb-5">
+                    <h4 class="text-xs uppercase tracking-widest text-muted font-semibold mb-3">What's Included</h4>
+                    <ul class="space-y-2.5">
+                        <li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Fully customized to your brand (colors, logo, business name)</li>
+                        <li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Hosted under your own business account — you own it completely</li>
+                        <li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Google Cloud / Firebase setup included (we'll walk you through it)</li>
+                        <li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Integrated with your existing business tools</li>
+                        <li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 text-success flex-shrink-0 mt-0.5"></i>Includes first month of managed services free</li>
+                    </ul>
+                </div>
+                <div class="mb-5">
+                    <h4 class="text-xs uppercase tracking-widest text-muted font-semibold mb-3">App Features</h4>
+                    <ul class="space-y-2">
+                        ${app.features.map(f => `<li class="flex items-start gap-2 text-sm text-white/80"><i data-lucide="check" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:${app.color};"></i>${f}</li>`).join('')}
+                    </ul>
+                </div>
+                <!-- Info note -->
+                <div class="bg-white/[0.03] rounded-lg p-3.5 mb-5 border border-white/5">
+                    <p class="text-xs text-muted leading-relaxed">💡 <strong class="text-white/80">You are the account holder.</strong> Your app runs on your own Google Cloud / Firebase account. Through our Google Workspace Nonprofit Referral Program, we can help you get set up with Google Workspace at a significantly reduced cost — and we'll guide you through every step of the process.</p>
+                </div>
+                <a href="https://constructivedesignsinc.org/contact" target="_blank" class="block w-full text-center font-bold py-3.5 rounded-lg transition-all duration-200 text-sm mb-2" style="background:${app.color};color:${isDark ? '#000' : '#fff'};">
+                    👉 Get Started — $497
+                </a>
+                <p class="text-[0.65rem] text-muted text-center mb-4">🔒 One-time fee · No hidden costs · You own your app</p>
+                <div class="border-t border-white/5 pt-4 text-center">
+                    <button id="modal-suite-link" class="text-sm text-accent hover:text-accentLight transition-colors font-medium">Or get all 8 apps for $2,497 with the Suite →</button>
+                </div>
+            `;
+
+            setTimeout(() => {
+                if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") {
+                    lucide.createIcons();
+                }
+                const suiteLink = document.getElementById('modal-suite-link');
+                if (suiteLink) {
+                    suiteLink.addEventListener('click', () => {
+                        closeModal(purchaseModal);
+                        setTimeout(() => openModal(suiteModal), 200);
+                    });
+                }
+            }, 60);
+        }
+
+        // ========== APP CARD "Get This App" BUTTONS ==========
+        document.querySelectorAll('.get-app-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const card = btn.closest('.app-card');
+                const appKey = card.dataset.app;
+                openPurchaseModal(appKey);
+            });
+        });
+
+        // ========== SUITE MODAL OPENERS ==========
+        function openSuiteModal() {
+            openModal(suiteModal);
+        }
+
+        document.getElementById('hero-suite-btn-g5k8').addEventListener('click', openSuiteModal);
+        document.getElementById('nav-get-started-btn-a9z2').addEventListener('click', openSuiteModal);
+        document.getElementById('mobile-get-started-btn-r7m4').addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            mobileMenu.classList.remove('flex');
+            document.body.style.overflow = '';
+            setTimeout(openSuiteModal, 200);
+        });
+        document.getElementById('cta-suite-btn-m3r7').addEventListener('click', openSuiteModal);
+
+        const pricingOneTimeSuiteBtn = document.getElementById('pricing-onetime-suite-btn');
+        if (pricingOneTimeSuiteBtn) {
+            pricingOneTimeSuiteBtn.addEventListener('click', openSuiteModal);
+        }
+
+        // ========== SUITE MODAL TOGGLE ==========
+        const suiteToggle = document.getElementById('suite-toggle-v3c8');
+
+        suiteToggle.querySelectorAll('.toggle-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                suiteToggle.querySelectorAll('.toggle-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                const isAnnual = opt.dataset.period === 'annual';
+                document.querySelectorAll('.suite-plan-price').forEach(el => {
+                    const val = isAnnual ? el.dataset.annual : el.dataset.monthly;
+                    const label = isAnnual ? '/yr' : '/mo';
+                    el.innerHTML = '$' + Number(val).toLocaleString() + '<span class="text-muted text-xs font-normal">' + label + '</span>';
+                });
+            });
+        });
+
+        // ========== PRICING SECTION TOGGLE ==========
+        const pricingToggle = document.getElementById('pricing-toggle-w9d4');
+        pricingToggle.querySelectorAll('.toggle-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                pricingToggle.querySelectorAll('.toggle-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                const isAnnual = opt.dataset.period === 'annual';
+                document.querySelectorAll('.pricing-amount').forEach(el => {
+                    const val = isAnnual ? el.dataset.annual : el.dataset.monthly;
+                    el.textContent = '$' + Number(val).toLocaleString();
+                });
+                document.querySelectorAll('.pricing-period').forEach(el => {
+                    el.textContent = isAnnual ? '/yr' : '/mo';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

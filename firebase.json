@@ -1,0 +1,13 @@
+{
+  "hosting": [
+    { "target": "landing",      "public": "landing/public",      "ignore": ["firebase.json","**/.*"] },
+    { "target": "bookit",       "public": "bookit/public",       "ignore": ["firebase.json","**/.*"] },
+    { "target": "clientflow",   "public": "clientflow/public",   "ignore": ["firebase.json","**/.*"] },
+    { "target": "invoiceready", "public": "invoiceready/public", "ignore": ["firebase.json","**/.*"] },
+    { "target": "contentplan",  "public": "contentplan/public",  "ignore": ["firebase.json","**/.*"] },
+    { "target": "leadcatcher",  "public": "leadcatcher/public",  "ignore": ["firebase.json","**/.*"] },
+    { "target": "proposalpro",  "public": "proposalpro/public",  "ignore": ["firebase.json","**/.*"] },
+    { "target": "expensetrack", "public": "expensetrack/public", "ignore": ["firebase.json","**/.*"] },
+    { "target": "reviewboost",  "public": "reviewboost/public",  "ignore": ["firebase.json","**/.*"] }
+  ]
+}

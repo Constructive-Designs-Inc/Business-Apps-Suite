@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Book It</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              bg: { DEFAULT: '#0f1117', card: '#1a1d2e', elevated: '#222640' },
+              accent: { DEFAULT: '#ff6b6b', dark: '#e05555', light: '#ff8a8a' },
+              secondary: { DEFAULT: '#fb923c', dark: '#e07c2a', light: '#fca95c' },
+              success: { DEFAULT: '#4ade80', dark: '#2fcb68' },
+              muted: '#8b8fa8',
+              stroke: 'rgba(255,255,255,0.08)',
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #0f1117; color: #e2e4ed; font-family: 'Inter', system-ui, sans-serif; }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0f1117; }
+      ::-webkit-scrollbar-thumb { background: #2a2e45; border-radius: 8px; }
+      .tab-btn { transition: all 0.2s ease; }
+      .tab-btn.active { color: #ff6b6b; border-bottom: 2px solid #ff6b6b; }
+      .tab-btn:not(.active) { color: #8b8fa8; border-bottom: 2px solid transparent; }
+      .tab-btn:hover:not(.active) { color: #c5c8db; }
+      .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+      .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+      .calendar-day { transition: background 0.15s ease; }
+      .calendar-day:hover { background: #222640; }
+      .calendar-day.today { background: rgba(255,107,107,0.15); border: 1px solid #ff6b6b; }
+      .calendar-day.selected { background: rgba(255,107,107,0.25); }
+      .filter-chip { transition: all 0.15s ease; cursor: pointer; }
+      .filter-chip.active { background: #ff6b6b; color: #fff; }
+      .filter-chip:not(.active) { background: #1a1d2e; color: #8b8fa8; }
+      .filter-chip:hover:not(.active) { background: #222640; color: #e2e4ed; }
+      .toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #2a2e45; position: relative; cursor: pointer; transition: background 0.2s; }
+      .toggle-track.on { background: #ff6b6b; }
+      .toggle-knob { width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+      .toggle-track.on .toggle-knob { transform: translateX(20px); }
+      .modal-overlay { background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+      .timeline-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #0f1117; }
+      .timeline-line { width: 2px; background: rgba(255,255,255,0.08); }
+      input, select, textarea { background: #0f1117; border: 1px solid rgba(255,255,255,0.08); color: #e2e4ed; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: #ff6b6b; box-shadow: 0 0 0 2px rgba(255,107,107,0.2); }
+      .badge-pulse { animation: pulse 2s infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+      .fade-in { animation: fadeIn 0.3s ease; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+      .help-modal-overlay {
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      .help-modal-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .help-modal-content {
+        transform: translateY(24px) scale(0.97);
+        opacity: 0;
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      }
+      .help-modal-overlay.open .help-modal-content {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      .accordion-header {
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .accordion-header:hover {
+        background: #222640;
+      }
+      .accordion-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.25s ease;
+      }
+      .accordion-body.open {
+        max-height: 600px;
+      }
+      .accordion-chevron {
+        transition: transform 0.25s ease;
+      }
+      .accordion-chevron.open {
+        transform: rotate(180deg);
+      }
+
+      .pairing-banner {
+        background: #1a1d2e;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        transition: box-shadow 0.2s ease;
+      }
+      .pairing-banner:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      }
+      .pairing-banner-inner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        position: relative;
+        z-index: 1;
+      }
+      .pairing-banner .banner-dismiss {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: #8b8fa8;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        transition: color 0.15s, background 0.15s;
+        z-index: 2;
+      }
+      .pairing-banner .banner-dismiss:hover {
+        color: #e2e4ed;
+        background: rgba(255,255,255,0.06);
+      }
+
+      .cdi-suite-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 44px;
+        background: linear-gradient(to right, #1a1d2e, #0f1117);
+        border-top: 1px solid rgba(255, 107, 107, 0.2);
+        z-index: 55;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+      }
+      .cdi-suite-footer .cdi-explore-btn {
+        background: linear-gradient(to right, #ff6b6b, #fb923c);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 14px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: filter 0.2s ease, transform 0.15s ease;
+      }
+      .cdi-suite-footer .cdi-explore-btn:hover {
+        filter: brightness(1.15);
+        transform: translateY(-1px);
+      }
+
+      /* Auth Modal */
+      .auth-overlay {
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(12px);
+      }
+      .auth-tab-btn {
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+        padding-bottom: 10px;
+      }
+      .auth-tab-btn.active {
+        color: #ff6b6b;
+        border-bottom-color: #ff6b6b;
+      }
+      .auth-tab-btn:not(.active) {
+        color: #8b8fa8;
+      }
+      .auth-tab-btn:hover:not(.active) {
+        color: #c5c8db;
+      }
+      .auth-input {
+        background: #0f1117;
+        border: 1px solid rgba(255,255,255,0.08);
+        color: #e2e4ed;
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 14px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .auth-input:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255,107,107,0.15);
+      }
+      .auth-btn {
+        background: #ff6b6b;
+        color: #fff;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 12px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.2s, transform 0.1s;
+      }
+      .auth-btn:hover { background: #e05555; }
+      .auth-btn:active { transform: scale(0.98); }
+      .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .auth-error-pill {
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.3);
+        color: #f87171;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        display: none;
+      }
+      .auth-success-pill {
+        background: rgba(74,222,128,0.12);
+        border: 1px solid rgba(74,222,128,0.3);
+        color: #4ade80;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        display: none;
+      }
+
+      @media (max-width: 767px) {
+        .pairing-banner-inner {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          padding-right: 36px;
+        }
+        .pairing-banner .banner-actions {
+          width: 100%;
+        }
+        .pairing-banner .banner-actions button {
+          flex: 1;
+        }
+      }
+    </style>
+</head>
+<body data-id="0" class="min-h-screen flex flex-col">
+    <app-icon data-id="1" hidden data-icon="calendar-check" data-palette="Red"></app-icon>
+
+    <!-- AUTH MODAL -->
+    <div data-id="2" id="auth-modal-overlay" class="auth-overlay fixed inset-0 z-[70] flex items-center justify-center p-4" style="display:none;">
+        <div data-id="3" class="relative bg-bg-card rounded-2xl border border-stroke w-full max-w-[420px] p-8 fade-in shadow-2xl">
+            <!-- Header -->
+            <div data-id="4" class="text-center mb-7">
+                <div data-id="5" class="flex items-center justify-center gap-2 mb-2">
+                    <i data-id="6" data-lucide="calendar-check" class="w-8 h-8 text-accent"></i>
+                    <span data-id="7" class="text-2xl font-bold text-accent tracking-tight">Book It</span>
+                </div>
+                <p data-id="8" class="text-muted text-xs">by Constructive Designs Inc.</p>
+            </div>
+
+            <!-- Auth Tabs -->
+            <div data-id="9" class="flex gap-6 mb-6 border-b border-stroke">
+                <button data-id="10" id="auth-tab-signin" class="auth-tab-btn active text-sm font-semibold pb-2.5">Sign In</button>
+                <button data-id="11" id="auth-tab-signup" class="auth-tab-btn text-sm font-semibold pb-2.5">Sign Up</button>
+            </div>
+
+            <!-- Error / Success -->
+            <div data-id="12" id="auth-error" class="auth-error-pill mb-4"></div>
+            <div data-id="13" id="auth-success" class="auth-success-pill mb-4"></div>
+
+            <!-- Sign In Form -->
+            <div data-id="14" id="auth-signin-form" class="space-y-4">
+                <div data-id="15">
+                    <label data-id="16" class="block text-xs font-medium text-muted mb-1.5">Email</label>
+                    <input data-id="17" id="auth-signin-email" type="email" class="auth-input" placeholder="you@email.com" />
+                </div>
+                <div data-id="18">
+                    <label data-id="19" class="block text-xs font-medium text-muted mb-1.5">Password</label>
+                    <input data-id="20" id="auth-signin-password" type="password" class="auth-input" placeholder="••••••••" />
+                </div>
+                <button data-id="21" id="auth-signin-btn" class="auth-btn mt-2">Sign In</button>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div data-id="22" id="auth-signup-form" class="space-y-4" style="display:none;">
+                <div data-id="23">
+                    <label data-id="24" class="block text-xs font-medium text-muted mb-1.5">Business Name</label>
+                    <input data-id="25" id="auth-signup-business" type="text" class="auth-input" placeholder="My Business" />
+                </div>
+                <div data-id="26">
+                    <label data-id="27" class="block text-xs font-medium text-muted mb-1.5">Email</label>
+                    <input data-id="28" id="auth-signup-email" type="email" class="auth-input" placeholder="you@email.com" />
+                </div>
+                <div data-id="29">
+                    <label data-id="30" class="block text-xs font-medium text-muted mb-1.5">Password</label>
+                    <input data-id="31" id="auth-signup-password" type="password" class="auth-input" placeholder="Min 6 characters" />
+                </div>
+                <div data-id="32">
+                    <label data-id="33" class="block text-xs font-medium text-muted mb-1.5">Confirm Password</label>
+                    <input data-id="34" id="auth-signup-confirm" type="password" class="auth-input" placeholder="••••••••" />
+                </div>
+                <button data-id="35" id="auth-signup-btn" class="auth-btn mt-2">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sticky Nav -->
+    <header data-id="36" id="header-nav-a1b2" class="sticky top-0 z-40 bg-bg/90 backdrop-blur-md border-b border-stroke">
+        <div data-id="37" class="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 h-16">
+            <div data-id="38" class="flex items-center gap-2">
+                <i data-id="39" data-lucide="calendar-check" class="w-7 h-7 text-accent"></i>
+                <span data-id="40" class="text-lg font-bold tracking-tight">Book It</span>
+            </div>
+            <!-- Desktop Nav -->
+            <nav data-id="41" id="desktop-nav-c3d4" class="hidden md:flex items-center gap-1">
+                <button data-id="42" class="tab-btn active px-4 py-5 text-sm font-medium" data-tab="dashboard">Dashboard</button>
+                <button data-id="43" class="tab-btn px-4 py-5 text-sm font-medium" data-tab="calendar">Calendar</button>
+                <button data-id="44" class="tab-btn px-4 py-5 text-sm font-medium relative" data-tab="bookings">
+                    Bookings
+                    <span data-id="45" id="pending-badge-desk-e5f6" class="absolute -top-0.5 right-1 bg-secondary text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center badge-pulse hidden">0</span>
+                </button>
+                <button data-id="46" class="tab-btn px-4 py-5 text-sm font-medium" data-tab="services">Services</button>
+                <button data-id="47" class="tab-btn px-4 py-5 text-sm font-medium" data-tab="settings">Settings</button>
+            </nav>
+            <div data-id="48" class="flex items-center gap-3">
+                <!-- User Badge -->
+                <div data-id="49" id="user-badge-nav" class="hidden md:flex items-center gap-2.5">
+                    <div data-id="50" id="user-avatar-nav" class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold flex-shrink-0"></div>
+                    <span data-id="51" id="user-email-nav" class="text-xs text-muted max-w-[140px] truncate hidden lg:inline"></span>
+                    <button data-id="52" id="signout-btn-nav" class="text-xs text-muted hover:text-accent transition-colors font-medium whitespace-nowrap" title="Sign Out">Sign Out</button>
+                </div>
+                <button data-id="53" id="help-btn" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full border border-stroke text-muted hover:text-accent hover:border-accent/50 transition-colors" title="Help">
+                    <i data-id="54" data-lucide="help-circle" class="w-5 h-5"></i>
+                </button>
+                <button data-id="55" id="new-booking-btn-g7h8" class="hidden md:flex items-center gap-2 bg-accent hover:bg-accent-dark text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors">
+                    <i data-id="56" data-lucide="plus" class="w-4 h-4"></i>
+                    New Booking
+                </button>
+                <button data-id="57" id="mobile-menu-btn-i9j0" class="md:hidden p-2 text-muted hover:text-white">
+                    <i data-id="58" data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Nav -->
+    <nav data-id="59" id="mobile-menu-k1l2" class="hidden fixed inset-0 bg-bg z-50 flex flex-col p-6">
+        <div data-id="60" class="flex items-center justify-between mb-8">
+            <div data-id="61" class="flex items-center gap-2">
+                <i data-id="62" data-lucide="calendar-check" class="w-7 h-7 text-accent"></i>
+                <span data-id="63" class="text-lg font-bold">Book It</span>
+            </div>
+            <button data-id="64" id="mobile-menu-close-m3n4" class="p-2 text-muted hover:text-white">
+                <i data-id="65" data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <!-- Mobile User Badge -->
+        <div data-id="66" id="user-badge-mobile" class="flex items-center gap-3 mb-6 px-4 py-3 bg-bg-card rounded-xl border border-stroke" style="display:none;">
+            <div data-id="67" id="user-avatar-mobile" class="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-sm font-bold flex-shrink-0"></div>
+            <div data-id="68" class="flex-1 min-w-0">
+                <p data-id="69" id="user-email-mobile" class="text-sm text-white truncate"></p>
+                <button data-id="70" id="signout-btn-mobile" class="text-xs text-muted hover:text-accent transition-colors font-medium">Sign Out</button>
+            </div>
+        </div>
+        <div data-id="71" class="flex flex-col gap-2">
+            <button data-id="72" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors" data-tab="dashboard">
+                <i data-id="73" data-lucide="layout-dashboard" class="w-5 h-5 inline mr-3"></i>Dashboard
+            </button>
+            <button data-id="74" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors" data-tab="calendar">
+                <i data-id="75" data-lucide="calendar-days" class="w-5 h-5 inline mr-3"></i>Calendar
+            </button>
+            <button data-id="76" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors relative" data-tab="bookings">
+                <i data-id="77" data-lucide="book-open" class="w-5 h-5 inline mr-3"></i>Bookings
+                <span data-id="78" id="pending-badge-mob-o5p6" class="ml-2 bg-secondary text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 hidden">0</span>
+            </button>
+            <button data-id="79" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors" data-tab="services">
+                <i data-id="80" data-lucide="briefcase" class="w-5 h-5 inline mr-3"></i>Services
+            </button>
+            <button data-id="81" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors" data-tab="settings">
+                <i data-id="82" data-lucide="settings" class="w-5 h-5 inline mr-3"></i>Settings
+            </button>
+            <button data-id="83" id="help-btn-mobile" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:bg-bg-card hover:text-white transition-colors">
+                <i data-id="84" data-lucide="help-circle" class="w-5 h-5 inline mr-3"></i>Help
+            </button>
+        </div>
+        <button data-id="85" id="mobile-new-booking-btn-q7r8" class="mt-6 flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white text-sm font-semibold px-4 py-3 rounded-lg transition-colors w-full">
+            <i data-id="86" data-lucide="plus" class="w-4 h-4"></i>
+            New Booking
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main data-id="87" id="main-content" class="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-6 md:py-8 pb-20">
+
+        <!-- DASHBOARD TAB -->
+        <section data-id="88" id="tab-dashboard" class="tab-panel fade-in">
+            <div data-id="89" class="mb-6">
+                <h1 data-id="90" id="greeting-s9t0" class="text-xl md:text-2xl font-bold mb-1">Good morning, Heather</h1>
+                <p data-id="91" class="text-muted text-sm">Tuesday, May 19, 2026 &middot; Trotwood, OH</p>
+            </div>
+            <div data-id="92" id="stats-grid-u1v2" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div data-id="93" class="stat-card bg-bg-card rounded-xl p-4 md:p-5 border border-stroke">
+                    <div data-id="94" class="flex items-center justify-between mb-3">
+                        <span data-id="95" class="text-muted text-xs font-medium uppercase tracking-wider">Today</span>
+                        <div data-id="96" class="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center"><i data-id="97" data-lucide="calendar" class="w-4 h-4 text-accent"></i></div>
+                    </div>
+                    <p data-id="98" id="stat-today-w3x4" class="text-2xl md:text-3xl font-bold tabular-nums">3</p>
+                    <p data-id="99" class="text-muted text-xs mt-1">appointments</p>
+                </div>
+                <div data-id="100" class="stat-card bg-bg-card rounded-xl p-4 md:p-5 border border-stroke">
+                    <div data-id="101" class="flex items-center justify-between mb-3">
+                        <span data-id="102" class="text-muted text-xs font-medium uppercase tracking-wider">This Week</span>
+                        <div data-id="103" class="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center"><i data-id="104" data-lucide="trending-up" class="w-4 h-4 text-secondary"></i></div>
+                    </div>
+                    <p data-id="105" id="stat-week-y5z6" class="text-2xl md:text-3xl font-bold tabular-nums">5</p>
+                    <p data-id="106" class="text-muted text-xs mt-1">appointments</p>
+                </div>
+                <div data-id="107" class="stat-card bg-bg-card rounded-xl p-4 md:p-5 border border-stroke">
+                    <div data-id="108" class="flex items-center justify-between mb-3">
+                        <span data-id="109" class="text-muted text-xs font-medium uppercase tracking-wider">Pending</span>
+                        <div data-id="110" class="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center"><i data-id="111" data-lucide="clock" class="w-4 h-4 text-yellow-400"></i></div>
+                    </div>
+                    <p data-id="112" id="stat-pending-a7b8" class="text-2xl md:text-3xl font-bold tabular-nums">2</p>
+                    <p data-id="113" class="text-muted text-xs mt-1">need confirmation</p>
+                </div>
+                <div data-id="114" class="stat-card bg-bg-card rounded-xl p-4 md:p-5 border border-stroke">
+                    <div data-id="115" class="flex items-center justify-between mb-3">
+                        <span data-id="116" class="text-muted text-xs font-medium uppercase tracking-wider">Clients</span>
+                        <div data-id="117" class="w-9 h-9 rounded-lg bg-success/10 flex items-center justify-center"><i data-id="118" data-lucide="users" class="w-4 h-4 text-success"></i></div>
+                    </div>
+                    <p data-id="119" id="stat-clients-c9d0" class="text-2xl md:text-3xl font-bold tabular-nums">24</p>
+                    <p data-id="120" class="text-muted text-xs mt-1">total served</p>
+                </div>
+            </div>
+
+            <!-- Pairing Banner 1: ClientFlow CRM (Dashboard) -->
+            <div data-id="121" id="banner-clientflow-a1b2" class="pairing-banner mb-8" style="border-left: 3px solid #7c5cfc; background: linear-gradient(to right, rgba(124,92,252,0.06), #1a1d2e);">
+                <button data-id="122" class="banner-dismiss" data-banner-id="bookit_clientflow_banner" title="Dismiss">
+                    <i data-id="123" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+                <div data-id="124" class="pairing-banner-inner">
+                    <div data-id="125" class="flex items-center gap-3 flex-shrink-0">
+                        <div data-id="126" class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(124,92,252,0.12);">
+                            <i data-id="127" data-lucide="users" class="w-5 h-5" style="color: #7c5cfc;"></i>
+                        </div>
+                        <div data-id="128">
+                            <span data-id="129" class="text-sm font-bold text-white">ClientFlow CRM</span>
+                        </div>
+                    </div>
+                    <p data-id="130" class="text-xs text-muted leading-relaxed flex-1" style="min-width: 0;">Every appointment is the start of a client relationship. ClientFlow CRM remembers every booking, follow-up, and conversation — so your clients always feel like your most important one.</p>
+                    <div data-id="131" class="banner-actions flex items-center gap-2 flex-shrink-0">
+                        <a data-id="132" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg text-white transition-colors" style="background: #7c5cfc;" id="banner-cf-connect-c3d4">Connect Now</a>
+                        <a data-id="133" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-lg transition-colors border" style="color: #7c5cfc; border-color: rgba(124,92,252,0.3);" id="banner-cf-learn-e5f6">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <div data-id="134" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div data-id="135" class="lg:col-span-2">
+                    <h2 data-id="136" class="text-base font-semibold mb-4 flex items-center gap-2">
+                        <i data-id="137" data-lucide="clock" class="w-4 h-4 text-accent"></i> Today's Schedule
+                    </h2>
+                    <div data-id="138" id="timeline-container-e1f2" class="bg-bg-card rounded-xl border border-stroke p-4 md:p-5 space-y-0"></div>
+                </div>
+                <div data-id="139">
+                    <h2 data-id="140" class="text-base font-semibold mb-4 flex items-center gap-2">
+                        <i data-id="141" data-lucide="arrow-up-right" class="w-4 h-4 text-secondary"></i> Upcoming
+                    </h2>
+                    <div data-id="142" id="upcoming-container-g3h4" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CALENDAR TAB -->
+        <section data-id="143" id="tab-calendar" class="tab-panel hidden fade-in">
+            <div data-id="144" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div data-id="145" class="lg:col-span-2">
+                    <div data-id="146" class="bg-bg-card rounded-xl border border-stroke p-4 md:p-6">
+                        <div data-id="147" class="flex items-center justify-between mb-5">
+                            <button data-id="148" id="prev-month-i5j6" class="p-2 rounded-lg hover:bg-bg-elevated text-muted hover:text-white transition-colors"><i data-id="149" data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <h2 data-id="150" id="month-label-k7l8" class="text-lg font-semibold"></h2>
+                            <button data-id="151" id="next-month-m9n0" class="p-2 rounded-lg hover:bg-bg-elevated text-muted hover:text-white transition-colors"><i data-id="152" data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                        </div>
+                        <div data-id="153" class="grid grid-cols-7 gap-1 mb-2">
+                            <div data-id="154" class="text-center text-xs font-medium text-muted py-2">Sun</div>
+                            <div data-id="155" class="text-center text-xs font-medium text-muted py-2">Mon</div>
+                            <div data-id="156" class="text-center text-xs font-medium text-muted py-2">Tue</div>
+                            <div data-id="157" class="text-center text-xs font-medium text-muted py-2">Wed</div>
+                            <div data-id="158" class="text-center text-xs font-medium text-muted py-2">Thu</div>
+                            <div data-id="159" class="text-center text-xs font-medium text-muted py-2">Fri</div>
+                            <div data-id="160" class="text-center text-xs font-medium text-muted py-2">Sat</div>
+                        </div>
+                        <div data-id="161" id="calendar-grid-o1p2" class="grid grid-cols-7 gap-1"></div>
+                        <div data-id="162" class="flex items-center gap-4 mt-4 pt-3 border-t border-stroke text-xs text-muted">
+                            <span data-id="163" class="flex items-center gap-1.5"><span data-id="164" class="w-2 h-2 rounded-full bg-accent"></span> Confirmed</span>
+                            <span data-id="165" class="flex items-center gap-1.5"><span data-id="166" class="w-2 h-2 rounded-full bg-yellow-400"></span> Pending</span>
+                            <span data-id="167" class="flex items-center gap-1.5"><span data-id="168" class="w-2 h-2 rounded-full bg-gray-500"></span> Cancelled</span>
+                        </div>
+                    </div>
+                </div>
+                <div data-id="169">
+                    <div data-id="170" class="bg-bg-card rounded-xl border border-stroke p-4 md:p-5">
+                        <h3 data-id="171" id="day-panel-title-q3r4" class="text-sm font-semibold mb-4">Select a day</h3>
+                        <div data-id="172" id="day-panel-content-s5t6" class="space-y-3 text-sm text-muted">
+                            <p data-id="173">Click on a day in the calendar to see its appointments.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BOOKINGS TAB -->
+        <section data-id="174" id="tab-bookings" class="tab-panel hidden fade-in">
+            <!-- Pairing Banner 2: InvoiceReady (Bookings) -->
+            <div data-id="175" id="banner-invoiceready-g7h8" class="pairing-banner mb-6" style="border-left: 3px solid #4ade80; background: linear-gradient(to right, rgba(74,222,128,0.06), #1a1d2e);">
+                <button data-id="176" class="banner-dismiss" data-banner-id="bookit_invoiceready_banner" title="Dismiss">
+                    <i data-id="177" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+                <div data-id="178" class="pairing-banner-inner">
+                    <div data-id="179" class="flex items-center gap-3 flex-shrink-0">
+                        <div data-id="180" class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(74,222,128,0.12);">
+                            <i data-id="181" data-lucide="receipt" class="w-5 h-5" style="color: #4ade80;"></i>
+                        </div>
+                        <div data-id="182">
+                            <span data-id="183" class="text-sm font-bold text-white">InvoiceReady</span>
+                        </div>
+                    </div>
+                    <p data-id="184" class="text-xs text-muted leading-relaxed flex-1" style="min-width: 0;">Session complete — invoice sent. Pair Book It with InvoiceReady to automatically generate an invoice the moment a booking wraps up. Your clients get billed, you get paid, without lifting a finger.</p>
+                    <div data-id="185" class="banner-actions flex items-center gap-2 flex-shrink-0">
+                        <a data-id="186" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg text-white transition-colors" style="background: #4ade80; color: #0f1117;" id="banner-ir-connect-i9j0">Connect Now</a>
+                        <a data-id="187" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-lg transition-colors border" style="color: #4ade80; border-color: rgba(74,222,128,0.3);" id="banner-ir-learn-k1l2">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <div data-id="188" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h2 data-id="189" class="text-xl font-bold">All Bookings</h2>
+                <div data-id="190" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div data-id="191" class="relative">
+                        <i data-id="192" data-lucide="search" class="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        <input data-id="193" id="booking-search-u7v8" type="text" placeholder="Search bookings..." class="pl-9 pr-4 py-2.5 rounded-lg text-sm w-full sm:w-64" />
+                    </div>
+                    <div data-id="194" class="flex gap-2 flex-wrap">
+                        <button data-id="195" class="filter-chip active px-3 py-1.5 rounded-full text-xs font-medium" data-filter="all">All</button>
+                        <button data-id="196" class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium" data-filter="upcoming">Upcoming</button>
+                        <button data-id="197" class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium" data-filter="past">Past</button>
+                        <button data-id="198" class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium" data-filter="pending">Pending</button>
+                        <button data-id="199" class="filter-chip px-3 py-1.5 rounded-full text-xs font-medium" data-filter="cancelled">Cancelled</button>
+                    </div>
+                </div>
+            </div>
+            <div data-id="200" class="overflow-x-auto rounded-xl border border-stroke">
+                <table data-id="201" class="w-full text-left text-sm">
+                    <thead data-id="202" class="bg-bg-elevated text-xs font-medium uppercase tracking-wider text-muted">
+                        <tr data-id="203">
+                            <th data-id="204" class="px-4 py-3">Client</th>
+                            <th data-id="205" class="px-4 py-3">Service</th>
+                            <th data-id="206" class="px-4 py-3">Date & Time</th>
+                            <th data-id="207" class="px-4 py-3">Duration</th>
+                            <th data-id="208" class="px-4 py-3">Status</th>
+                            <th data-id="209" class="px-4 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody data-id="210" id="bookings-tbody-w9x0" class="divide-y divide-stroke"></tbody>
+                </table>
+            </div>
+            <p data-id="211" id="bookings-empty-y1z2" class="hidden text-center text-muted py-12 text-sm">No bookings match your search.</p>
+        </section>
+
+        <!-- SERVICES TAB -->
+        <section data-id="212" id="tab-services" class="tab-panel hidden fade-in">
+            <div data-id="213" class="flex items-center justify-between mb-6">
+                <h2 data-id="214" class="text-xl font-bold">Services</h2>
+                <button data-id="215" id="add-service-btn-a3b4" class="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors">
+                    <i data-id="216" data-lucide="plus" class="w-4 h-4"></i> Add Service
+                </button>
+            </div>
+
+            <!-- Pairing Banner 3: ReviewBoost (Services) -->
+            <div data-id="217" id="banner-reviewboost-m3n4" class="pairing-banner mb-6" style="border-left: 3px solid #facc15; background: linear-gradient(to right, rgba(250,204,21,0.06), #1a1d2e);">
+                <button data-id="218" class="banner-dismiss" data-banner-id="bookit_reviewboost_banner" title="Dismiss">
+                    <i data-id="219" data-lucide="x" class="w-4 h-4"></i>
+                </button>
+                <div data-id="220" class="pairing-banner-inner">
+                    <div data-id="221" class="flex items-center gap-3 flex-shrink-0">
+                        <div data-id="222" class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: rgba(250,204,21,0.12);">
+                            <i data-id="223" data-lucide="star" class="w-5 h-5" style="color: #facc15;"></i>
+                        </div>
+                        <div data-id="224">
+                            <span data-id="225" class="text-sm font-bold text-white">ReviewBoost</span>
+                        </div>
+                    </div>
+                    <p data-id="226" class="text-xs text-muted leading-relaxed flex-1" style="min-width: 0;">Happy clients leave great reviews — if you remember to ask. ReviewBoost sends a review request automatically after every completed appointment, collecting 5-star feedback while the experience is still fresh.</p>
+                    <div data-id="227" class="banner-actions flex items-center gap-2 flex-shrink-0">
+                        <a data-id="228" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors" style="background: #facc15; color: #0f1117;" id="banner-rb-connect-o5p6">Connect Now</a>
+                        <a data-id="229" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-lg transition-colors border" style="color: #facc15; border-color: rgba(250,204,21,0.3);" id="banner-rb-learn-q7r8">Learn More</a>
+                    </div>
+                </div>
+            </div>
+
+            <div data-id="230" id="services-grid-c5d6" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div data-id="231" id="add-service-form-e7f8" class="hidden mt-6 bg-bg-card rounded-xl border border-stroke p-5">
+                <h3 data-id="232" class="text-base font-semibold mb-4">Add New Service</h3>
+                <div data-id="233" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div data-id="234">
+                        <label data-id="235" class="block text-xs font-medium text-muted mb-1.5">Service Name *</label>
+                        <input data-id="236" id="svc-name-g9h0" type="text" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="e.g. Deep Tissue Massage" />
+                    </div>
+                    <div data-id="237">
+                        <label data-id="238" class="block text-xs font-medium text-muted mb-1.5">Duration (min) *</label>
+                        <input data-id="239" id="svc-duration-i1j2" type="number" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="60" />
+                    </div>
+                    <div data-id="240">
+                        <label data-id="241" class="block text-xs font-medium text-muted mb-1.5">Price ($) *</label>
+                        <input data-id="242" id="svc-price-k3l4" type="number" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="100" />
+                    </div>
+                    <div data-id="243">
+                        <label data-id="244" class="block text-xs font-medium text-muted mb-1.5">Description</label>
+                        <input data-id="245" id="svc-desc-m5n6" type="text" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="Brief description" />
+                    </div>
+                </div>
+                <div data-id="246" class="flex gap-3 mt-4">
+                    <button data-id="247" id="save-service-btn-o7p8" class="bg-accent hover:bg-accent-dark text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">Save Service</button>
+                    <button data-id="248" id="cancel-service-btn-q9r0" class="bg-bg-elevated hover:bg-gray-600/30 text-muted text-sm font-medium px-5 py-2.5 rounded-lg transition-colors">Cancel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS TAB -->
+        <section data-id="249" id="tab-settings" class="tab-panel hidden fade-in">
+            <h2 data-id="250" class="text-xl font-bold mb-6">Settings</h2>
+            <div data-id="251" class="space-y-6">
+                <div data-id="252" class="bg-bg-card rounded-xl border border-stroke p-5">
+                    <h3 data-id="253" class="text-base font-semibold mb-4 flex items-center gap-2"><i data-id="254" data-lucide="clock" class="w-4 h-4 text-accent"></i> Business Hours</h3>
+                    <div data-id="255" id="hours-grid-s1t2" class="space-y-3"></div>
+                </div>
+                <div data-id="256" class="bg-bg-card rounded-xl border border-stroke p-5">
+                    <h3 data-id="257" class="text-base font-semibold mb-4 flex items-center gap-2"><i data-id="258" data-lucide="timer" class="w-4 h-4 text-secondary"></i> Buffer Time Between Appointments</h3>
+                    <select data-id="259" id="buffer-time-u3v4" class="px-3 py-2.5 rounded-lg text-sm w-full md:w-64">
+                        <option data-id="260" value="0">No buffer</option>
+                        <option data-id="261" value="5">5 minutes</option>
+                        <option data-id="262" value="10">10 minutes</option>
+                        <option data-id="263" value="15" selected>15 minutes</option>
+                        <option data-id="264" value="30">30 minutes</option>
+                        <option data-id="265" value="60">1 hour</option>
+                    </select>
+                </div>
+                <div data-id="266" class="bg-bg-card rounded-xl border border-stroke p-5">
+                    <h3 data-id="267" class="text-base font-semibold mb-4 flex items-center gap-2"><i data-id="268" data-lucide="mail" class="w-4 h-4 text-success"></i> Booking Confirmation Message</h3>
+                    <textarea data-id="269" id="confirm-msg-w5x6" rows="4" class="w-full px-3 py-2.5 rounded-lg text-sm">Hi {client_name}, your appointment for {service} on {date} at {time} has been confirmed. We look forward to seeing you! — Book It</textarea>
+                    <p data-id="270" class="text-xs text-muted mt-2">Use {client_name}, {service}, {date}, {time} as placeholders.</p>
+                </div>
+                <div data-id="271" class="bg-bg-card rounded-xl border border-stroke p-5">
+                    <h3 data-id="272" class="text-base font-semibold mb-4 flex items-center gap-2"><i data-id="273" data-lucide="calendar-off" class="w-4 h-4 text-accent"></i> Blocked Dates (Vacation / Holidays)</h3>
+                    <div data-id="274" class="flex flex-col sm:flex-row gap-3 mb-4">
+                        <input data-id="275" id="block-date-input-y7z8" type="date" class="px-3 py-2.5 rounded-lg text-sm" />
+                        <button data-id="276" id="add-block-date-btn-a9b0" class="bg-bg-elevated hover:bg-gray-600/30 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-id="277" data-lucide="plus" class="w-4 h-4"></i> Block Date
+                        </button>
+                    </div>
+                    <div data-id="278" id="blocked-dates-list-c1d2" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- NEW BOOKING MODAL -->
+    <div data-id="279" id="booking-modal-e3f4" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div data-id="280" class="modal-overlay absolute inset-0"></div>
+        <div data-id="281" class="relative bg-bg-card rounded-2xl border border-stroke w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 fade-in">
+            <div data-id="282" class="flex items-center justify-between mb-5">
+                <h2 data-id="283" class="text-lg font-bold">New Booking</h2>
+                <button data-id="284" id="close-modal-btn-g5h6" class="p-2 rounded-lg hover:bg-bg-elevated text-muted hover:text-white transition-colors"><i data-id="285" data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div data-id="286" id="conflict-warning-i7j8" class="hidden mb-4 bg-accent/10 border border-accent/30 rounded-lg p-3 flex items-center gap-2 text-sm text-accent">
+                <i data-id="287" data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+                <span data-id="288">This time slot conflicts with an existing booking.</span>
+            </div>
+            <div data-id="289" class="space-y-4">
+                <div data-id="290">
+                    <label data-id="291" class="block text-xs font-medium text-muted mb-1.5">Client Name *</label>
+                    <input data-id="292" id="modal-client-k9l0" type="text" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="Jane Doe" />
+                </div>
+                <div data-id="293" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div data-id="294">
+                        <label data-id="295" class="block text-xs font-medium text-muted mb-1.5">Email</label>
+                        <input data-id="296" id="modal-email-m1n2" type="email" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="jane@email.com" />
+                    </div>
+                    <div data-id="297">
+                        <label data-id="298" class="block text-xs font-medium text-muted mb-1.5">Phone</label>
+                        <input data-id="299" id="modal-phone-o3p4" type="tel" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="(555) 123-4567" />
+                    </div>
+                </div>
+                <div data-id="300">
+                    <label data-id="301" class="block text-xs font-medium text-muted mb-1.5">Service *</label>
+                    <select data-id="302" id="modal-service-q5r6" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                        <option data-id="303" value="">Select a service...</option>
+                    </select>
+                </div>
+                <div data-id="304" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div data-id="305">
+                        <label data-id="306" class="block text-xs font-medium text-muted mb-1.5">Date *</label>
+                        <input data-id="307" id="modal-date-s7t8" type="date" class="w-full px-3 py-2.5 rounded-lg text-sm" />
+                    </div>
+                    <div data-id="308">
+                        <label data-id="309" class="block text-xs font-medium text-muted mb-1.5">Time *</label>
+                        <input data-id="310" id="modal-time-u9v0" type="time" class="w-full px-3 py-2.5 rounded-lg text-sm" />
+                    </div>
+                    <div data-id="311">
+                        <label data-id="312" class="block text-xs font-medium text-muted mb-1.5">Duration</label>
+                        <select data-id="313" id="modal-duration-w1x2" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                            <option data-id="314" value="15">15 min</option>
+                            <option data-id="315" value="30">30 min</option>
+                            <option data-id="316" value="45">45 min</option>
+                            <option data-id="317" value="60" selected>60 min</option>
+                            <option data-id="318" value="90">90 min</option>
+                        </select>
+                    </div>
+                </div>
+                <div data-id="319">
+                    <label data-id="320" class="block text-xs font-medium text-muted mb-1.5">Notes</label>
+                    <textarea data-id="321" id="modal-notes-y3z4" rows="2" class="w-full px-3 py-2.5 rounded-lg text-sm" placeholder="Any special requests..."></textarea>
+                </div>
+                <div data-id="322" class="flex items-center gap-3">
+                    <div data-id="323" id="confirm-toggle-a5b6" class="toggle-track on"><div data-id="324" class="toggle-knob"></div></div>
+                    <span data-id="325" class="text-sm">Send confirmation email</span>
+                </div>
+            </div>
+            <div data-id="326" class="flex gap-3 mt-6">
+                <button data-id="327" id="save-booking-btn-c7d8" class="flex-1 bg-accent hover:bg-accent-dark text-white text-sm font-semibold py-3 rounded-lg transition-colors">Create Booking</button>
+                <button data-id="328" id="cancel-booking-btn-e9f0" class="bg-bg-elevated hover:bg-gray-600/30 text-muted text-sm font-medium px-5 py-3 rounded-lg transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP MODAL -->
+    <div data-id="329" id="help-modal-overlay" class="help-modal-overlay fixed inset-0 z-[60] flex items-start justify-center">
+        <div data-id="330" class="help-modal-content relative bg-bg-card w-full max-w-2xl mx-4 my-8 md:my-16 rounded-2xl border border-stroke shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div data-id="331" class="sticky top-0 z-10 bg-bg-card border-b border-stroke rounded-t-2xl px-6 py-5 flex items-center justify-between">
+                <div data-id="332" class="flex items-center gap-3">
+                    <div data-id="333" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center">
+                        <i data-id="334" data-lucide="calendar-check" class="w-5 h-5 text-accent"></i>
+                    </div>
+                    <h2 data-id="335" class="text-lg font-bold">How to Use Book It</h2>
+                </div>
+                <button data-id="336" id="help-modal-close" class="p-2 rounded-lg hover:bg-bg-elevated text-muted hover:text-white transition-colors">
+                    <i data-id="337" data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div data-id="338" class="px-6 py-5 space-y-5">
+                <p data-id="339" class="text-sm text-muted leading-relaxed">
+                    Book It is your all-in-one appointment scheduling dashboard. Manage clients, services, and bookings from a single place. Browse your calendar, track pending confirmations, and customize your availability — all designed to keep your business running smoothly.
+                </p>
+                <div data-id="340" class="space-y-2" id="help-accordion">
+                    <div data-id="341" class="rounded-xl border border-stroke overflow-hidden">
+                        <div data-id="342" class="accordion-header flex items-center justify-between px-4 py-3.5 rounded-xl" data-accordion="help-dashboard">
+                            <div data-id="343" class="flex items-center gap-3">
+                                <div data-id="344" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center"><i data-id="345" data-lucide="layout-dashboard" class="w-4 h-4 text-accent"></i></div>
+                                <span data-id="346" class="text-sm font-semibold">Dashboard</span>
+                            </div>
+                            <i data-id="347" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chev-help-dashboard"></i>
+                        </div>
+                        <div data-id="348" class="accordion-body" id="help-dashboard">
+                            <div data-id="349" class="px-4 pb-4 pt-1">
+                                <p data-id="350" class="text-xs text-muted mb-3">Your at-a-glance overview of today's schedule, stats, and upcoming appointments.</p>
+                                <ol data-id="351" class="space-y-2 text-sm text-[#c5c8db]">
+                                    <li data-id="352" class="flex gap-2.5"><span data-id="353" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span> View stat cards at the top to see today's count, this week's total, pending confirmations, and total clients served.</li>
+                                    <li data-id="354" class="flex gap-2.5"><span data-id="355" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span> Review Today's Schedule timeline to see each appointment in chronological order with status indicators.</li>
+                                    <li data-id="356" class="flex gap-2.5"><span data-id="357" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span> Check the Upcoming panel on the right for the next 5 appointments across all days.</li>
+                                    <li data-id="358" class="flex gap-2.5"><span data-id="359" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span> Click "New Booking" in the top bar to quickly schedule a new appointment from any view.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div data-id="360" class="rounded-xl border border-stroke overflow-hidden">
+                        <div data-id="361" class="accordion-header flex items-center justify-between px-4 py-3.5 rounded-xl" data-accordion="help-calendar">
+                            <div data-id="362" class="flex items-center gap-3">
+                                <div data-id="363" class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center"><i data-id="364" data-lucide="calendar-days" class="w-4 h-4 text-secondary"></i></div>
+                                <span data-id="365" class="text-sm font-semibold">Calendar</span>
+                            </div>
+                            <i data-id="366" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chev-help-calendar"></i>
+                        </div>
+                        <div data-id="367" class="accordion-body" id="help-calendar">
+                            <div data-id="368" class="px-4 pb-4 pt-1">
+                                <p data-id="369" class="text-xs text-muted mb-3">A monthly calendar view showing all your appointments with color-coded status dots.</p>
+                                <ol data-id="370" class="space-y-2 text-sm text-[#c5c8db]">
+                                    <li data-id="371" class="flex gap-2.5"><span data-id="372" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span> Use the left/right arrows to navigate between months.</li>
+                                    <li data-id="373" class="flex gap-2.5"><span data-id="374" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span> Look for colored dots on days — coral for confirmed, yellow for pending, gray for cancelled.</li>
+                                    <li data-id="375" class="flex gap-2.5"><span data-id="376" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span> Click any day to see its appointments in the detail panel on the right.</li>
+                                    <li data-id="377" class="flex gap-2.5"><span data-id="378" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span> Today's date is highlighted with a coral border for easy reference.</li>
+                                    <li data-id="379" class="flex gap-2.5"><span data-id="380" class="text-accent font-bold text-xs mt-0.5 shrink-0">5.</span> Blocked/vacation dates appear dimmed so you know they're unavailable.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div data-id="381" class="rounded-xl border border-stroke overflow-hidden">
+                        <div data-id="382" class="accordion-header flex items-center justify-between px-4 py-3.5 rounded-xl" data-accordion="help-bookings">
+                            <div data-id="383" class="flex items-center gap-3">
+                                <div data-id="384" class="w-8 h-8 rounded-lg bg-yellow-400/10 flex items-center justify-center"><i data-id="385" data-lucide="book-open" class="w-4 h-4 text-yellow-400"></i></div>
+                                <span data-id="386" class="text-sm font-semibold">Bookings</span>
+                            </div>
+                            <i data-id="387" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chev-help-bookings"></i>
+                        </div>
+                        <div data-id="388" class="accordion-body" id="help-bookings">
+                            <div data-id="389" class="px-4 pb-4 pt-1">
+                                <p data-id="390" class="text-xs text-muted mb-3">A full table of every booking with search, filters, and quick actions.</p>
+                                <ol data-id="391" class="space-y-2 text-sm text-[#c5c8db]">
+                                    <li data-id="392" class="flex gap-2.5"><span data-id="393" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span> Use the search bar to find bookings by client name, service, or date.</li>
+                                    <li data-id="394" class="flex gap-2.5"><span data-id="395" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span> Click filter chips (All, Upcoming, Past, Pending, Cancelled) to narrow the list.</li>
+                                    <li data-id="396" class="flex gap-2.5"><span data-id="397" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span> Use the green checkmark icon to confirm a pending booking instantly.</li>
+                                    <li data-id="398" class="flex gap-2.5"><span data-id="399" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span> Use the × icon to cancel a booking, or the trash icon to permanently delete it.</li>
+                                    <li data-id="400" class="flex gap-2.5"><span data-id="401" class="text-accent font-bold text-xs mt-0.5 shrink-0">5.</span> The pending badge in the nav bar updates in real time as you confirm or add bookings.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div data-id="402" class="rounded-xl border border-stroke overflow-hidden">
+                        <div data-id="403" class="accordion-header flex items-center justify-between px-4 py-3.5 rounded-xl" data-accordion="help-services">
+                            <div data-id="404" class="flex items-center gap-3">
+                                <div data-id="405" class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center"><i data-id="406" data-lucide="briefcase" class="w-4 h-4 text-success"></i></div>
+                                <span data-id="407" class="text-sm font-semibold">Services</span>
+                            </div>
+                            <i data-id="408" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chev-help-services"></i>
+                        </div>
+                        <div data-id="409" class="accordion-body" id="help-services">
+                            <div data-id="410" class="px-4 pb-4 pt-1">
+                                <p data-id="411" class="text-xs text-muted mb-3">Manage the services you offer, including pricing, duration, and availability.</p>
+                                <ol data-id="412" class="space-y-2 text-sm text-[#c5c8db]">
+                                    <li data-id="413" class="flex gap-2.5"><span data-id="414" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span> View all your current services as cards showing name, price, and duration.</li>
+                                    <li data-id="415" class="flex gap-2.5"><span data-id="416" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span> Toggle a service on or off using the switch — inactive services won't appear when creating new bookings.</li>
+                                    <li data-id="417" class="flex gap-2.5"><span data-id="418" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span> Click "Add Service" to open the form, fill in the name, duration, price, and description, then save.</li>
+                                    <li data-id="419" class="flex gap-2.5"><span data-id="420" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span> New services are immediately available in the booking modal's service dropdown.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div data-id="421" class="rounded-xl border border-stroke overflow-hidden">
+                        <div data-id="422" class="accordion-header flex items-center justify-between px-4 py-3.5 rounded-xl" data-accordion="help-settings">
+                            <div data-id="423" class="flex items-center gap-3">
+                                <div data-id="424" class="w-8 h-8 rounded-lg bg-[#8b8fa8]/10 flex items-center justify-center"><i data-id="425" data-lucide="settings" class="w-4 h-4 text-muted"></i></div>
+                                <span data-id="426" class="text-sm font-semibold">Settings</span>
+                            </div>
+                            <i data-id="427" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron" id="chev-help-settings"></i>
+                        </div>
+                        <div data-id="428" class="accordion-body" id="help-settings">
+                            <div data-id="429" class="px-4 pb-4 pt-1">
+                                <p data-id="430" class="text-xs text-muted mb-3">Configure your business hours, buffer time, confirmation messages, and blocked dates.</p>
+                                <ol data-id="431" class="space-y-2 text-sm text-[#c5c8db]">
+                                    <li data-id="432" class="flex gap-2.5"><span data-id="433" class="text-accent font-bold text-xs mt-0.5 shrink-0">1.</span> Set your working hours for each day of the week — toggle days off as needed.</li>
+                                    <li data-id="434" class="flex gap-2.5"><span data-id="435" class="text-accent font-bold text-xs mt-0.5 shrink-0">2.</span> Choose a buffer time between appointments (e.g., 15 minutes) to prevent back-to-back scheduling.</li>
+                                    <li data-id="436" class="flex gap-2.5"><span data-id="437" class="text-accent font-bold text-xs mt-0.5 shrink-0">3.</span> Customize the booking confirmation message template using {client_name}, {service}, {date}, and {time} placeholders.</li>
+                                    <li data-id="438" class="flex gap-2.5"><span data-id="439" class="text-accent font-bold text-xs mt-0.5 shrink-0">4.</span> Block specific dates for vacations or holidays using the date picker — blocked dates appear dimmed on the calendar.</li>
+                                    <li data-id="440" class="flex gap-2.5"><span data-id="441" class="text-accent font-bold text-xs mt-0.5 shrink-0">5.</span> Remove a blocked date anytime by clicking the × next to it in the list.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div data-id="442" class="bg-bg rounded-xl border border-accent/20 p-5">
+                    <h3 data-id="443" class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i data-id="444" data-lucide="lightbulb" class="w-4 h-4 text-secondary"></i> Tips & Tricks
+                    </h3>
+                    <div data-id="445" class="space-y-3">
+                        <div data-id="446" class="flex gap-3">
+                            <div data-id="447" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <i data-id="448" data-lucide="zap" class="w-3 h-3 text-accent"></i>
+                            </div>
+                            <div data-id="449">
+                                <p data-id="450" class="text-sm font-medium">Conflict Detection</p>
+                                <p data-id="451" class="text-xs text-muted mt-0.5">When creating a booking, the app automatically checks for time conflicts with existing appointments (including buffer time) and warns you before saving.</p>
+                            </div>
+                        </div>
+                        <div data-id="452" class="flex gap-3">
+                            <div data-id="453" class="w-6 h-6 rounded-full bg-secondary/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <i data-id="454" data-lucide="mail" class="w-3 h-3 text-secondary"></i>
+                            </div>
+                            <div data-id="455">
+                                <p data-id="456" class="text-sm font-medium">Confirmation Emails</p>
+                                <p data-id="457" class="text-xs text-muted mt-0.5">Toggle the "Send confirmation email" switch in the booking modal to control whether clients receive an automated confirmation. Customize the message template in Settings.</p>
+                            </div>
+                        </div>
+                        <div data-id="458" class="flex gap-3">
+                            <div data-id="459" class="w-6 h-6 rounded-full bg-success/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <i data-id="460" data-lucide="calendar-off" class="w-3 h-3 text-success"></i>
+                            </div>
+                            <div data-id="461">
+                                <p data-id="462" class="text-sm font-medium">Block Vacation Dates</p>
+                                <p data-id="463" class="text-xs text-muted mt-0.5">Head to Settings → Blocked Dates to mark days you're unavailable. Blocked dates appear dimmed on the calendar so clients can see your availability at a glance.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div data-id="464" id="toast-g1h2" class="hidden fixed bottom-14 right-6 z-50 bg-bg-elevated border border-stroke rounded-xl px-5 py-3 shadow-2xl flex items-center gap-3 fade-in">
+        <i data-id="465" data-lucide="check-circle" class="w-5 h-5 text-success"></i>
+        <span data-id="466" id="toast-msg-i3j4" class="text-sm font-medium"></span>
+    </div>
+
+    <footer data-id="467" id="footer-k5l6" class="text-center text-xs text-muted py-6 border-t border-stroke mt-8 mb-12">
+        Made by Copilot
+    </footer>
+
+    <!-- CDI Suite Sticky Footer -->
+    <div data-id="468" id="cdi-suite-footer-s1t2" class="cdi-suite-footer">
+        <div data-id="469" class="flex items-center gap-2.5 min-w-0">
+            <i data-id="470" data-lucide="calendar-check" class="w-4 h-4 flex-shrink-0" style="color: #ff6b6b;"></i>
+            <span data-id="471" class="text-xs font-semibold text-white whitespace-nowrap hidden md:inline">CDI Business Suite</span>
+            <span data-id="472" class="text-xs font-semibold text-white whitespace-nowrap md:hidden">CDI Suite</span>
+            <span data-id="473" class="text-xs text-[#8b8fa8] whitespace-nowrap hidden sm:inline"> · Part of 8 powerful business tools</span>
+        </div>
+        <a data-id="474" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener noreferrer" class="cdi-explore-btn" id="cdi-explore-btn-u3v4">✨ Explore All 8 Apps →</a>
+    </div>
+
+    <script>
+    // ====== SUPABASE INIT ======
+    const SUPABASE_URL = 'https://lizbvlcogvjgycsyiqrc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si';
+    let db = null;
+    let currentUser = null;
+    let supabaseAvailable = false;
+
+    try {
+        if (typeof supabase !== 'undefined' && supabase.createClient) {
+            db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            supabaseAvailable = true;
+        }
+    } catch(e) {
+        console.warn('Supabase SDK not available, using local data mode.');
+    }
+
+    // ====== DATA ======
+    const NOW = new Date(2026, 4, 19, 10, 43); // May 19 2026, 10:43 EDT
+    let calYear = NOW.getFullYear(), calMonth = NOW.getMonth();
+    let selectedCalDate = null;
+    let sendConfirmation = true;
+
+    let services = [
+        { id: 1, name: 'Consultation', duration: 30, price: 75, description: 'Initial consultation to discuss needs and goals.', active: true },
+        { id: 2, name: 'Full Session', duration: 60, price: 150, description: 'Complete service session with full treatment.', active: true },
+        { id: 3, name: 'Follow-up', duration: 15, price: 40, description: 'Quick follow-up check on progress.', active: true }
+    ];
+
+    let bookings = [
+        { id: 1, client: 'Marcus Rivera', email: 'marcus@email.com', phone: '(937) 555-0101', service: 'Full Session', date: '2026-05-19', time: '09:00', duration: 60, status: 'confirmed', notes: '' },
+        { id: 2, client: 'Aisha Patel', email: 'aisha@email.com', phone: '(937) 555-0202', service: 'Consultation', date: '2026-05-19', time: '11:00', duration: 30, status: 'pending', notes: 'First time client' },
+        { id: 3, client: 'Jordan Lee', email: 'jordan@email.com', phone: '(937) 555-0303', service: 'Follow-up', date: '2026-05-19', time: '14:00', duration: 15, status: 'confirmed', notes: '' },
+        { id: 4, client: 'Sophia Nguyen', email: 'sophia@email.com', phone: '(937) 555-0404', service: 'Full Session', date: '2026-05-21', time: '10:00', duration: 60, status: 'confirmed', notes: 'Prefers quiet room' },
+        { id: 5, client: 'David Chen', email: 'david@email.com', phone: '(937) 555-0505', service: 'Consultation', date: '2026-05-22', time: '13:00', duration: 30, status: 'pending', notes: '' },
+        { id: 6, client: 'Emma Watson', email: 'emma@email.com', phone: '(937) 555-0606', service: 'Full Session', date: '2026-05-14', time: '15:00', duration: 60, status: 'cancelled', notes: 'Rescheduled' }
+    ];
+
+    let businessHours = [
+        { day: 'Sunday', open: '09:00', close: '17:00', off: true },
+        { day: 'Monday', open: '09:00', close: '17:00', off: false },
+        { day: 'Tuesday', open: '09:00', close: '17:00', off: false },
+        { day: 'Wednesday', open: '09:00', close: '17:00', off: false },
+        { day: 'Thursday', open: '09:00', close: '17:00', off: false },
+        { day: 'Friday', open: '09:00', close: '17:00', off: false },
+        { day: 'Saturday', open: '10:00', close: '14:00', off: false }
+    ];
+
+    let blockedDates = ['2026-07-04', '2026-12-25'];
+    let nextId = 7;
+    let nextSvcId = 4;
+
+    // ====== AUTH MODAL LOGIC ======
+    function showAuthModal() {
+        document.getElementById('auth-modal-overlay').style.display = 'flex';
+        document.getElementById('header-nav-a1b2').style.display = 'none';
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('footer-k5l6').style.display = 'none';
+        document.getElementById('cdi-suite-footer-s1t2').style.display = 'none';
+    }
+
+    function hideAuthModal() {
+        document.getElementById('auth-modal-overlay').style.display = 'none';
+        document.getElementById('header-nav-a1b2').style.display = '';
+        document.getElementById('main-content').style.display = '';
+        document.getElementById('footer-k5l6').style.display = '';
+        document.getElementById('cdi-suite-footer-s1t2').style.display = '';
+        updateUserBadge();
+    }
+
+    function showAuthError(msg) {
+        const el = document.getElementById('auth-error');
+        el.textContent = msg;
+        el.style.display = 'block';
+        document.getElementById('auth-success').style.display = 'none';
+    }
+
+    function showAuthSuccess(msg) {
+        const el = document.getElementById('auth-success');
+        el.textContent = msg;
+        el.style.display = 'block';
+        document.getElementById('auth-error').style.display = 'none';
+    }
+
+    function clearAuthMessages() {
+        document.getElementById('auth-error').style.display = 'none';
+        document.getElementById('auth-success').style.display = 'none';
+    }
+
+    // Auth tab switching
+    document.getElementById('auth-tab-signin').addEventListener('click', () => {
+        document.getElementById('auth-tab-signin').classList.add('active');
+        document.getElementById('auth-tab-signup').classList.remove('active');
+        document.getElementById('auth-signin-form').style.display = '';
+        document.getElementById('auth-signup-form').style.display = 'none';
+        clearAuthMessages();
+    });
+
+    document.getElementById('auth-tab-signup').addEventListener('click', () => {
+        document.getElementById('auth-tab-signup').classList.add('active');
+        document.getElementById('auth-tab-signin').classList.remove('active');
+        document.getElementById('auth-signup-form').style.display = '';
+        document.getElementById('auth-signin-form').style.display = 'none';
+        clearAuthMessages();
+    });
+
+    // Sign In
+    document.getElementById('auth-signin-btn').addEventListener('click', async () => {
+        const email = document.getElementById('auth-signin-email').value.trim();
+        const password = document.getElementById('auth-signin-password').value;
+        if (!email || !password) { showAuthError('Please enter both email and password.'); return; }
+        const btn = document.getElementById('auth-signin-btn');
+        btn.disabled = true; btn.textContent = 'Signing in...';
+        try {
+            if (db) {
+                const { error } = await db.auth.signInWithPassword({ email, password });
+                if (error) { showAuthError(error.message); }
+            } else {
+                // Fallback: simulate sign-in for local mode
+                currentUser = { id: 'local_user', email: email, user_metadata: { business_name: 'My Business' } };
+                hideAuthModal();
+                loadAllData();
+            }
+        } catch(e) {
+            showAuthError(e.message || 'Sign in failed. Please try again.');
+        }
+        btn.disabled = false; btn.textContent = 'Sign In';
+    });
+
+    // Sign Up
+    document.getElementById('auth-signup-btn').addEventListener('click', async () => {
+        const business = document.getElementById('auth-signup-business').value.trim();
+        const email = document.getElementById('auth-signup-email').value.trim();
+        const password = document.getElementById('auth-signup-password').value;
+        const confirm = document.getElementById('auth-signup-confirm').value;
+
+        if (!email || !password || !business) { showAuthError('Please fill in all required fields.'); return; }
+        if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+        if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+
+        const btn = document.getElementById('auth-signup-btn');
+        btn.disabled = true; btn.textContent = 'Creating account...';
+        try {
+            if (db) {
+                const { error } = await db.auth.signUp({
+                    email, password,
+                    options: { data: { business_name: business } }
+                });
+                if (error) { showAuthError(error.message); }
+                else { showAuthSuccess('Check your email to confirm your account!'); }
+            } else {
+                currentUser = { id: 'local_user', email: email, user_metadata: { business_name: business } };
+                hideAuthModal();
+                loadAllData();
+            }
+        } catch(e) {
+            showAuthError(e.message || 'Sign up failed. Please try again.');
+        }
+        btn.disabled = false; btn.textContent = 'Create Account';
+    });
+
+    // Allow Enter key to submit auth forms
+    document.getElementById('auth-signin-password').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+    });
+    document.getElementById('auth-signup-confirm').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('auth-signup-btn').click();
+    });
+
+    // Sign Out
+    async function signOut() {
+        try {
+            if (db) { await db.auth.signOut(); }
+        } catch(e) {}
+        currentUser = null;
+        showAuthModal();
+    }
+
+    document.getElementById('signout-btn-nav').addEventListener('click', signOut);
+    document.getElementById('signout-btn-mobile').addEventListener('click', signOut);
+
+    // User Badge
+    function updateUserBadge() {
+        if (!currentUser) {
+            document.getElementById('user-badge-nav').style.display = 'none';
+            document.getElementById('user-badge-mobile').style.display = 'none';
+            return;
+        }
+        const email = currentUser.email || '';
+        const initial = email.charAt(0).toUpperCase();
+
+        // Desktop badge
+        document.getElementById('user-badge-nav').style.display = '';
+        document.getElementById('user-avatar-nav').textContent = initial;
+        document.getElementById('user-email-nav').textContent = email;
+
+        // Mobile badge
+        document.getElementById('user-badge-mobile').style.display = '';
+        document.getElementById('user-avatar-mobile').textContent = initial;
+        document.getElementById('user-email-mobile').textContent = email;
+
+        // Update greeting with business name or user name
+        const bName = currentUser.user_metadata?.business_name;
+        const displayName = bName || email.split('@')[0] || 'Heather';
+        const hour = NOW.getHours();
+        let greet = 'Good morning';
+        if (hour >= 12 && hour < 17) greet = 'Good afternoon';
+        else if (hour >= 17) greet = 'Good evening';
+        document.getElementById('greeting-s9t0').textContent = `${greet}, ${displayName}`;
+    }
+
+    // ====== SUPABASE DATA OPERATIONS ======
+    async function loadAllData() {
+        if (!currentUser) return;
+
+        if (db && supabaseAvailable) {
+            try {
+                // Load services
+                const { data: svcData, error: svcErr } = await db
+                    .from('bi_services')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false });
+
+                if (svcData && svcData.length > 0) {
+                    services = svcData.map(s => ({
+                        id: s.id,
+                        name: s.name,
+                        duration: s.duration,
+                        price: s.price,
+                        description: s.description || '',
+                        active: s.active !== false
+                    }));
+                }
+
+                // Load bookings
+                const { data: bkData, error: bkErr } = await db
+                    .from('bi_bookings')
+                    .select('*, bi_services(*)')
+                    .eq('user_id', currentUser.id)
+                    .order('start_time', { ascending: false });
+
+                if (bkData && bkData.length > 0) {
+                    bookings = bkData.map(b => ({
+                        id: b.id,
+                        client: b.client_name || b.client || '',
+                        email: b.client_email || b.email || 'N/A',
+                        phone: b.client_phone || b.phone || 'N/A',
+                        service: b.bi_services ? b.bi_services.name : (b.service_name || b.service || ''),
+                        date: b.date || (b.start_time ? b.start_time.substring(0, 10) : ''),
+                        time: b.time || (b.start_time ? b.start_time.substring(11, 16) : ''),
+                        duration: b.duration || 60,
+                        status: b.status || 'confirmed',
+                        notes: b.notes || ''
+                    }));
+                }
+
+                // Load availability
+                const { data: avData, error: avErr } = await db
+                    .from('bi_availability')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('day_of_week');
+
+                if (avData && avData.length > 0) {
+                    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                    businessHours = avData.map(a => ({
+                        day: dayNames[a.day_of_week] || a.day || '',
+                        open: a.start_time || a.open || '09:00',
+                        close: a.end_time || a.close || '17:00',
+                        off: a.is_off !== undefined ? a.is_off : (a.off || false)
+                    }));
+                }
+            } catch(e) {
+                console.warn('Error loading from Supabase, using local data:', e);
+            }
+        }
+
+        // Render everything
+        renderAll();
+    }
+
+    function renderAll() {
+        updateUserBadge();
+        renderDashboard();
+        updatePendingBadge();
+    }
+
+    // Supabase save operations
+    async function saveServiceToDb(service) {
+        if (!db || !currentUser) return;
+        try {
+            const payload = {
+                name: service.name,
+                duration: service.duration,
+                price: service.price,
+                description: service.description,
+                active: service.active,
+                user_id: currentUser.id
+            };
+            if (service.id && !String(service.id).startsWith('local_') && typeof service.id !== 'number') {
+                await db.from('bi_services').update(payload).eq('id', service.id);
+            } else {
+                delete payload.id;
+                const { data } = await db.from('bi_services').insert(payload).select();
+                if (data && data[0]) service.id = data[0].id;
+            }
+        } catch(e) { console.warn('Error saving service:', e); }
+    }
+
+    async function saveBookingToDb(booking) {
+        if (!db || !currentUser) return;
+        try {
+            const payload = {
+                client_name: booking.client,
+                client_email: booking.email,
+                client_phone: booking.phone,
+                service_name: booking.service,
+                date: booking.date,
+                time: booking.time,
+                start_time: booking.date + 'T' + booking.time + ':00',
+                duration: booking.duration,
+                status: booking.status,
+                notes: booking.notes,
+                user_id: currentUser.id
+            };
+            if (booking.id && !String(booking.id).startsWith('local_') && typeof booking.id !== 'number') {
+                await db.from('bi_bookings').update(payload).eq('id', booking.id);
+            } else {
+                delete payload.id;
+                const { data } = await db.from('bi_bookings').insert(payload).select();
+                if (data && data[0]) booking.id = data[0].id;
+            }
+        } catch(e) { console.warn('Error saving booking:', e); }
+    }
+
+    async function deleteBookingFromDb(id) {
+        if (!db || !currentUser) return;
+        try {
+            if (id && typeof id !== 'number') {
+                await db.from('bi_bookings').delete().eq('id', id);
+            }
+        } catch(e) { console.warn('Error deleting booking:', e); }
+    }
+
+    async function deleteServiceFromDb(id) {
+        if (!db || !currentUser) return;
+        try {
+            if (id && typeof id !== 'number') {
+                await db.from('bi_services').delete().eq('id', id);
+            }
+        } catch(e) { console.warn('Error deleting service:', e); }
+    }
+
+    // Auth state initialization
+    async function initAuth() {
+        if (db) {
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (session) {
+                    currentUser = session.user;
+                    hideAuthModal();
+                    loadAllData();
+                } else {
+                    showAuthModal();
+                }
+
+                db.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_IN' && session) {
+                        currentUser = session.user;
+                        hideAuthModal();
+                        loadAllData();
+                    }
+                    if (event === 'SIGNED_OUT') {
+                        currentUser = null;
+                        showAuthModal();
+                    }
+                });
+            } catch(e) {
+                console.warn('Auth init error:', e);
+                showAuthModal();
+            }
+        } else {
+            // No Supabase available — show auth modal for local sign-in
+            showAuthModal();
+        }
+    }
+
+    // ====== DISMISSED BANNERS ======
+    let dismissedBanners = new Set();
+
+    async function loadDismissedBanners() {
+        try {
+            if (window.AppSDK) {
+                const doc = await window.AppSDK.get('dismissed_banners', 'banner_state');
+                if (doc && doc.data && doc.data.ids) {
+                    dismissedBanners = new Set(doc.data.ids);
+                }
+            }
+        } catch(e) {}
+        applyBannerVisibility();
+    }
+
+    async function dismissBanner(bannerId) {
+        dismissedBanners.add(bannerId);
+        applyBannerVisibility();
+        try {
+            if (window.AppSDK) {
+                await window.AppSDK.upsert('dismissed_banners', 'banner_state', { ids: Array.from(dismissedBanners) });
+            }
+        } catch(e) {}
+    }
+
+    function applyBannerVisibility() {
+        const bannerMap = {
+            'bookit_clientflow_banner': 'banner-clientflow-a1b2',
+            'bookit_invoiceready_banner': 'banner-invoiceready-g7h8',
+            'bookit_reviewboost_banner': 'banner-reviewboost-m3n4'
+        };
+        for (const [id, elId] of Object.entries(bannerMap)) {
+            const el = document.getElementById(elId);
+            if (el) {
+                el.style.display = dismissedBanners.has(id) ? 'none' : 'block';
+            }
+        }
+    }
+
+    document.querySelectorAll('.banner-dismiss').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bannerId = btn.dataset.bannerId;
+            dismissBanner(bannerId);
+        });
+    });
+
+    // ====== HELPERS ======
+    function todayStr() { return formatDateISO(NOW); }
+    function formatDateISO(d) { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
+    function formatDateNice(str) { const d = new Date(str + 'T00:00:00'); return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
+    function formatTime12(t) { const [h,m] = t.split(':').map(Number); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${ampm}`; }
+
+    function statusColor(s) {
+        if (s === 'confirmed') return { bg: 'bg-accent/15', text: 'text-accent', label: 'Confirmed' };
+        if (s === 'pending') return { bg: 'bg-yellow-400/15', text: 'text-yellow-400', label: 'Pending' };
+        if (s === 'cancelled') return { bg: 'bg-gray-500/15', text: 'text-gray-400', label: 'Cancelled' };
+        return { bg: 'bg-muted/15', text: 'text-muted', label: s };
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast-g1h2');
+        document.getElementById('toast-msg-i3j4').textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    function checkConflict(date, time, duration, excludeId) {
+        const newStart = timeToMin(time);
+        const newEnd = newStart + parseInt(duration);
+        const buffer = parseInt(document.getElementById('buffer-time-u3v4').value) || 0;
+        return bookings.some(b => {
+            if (b.id === excludeId) return false;
+            if (b.date !== date || b.status === 'cancelled') return false;
+            const bStart = timeToMin(b.time);
+            const bEnd = bStart + b.duration;
+            return (newStart < bEnd + buffer) && (newEnd + buffer > bStart);
+        });
+    }
+    function timeToMin(t) { const [h,m] = t.split(':').map(Number); return h * 60 + m; }
+
+    // ====== TAB SWITCHING ======
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        document.getElementById('mobile-menu-k1l2').classList.add('hidden');
+        if (tab === 'dashboard') renderDashboard();
+        if (tab === 'calendar') renderCalendar();
+        if (tab === 'bookings') renderBookings();
+        if (tab === 'services') renderServices();
+        if (tab === 'settings') renderSettings();
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+    document.querySelectorAll('.mobile-tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+    document.getElementById('mobile-menu-btn-i9j0').addEventListener('click', () => document.getElementById('mobile-menu-k1l2').classList.remove('hidden'));
+    document.getElementById('mobile-menu-close-m3n4').addEventListener('click', () => document.getElementById('mobile-menu-k1l2').classList.add('hidden'));
+
+    // ====== PENDING BADGE ======
+    function updatePendingBadge() {
+        const count = bookings.filter(b => b.status === 'pending').length;
+        const desk = document.getElementById('pending-badge-desk-e5f6');
+        const mob = document.getElementById('pending-badge-mob-o5p6');
+        if (count > 0) {
+            desk.textContent = count; desk.classList.remove('hidden');
+            mob.textContent = count; mob.classList.remove('hidden');
+        } else {
+            desk.classList.add('hidden');
+            mob.classList.add('hidden');
+        }
+    }
+
+    // ====== DASHBOARD ======
+    function renderDashboard() {
+        const today = todayStr();
+        const todayBookings = bookings.filter(b => b.date === today && b.status !== 'cancelled');
+        document.getElementById('stat-today-w3x4').textContent = todayBookings.length;
+
+        const weekStart = new Date(NOW); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+        const weekBookings = bookings.filter(b => {
+            const d = new Date(b.date + 'T00:00:00');
+            return d >= weekStart && d <= weekEnd && b.status !== 'cancelled';
+        });
+        document.getElementById('stat-week-y5z6').textContent = weekBookings.length;
+
+        const pending = bookings.filter(b => b.status === 'pending');
+        document.getElementById('stat-pending-a7b8').textContent = pending.length;
+        document.getElementById('stat-clients-c9d0').textContent = 24 + bookings.filter(b => b.id >= 7 || (typeof b.id === 'string')).length;
+
+        const timeline = document.getElementById('timeline-container-e1f2');
+        const sorted = todayBookings.sort((a,b) => timeToMin(a.time) - timeToMin(b.time));
+        if (sorted.length === 0) {
+            timeline.innerHTML = '<p class="text-muted text-sm py-6 text-center">No appointments today.</p>';
+        } else {
+            timeline.innerHTML = sorted.map((b, i) => {
+                const sc = statusColor(b.status);
+                const endMin = timeToMin(b.time) + b.duration;
+                const endH = Math.floor(endMin / 60); const endM = endMin % 60;
+                const endStr = `${endH % 12 || 12}:${String(endM).padStart(2,'0')} ${endH >= 12 ? 'PM' : 'AM'}`;
+                return `
+                <div class="flex gap-4 ${i > 0 ? 'pt-4 border-t border-stroke' : ''}">
+                    <div class="flex flex-col items-center">
+                        <div class="timeline-dot ${b.status === 'confirmed' ? 'bg-accent' : 'bg-yellow-400'}"></div>
+                        ${i < sorted.length - 1 ? '<div class="timeline-line flex-1 mt-1"></div>' : ''}
+                    </div>
+                    <div class="flex-1 pb-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                            <span class="font-medium text-sm">${b.client}</span>
+                            <span class="${sc.bg} ${sc.text} text-[11px] font-medium px-2 py-0.5 rounded-full">${sc.label}</span>
+                        </div>
+                        <p class="text-muted text-xs">${b.service} &middot; ${b.duration} min</p>
+                        <p class="text-muted text-xs mt-0.5">${formatTime12(b.time)} – ${endStr}</p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        const upcoming = bookings
+            .filter(b => b.status !== 'cancelled' && (b.date > today || (b.date === today && timeToMin(b.time) > timeToMin('10:43'))))
+            .sort((a,b) => a.date === b.date ? timeToMin(a.time) - timeToMin(b.time) : a.date.localeCompare(b.date))
+            .slice(0, 5);
+        const upContainer = document.getElementById('upcoming-container-g3h4');
+        if (upcoming.length === 0) {
+            upContainer.innerHTML = '<div class="bg-bg-card rounded-xl border border-stroke p-4 text-center text-muted text-sm">No upcoming appointments.</div>';
+        } else {
+            upContainer.innerHTML = upcoming.map(b => {
+                const sc = statusColor(b.status);
+                return `
+                <div class="bg-bg-card rounded-xl border border-stroke p-4 hover:border-accent/30 transition-colors">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium text-sm">${b.client}</span>
+                        <span class="${sc.bg} ${sc.text} text-[10px] font-medium px-2 py-0.5 rounded-full">${sc.label}</span>
+                    </div>
+                    <p class="text-muted text-xs">${b.service} &middot; ${b.duration} min</p>
+                    <p class="text-muted text-xs mt-0.5">${formatDateNice(b.date)} at ${formatTime12(b.time)}</p>
+                </div>`;
+            }).join('');
+        }
+
+        updatePendingBadge();
+    }
+
+    // ====== CALENDAR ======
+    function renderCalendar() {
+        const label = document.getElementById('month-label-k7l8');
+        label.textContent = new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+        const grid = document.getElementById('calendar-grid-o1p2');
+        grid.innerHTML = '';
+        const firstDay = new Date(calYear, calMonth, 1).getDay();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        const todayDate = todayStr();
+
+        for (let i = 0; i < firstDay; i++) {
+            grid.innerHTML += '<div class="p-2 min-h-[48px]"></div>';
+        }
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const isToday = dateStr === todayDate;
+            const isSelected = dateStr === selectedCalDate;
+            const dayBookings = bookings.filter(b => b.date === dateStr);
+            const dots = dayBookings.map(b => {
+                if (b.status === 'confirmed') return '<span class="w-1.5 h-1.5 rounded-full bg-accent inline-block"></span>';
+                if (b.status === 'pending') return '<span class="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block"></span>';
+                return '<span class="w-1.5 h-1.5 rounded-full bg-gray-500 inline-block"></span>';
+            }).join('');
+            const blocked = blockedDates.includes(dateStr);
+
+            grid.innerHTML += `
+            <div class="calendar-day p-1.5 md:p-2 min-h-[48px] md:min-h-[56px] rounded-lg cursor-pointer text-center flex flex-col items-center ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${blocked ? 'opacity-40' : ''}" data-caldate="${dateStr}">
+                <span class="text-sm ${isToday ? 'font-bold text-accent' : ''}">${d}</span>
+                <div class="flex gap-0.5 mt-0.5 flex-wrap justify-center">${dots}</div>
+            </div>`;
+        }
+
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+        grid.querySelectorAll('.calendar-day').forEach(el => {
+            el.addEventListener('click', () => {
+                selectedCalDate = el.dataset.caldate;
+                renderCalendar();
+                renderDayPanel(selectedCalDate);
+            });
+        });
+
+        if (selectedCalDate) renderDayPanel(selectedCalDate);
+    }
+
+    function renderDayPanel(dateStr) {
+        const title = document.getElementById('day-panel-title-q3r4');
+        const content = document.getElementById('day-panel-content-s5t6');
+        title.textContent = formatDateNice(dateStr);
+        const dayBookings = bookings.filter(b => b.date === dateStr);
+        if (dayBookings.length === 0) {
+            content.innerHTML = '<p class="text-muted text-sm">No appointments on this day.</p>';
+        } else {
+            content.innerHTML = dayBookings.map(b => {
+                const sc = statusColor(b.status);
+                return `
+                <div class="bg-bg rounded-lg p-3 border border-stroke">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium text-sm">${b.client}</span>
+                        <span class="${sc.bg} ${sc.text} text-[10px] font-medium px-2 py-0.5 rounded-full">${sc.label}</span>
+                    </div>
+                    <p class="text-xs text-muted">${b.service} &middot; ${b.duration} min</p>
+                    <p class="text-xs text-muted">${formatTime12(b.time)}</p>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    document.getElementById('prev-month-i5j6').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
+    document.getElementById('next-month-m9n0').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
+
+    // ====== BOOKINGS ======
+    let bookingFilter = 'all';
+    let bookingSearch = '';
+
+    function renderBookings() {
+        const tbody = document.getElementById('bookings-tbody-w9x0');
+        const empty = document.getElementById('bookings-empty-y1z2');
+        const today = todayStr();
+
+        let filtered = bookings.filter(b => {
+            if (bookingFilter === 'upcoming') return b.date >= today && b.status !== 'cancelled';
+            if (bookingFilter === 'past') return b.date < today && b.status !== 'cancelled';
+            if (bookingFilter === 'pending') return b.status === 'pending';
+            if (bookingFilter === 'cancelled') return b.status === 'cancelled';
+            return true;
+        });
+
+        if (bookingSearch) {
+            const q = bookingSearch.toLowerCase();
+            filtered = filtered.filter(b =>
+                b.client.toLowerCase().includes(q) ||
+                b.service.toLowerCase().includes(q) ||
+                b.date.includes(q)
+            );
+        }
+
+        filtered.sort((a,b) => a.date === b.date ? timeToMin(a.time) - timeToMin(b.time) : a.date.localeCompare(b.date));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        tbody.innerHTML = filtered.map(b => {
+            const sc = statusColor(b.status);
+            return `
+            <tr class="hover:bg-bg-elevated/50 transition-colors">
+                <td class="px-4 py-3">
+                    <div class="font-medium">${b.client}</div>
+                    <div class="text-xs text-muted">${b.email}</div>
+                </td>
+                <td class="px-4 py-3 text-muted">${b.service}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm">${formatDateNice(b.date)}</div>
+                    <div class="text-xs text-muted">${formatTime12(b.time)}</div>
+                </td>
+                <td class="px-4 py-3 text-muted tabular-nums">${b.duration} min</td>
+                <td class="px-4 py-3"><span class="${sc.bg} ${sc.text} text-[11px] font-medium px-2.5 py-1 rounded-full">${sc.label}</span></td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-1">
+                        ${b.status === 'pending' ? `<button class="booking-action p-1.5 rounded hover:bg-success/10 text-success transition-colors" data-action="confirm" data-id="${b.id}" title="Confirm"><i data-lucide="check" class="w-4 h-4"></i></button>` : ''}
+                        ${b.status !== 'cancelled' ? `<button class="booking-action p-1.5 rounded hover:bg-secondary/10 text-secondary transition-colors" data-action="reschedule" data-id="${b.id}" title="Reschedule"><i data-lucide="clock" class="w-4 h-4"></i></button>` : ''}
+                        ${b.status !== 'cancelled' ? `<button class="booking-action p-1.5 rounded hover:bg-accent/10 text-accent transition-colors" data-action="cancel" data-id="${b.id}" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>` : ''}
+                        <button class="booking-action p-1.5 rounded hover:bg-red-500/10 text-red-400 transition-colors" data-action="delete" data-id="${b.id}" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+        tbody.querySelectorAll('.booking-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rawId = btn.dataset.id;
+                const id = isNaN(rawId) ? rawId : parseInt(rawId);
+                const action = btn.dataset.action;
+                handleBookingAction(id, action);
+            });
+        });
+    }
+
+    async function handleBookingAction(id, action) {
+        const booking = bookings.find(b => String(b.id) === String(id));
+        if (!booking) return;
+        if (action === 'confirm') {
+            booking.status = 'confirmed';
+            await saveBookingToDb(booking);
+            showToast(`Booking for ${booking.client} confirmed.`);
+        } else if (action === 'cancel') {
+            booking.status = 'cancelled';
+            await saveBookingToDb(booking);
+            showToast(`Booking for ${booking.client} cancelled.`);
+        } else if (action === 'delete') {
+            await deleteBookingFromDb(booking.id);
+            bookings = bookings.filter(b => String(b.id) !== String(id));
+            showToast('Booking deleted.');
+        } else if (action === 'reschedule') {
+            showToast('Open the booking modal to reschedule.');
+        }
+        renderBookings();
+        updatePendingBadge();
+    }
+
+    document.getElementById('booking-search-u7v8').addEventListener('input', (e) => {
+        bookingSearch = e.target.value;
+        renderBookings();
+    });
+
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            bookingFilter = chip.dataset.filter;
+            renderBookings();
+        });
+    });
+
+    // ====== SERVICES ======
+    function renderServices() {
+        const grid = document.getElementById('services-grid-c5d6');
+        grid.innerHTML = services.map(s => `
+        <div class="bg-bg-card rounded-xl border border-stroke p-5 flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold">${s.name}</h3>
+                <div class="svc-toggle toggle-track ${s.active ? 'on' : ''}" data-svcid="${s.id}"><div class="toggle-knob"></div></div>
+            </div>
+            <p class="text-muted text-sm mb-3 flex-1">${s.description}</p>
+            <div class="flex items-center justify-between">
+                <span class="text-accent font-bold text-lg tabular-nums">$${s.price}</span>
+                <span class="text-muted text-xs flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${s.duration} min</span>
+            </div>
+            <span class="mt-2 text-xs ${s.active ? 'text-success' : 'text-muted'}">${s.active ? 'Active' : 'Inactive'}</span>
+        </div>`).join('');
+
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+        grid.querySelectorAll('.svc-toggle').forEach(tog => {
+            tog.addEventListener('click', async () => {
+                const rawId = tog.dataset.svcid;
+                const id = isNaN(rawId) ? rawId : parseInt(rawId);
+                const svc = services.find(s => String(s.id) === String(id));
+                svc.active = !svc.active;
+                await saveServiceToDb(svc);
+                renderServices();
+                showToast(`${svc.name} is now ${svc.active ? 'active' : 'inactive'}.`);
+            });
+        });
+    }
+
+    document.getElementById('add-service-btn-a3b4').addEventListener('click', () => {
+        document.getElementById('add-service-form-e7f8').classList.toggle('hidden');
+    });
+    document.getElementById('cancel-service-btn-q9r0').addEventListener('click', () => {
+        document.getElementById('add-service-form-e7f8').classList.add('hidden');
+    });
+    document.getElementById('save-service-btn-o7p8').addEventListener('click', async () => {
+        const name = document.getElementById('svc-name-g9h0').value.trim();
+        const duration = parseInt(document.getElementById('svc-duration-i1j2').value);
+        const price = parseInt(document.getElementById('svc-price-k3l4').value);
+        const desc = document.getElementById('svc-desc-m5n6').value.trim();
+        if (!name || !duration || !price) { showToast('Please fill in all required fields.'); return; }
+        const newSvc = { id: 'local_' + nextSvcId++, name, duration, price, description: desc || 'No description.', active: true };
+        services.push(newSvc);
+        await saveServiceToDb(newSvc);
+        document.getElementById('svc-name-g9h0').value = '';
+        document.getElementById('svc-duration-i1j2').value = '';
+        document.getElementById('svc-price-k3l4').value = '';
+        document.getElementById('svc-desc-m5n6').value = '';
+        document.getElementById('add-service-form-e7f8').classList.add('hidden');
+        renderServices();
+        updateServiceDropdown();
+        showToast(`Service "${name}" added.`);
+    });
+
+    // ====== SETTINGS ======
+    function renderSettings() {
+        const grid = document.getElementById('hours-grid-s1t2');
+        grid.innerHTML = businessHours.map((h, i) => `
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-2 ${i > 0 ? 'border-t border-stroke' : ''}">
+            <div class="flex items-center gap-3 w-32">
+                <div class="day-off-toggle toggle-track ${h.off ? '' : 'on'}" data-dayidx="${i}"><div class="toggle-knob"></div></div>
+                <span class="text-sm font-medium ${h.off ? 'text-muted line-through' : ''}">${h.day}</span>
+            </div>
+            ${h.off ? '<span class="text-xs text-muted ml-0 sm:ml-4">Day off</span>' : `
+            <div class="flex items-center gap-2 ml-0 sm:ml-4">
+                <input type="time" class="hours-input px-2 py-1.5 rounded-lg text-sm w-28" data-dayidx="${i}" data-field="open" value="${h.open}" />
+                <span class="text-muted text-xs">to</span>
+                <input type="time" class="hours-input px-2 py-1.5 rounded-lg text-sm w-28" data-dayidx="${i}" data-field="close" value="${h.close}" />
+            </div>`}
+        </div>`).join('');
+
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+        grid.querySelectorAll('.day-off-toggle').forEach(tog => {
+            tog.addEventListener('click', () => {
+                const idx = parseInt(tog.dataset.dayidx);
+                businessHours[idx].off = !businessHours[idx].off;
+                renderSettings();
+                showToast(`${businessHours[idx].day} updated.`);
+            });
+        });
+
+        grid.querySelectorAll('.hours-input').forEach(inp => {
+            inp.addEventListener('change', () => {
+                const idx = parseInt(inp.dataset.dayidx);
+                businessHours[idx][inp.dataset.field] = inp.value;
+            });
+        });
+
+        renderBlockedDates();
+    }
+
+    function renderBlockedDates() {
+        const container = document.getElementById('blocked-dates-list-c1d2');
+        if (blockedDates.length === 0) {
+            container.innerHTML = '<span class="text-muted text-sm">No blocked dates.</span>';
+            return;
+        }
+        container.innerHTML = blockedDates.map(d => `
+        <div class="flex items-center gap-2 bg-bg rounded-lg px-3 py-1.5 border border-stroke">
+            <span class="text-sm">${formatDateNice(d)}</span>
+            <button class="remove-block-date text-muted hover:text-accent transition-colors" data-bdate="${d}"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+        </div>`).join('');
+
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+        container.querySelectorAll('.remove-block-date').forEach(btn => {
+            btn.addEventListener('click', () => {
+                blockedDates = blockedDates.filter(d => d !== btn.dataset.bdate);
+                renderBlockedDates();
+                showToast('Blocked date removed.');
+            });
+        });
+    }
+
+    document.getElementById('add-block-date-btn-a9b0').addEventListener('click', () => {
+        const val = document.getElementById('block-date-input-y7z8').value;
+        if (!val) return;
+        if (blockedDates.includes(val)) { showToast('Date already blocked.'); return; }
+        blockedDates.push(val);
+        blockedDates.sort();
+        document.getElementById('block-date-input-y7z8').value = '';
+        renderBlockedDates();
+        showToast('Date blocked.');
+    });
+
+    // ====== NEW BOOKING MODAL ======
+    function updateServiceDropdown() {
+        const sel = document.getElementById('modal-service-q5r6');
+        sel.innerHTML = '<option value="">Select a service...</option>';
+        services.filter(s => s.active).forEach(s => {
+            sel.innerHTML += `<option value="${s.name}" data-duration="${s.duration}">${s.name} (${s.duration} min — $${s.price})</option>`;
+        });
+    }
+
+    function openModal() {
+        document.getElementById('booking-modal-e3f4').classList.remove('hidden');
+        document.getElementById('modal-date-s7t8').value = todayStr();
+        document.getElementById('modal-time-u9v0').value = '09:00';
+        document.getElementById('conflict-warning-i7j8').classList.add('hidden');
+        updateServiceDropdown();
+    }
+
+    function closeModal() {
+        document.getElementById('booking-modal-e3f4').classList.add('hidden');
+        document.getElementById('modal-client-k9l0').value = '';
+        document.getElementById('modal-email-m1n2').value = '';
+        document.getElementById('modal-phone-o3p4').value = '';
+        document.getElementById('modal-service-q5r6').value = '';
+        document.getElementById('modal-notes-y3z4').value = '';
+        document.getElementById('conflict-warning-i7j8').classList.add('hidden');
+    }
+
+    document.getElementById('new-booking-btn-g7h8').addEventListener('click', openModal);
+    document.getElementById('mobile-new-booking-btn-q7r8').addEventListener('click', openModal);
+    document.getElementById('close-modal-btn-g5h6').addEventListener('click', closeModal);
+    document.getElementById('cancel-booking-btn-e9f0').addEventListener('click', closeModal);
+
+    document.getElementById('booking-modal-e3f4').addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) closeModal();
+    });
+
+    document.getElementById('modal-service-q5r6').addEventListener('change', (e) => {
+        const opt = e.target.selectedOptions[0];
+        if (opt && opt.dataset.duration) {
+            document.getElementById('modal-duration-w1x2').value = opt.dataset.duration;
+        }
+        checkConflictUI();
+    });
+
+    document.getElementById('modal-date-s7t8').addEventListener('change', checkConflictUI);
+    document.getElementById('modal-time-u9v0').addEventListener('change', checkConflictUI);
+    document.getElementById('modal-duration-w1x2').addEventListener('change', checkConflictUI);
+
+    function checkConflictUI() {
+        const date = document.getElementById('modal-date-s7t8').value;
+        const time = document.getElementById('modal-time-u9v0').value;
+        const dur = document.getElementById('modal-duration-w1x2').value;
+        const warn = document.getElementById('conflict-warning-i7j8');
+        if (date && time && dur && checkConflict(date, time, dur, null)) {
+            warn.classList.remove('hidden');
+        } else {
+            warn.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('confirm-toggle-a5b6').addEventListener('click', () => {
+        sendConfirmation = !sendConfirmation;
+        document.getElementById('confirm-toggle-a5b6').classList.toggle('on', sendConfirmation);
+    });
+
+    document.getElementById('save-booking-btn-c7d8').addEventListener('click', async () => {
+        const client = document.getElementById('modal-client-k9l0').value.trim();
+        const email = document.getElementById('modal-email-m1n2').value.trim();
+        const phone = document.getElementById('modal-phone-o3p4').value.trim();
+        const service = document.getElementById('modal-service-q5r6').value;
+        const date = document.getElementById('modal-date-s7t8').value;
+        const time = document.getElementById('modal-time-u9v0').value;
+        const duration = parseInt(document.getElementById('modal-duration-w1x2').value);
+        const notes = document.getElementById('modal-notes-y3z4').value.trim();
+
+        if (!client || !service || !date || !time) {
+            showToast('Please fill in all required fields.');
+            return;
+        }
+
+        const newBooking = {
+            id: 'local_' + nextId++,
+            client,
+            email: email || 'N/A',
+            phone: phone || 'N/A',
+            service,
+            date,
+            time,
+            duration,
+            status: 'confirmed',
+            notes
+        };
+
+        bookings.push(newBooking);
+        await saveBookingToDb(newBooking);
+
+        closeModal();
+        showToast(`Booking for ${client} created!`);
+        updatePendingBadge();
+
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab) switchTab(activeTab.dataset.tab);
+    });
+
+    // ====== HELP MODAL ======
+    const helpOverlay = document.getElementById('help-modal-overlay');
+    const helpCloseBtn = document.getElementById('help-modal-close');
+    const helpBtn = document.getElementById('help-btn');
+    const helpBtnMobile = document.getElementById('help-btn-mobile');
+
+    function openHelpModal() {
+        helpOverlay.classList.add('open');
+        document.getElementById('mobile-menu-k1l2').classList.add('hidden');
+    }
+
+    function closeHelpModal() {
+        helpOverlay.classList.remove('open');
+    }
+
+    helpBtn.addEventListener('click', openHelpModal);
+    helpBtnMobile.addEventListener('click', openHelpModal);
+    helpCloseBtn.addEventListener('click', closeHelpModal);
+
+    helpOverlay.addEventListener('click', (e) => {
+        if (e.target === helpOverlay) closeHelpModal();
+    });
+
+    // Accordion logic
+    document.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const targetId = header.dataset.accordion;
+            const body = document.getElementById(targetId);
+            const chevron = document.getElementById('chev-' + targetId);
+            const isOpen = body.classList.contains('open');
+
+            document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('open'));
+            document.querySelectorAll('.accordion-chevron').forEach(c => c.classList.remove('open'));
+
+            if (!isOpen) {
+                body.classList.add('open');
+                chevron.classList.add('open');
+            }
+        });
+    });
+
+    // ====== INIT ======
+    if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+
+    // Initialize auth flow
+    initAuth();
+    loadDismissedBanners();
+    </script>
+</body>
+</html>
