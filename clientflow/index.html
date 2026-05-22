@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>ClientFlow CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              bg: { DEFAULT: '#0f1117', card: '#1a1d2e', elevated: '#222640' },
+              accent: { DEFAULT: '#7c5cfc', light: '#9b82fd', dim: '#5a3fd6' },
+              coral: '#ff6b6b',
+              success: '#4ade80',
+              muted: '#8b8fa8',
+              border: 'rgba(255,255,255,0.08)',
+              status: { lead: '#7c5cfc', active: '#4ade80', inactive: '#6b7280', proposal: '#60a5fa', won: '#34d399', lost: '#ef4444' }
+            },
+            fontFamily: { inter: ['Inter', 'sans-serif'] }
+          }
+        }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0f1117;
+        --card: #1a1d2e;
+        --elevated: #222640;
+        --accent: #7c5cfc;
+        --accent-light: #9b82fd;
+        --coral: #ff6b6b;
+        --success: #4ade80;
+        --muted: #8b8fa8;
+        --border: rgba(255,255,255,0.08);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Inter', sans-serif; background: var(--bg); color: #e2e4ed; min-height: 100vh; padding-bottom: 52px; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(124,92,252,0.3); border-radius: 3px; }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+      .nav-link { position: relative; transition: color 0.2s; }
+      .nav-link.active { color: #7c5cfc; }
+      .nav-link.active::after { content: ''; position: absolute; bottom: -4px; left: 0; right: 0; height: 2px; background: #7c5cfc; border-radius: 1px; }
+      .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+      .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(124,92,252,0.12); }
+      .badge { padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+      .badge-lead { background: rgba(124,92,252,0.15); color: #9b82fd; }
+      .badge-active { background: rgba(74,222,128,0.15); color: #4ade80; }
+      .badge-inactive { background: rgba(107,114,128,0.2); color: #9ca3af; }
+      .badge-proposal { background: rgba(96,165,250,0.15); color: #60a5fa; }
+      .badge-won { background: rgba(52,211,153,0.15); color: #34d399; }
+      .badge-lost { background: rgba(239,68,68,0.15); color: #ef4444; }
+      .kanban-col { min-height: 300px; }
+      .kanban-card { cursor: grab; transition: transform 0.15s, box-shadow 0.15s; }
+      .kanban-card:active { cursor: grabbing; }
+      .kanban-card.dragging { opacity: 0.5; transform: rotate(2deg); }
+      .drop-zone-active { border: 2px dashed #7c5cfc !important; background: rgba(124,92,252,0.05) !important; }
+      .modal-overlay { transition: opacity 0.2s; }
+      .modal-panel { transition: transform 0.25s ease, opacity 0.25s ease; }
+      .timeline-line { position: absolute; left: 19px; top: 40px; bottom: 0; width: 2px; background: rgba(124,92,252,0.2); }
+      input, textarea, select { font-family: 'Inter', sans-serif; }
+      input:focus, textarea:focus, select:focus { outline: none; ring: 2px; border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.3); }
+      .pulse-badge { animation: pulse-glow 2s ease-in-out infinite; }
+      @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.4); } 50% { box-shadow: 0 0 0 6px rgba(255,107,107,0); } }
+      .tabular-nums { font-variant-numeric: tabular-nums; }
+
+      /* Help Modal Styles */
+      .help-modal-overlay {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      .help-modal-overlay.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .help-modal-panel {
+        transform: translateY(30px) scale(0.97);
+        opacity: 0;
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      }
+      .help-modal-overlay.visible .help-modal-panel {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      .help-accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+      }
+      .help-accordion-content.open {
+        max-height: 600px;
+      }
+      .help-accordion-btn .chevron-icon {
+        transition: transform 0.3s ease;
+      }
+      .help-accordion-btn.active .chevron-icon {
+        transform: rotate(180deg);
+      }
+      .help-step {
+        counter-increment: step;
+      }
+      .help-step::before {
+        content: counter(step);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(124,92,252,0.15);
+        color: #9b82fd;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-right: 10px;
+        flex-shrink: 0;
+      }
+
+      /* Pairing Banner Styles */
+      .pairing-banner {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, margin 0.35s ease;
+      }
+      .pairing-banner.visible {
+        max-height: 200px;
+        opacity: 1;
+      }
+      .pairing-banner.dismissing {
+        max-height: 0;
+        opacity: 0;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+      }
+
+      /* CDI Suite Sticky Footer */
+      .cdi-footer-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 45;
+        height: 44px;
+        background: linear-gradient(to right, #1a1d2e, #0f1117);
+        border-top: 1px solid rgba(124, 92, 252, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+      }
+      .cdi-explore-btn {
+        background: linear-gradient(to right, #7c5cfc, #9b82fd);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 5px 14px;
+        border-radius: 9999px;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: filter 0.2s;
+      }
+      .cdi-explore-btn:hover {
+        filter: brightness(1.15);
+      }
+
+      /* Auth Modal Styles */
+      .auth-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #0f1117;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        transition: opacity 0.35s ease;
+      }
+      .auth-overlay.hidden-auth {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .auth-card {
+        background: #1a1d2e;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 1.25rem;
+        width: 100%;
+        max-width: 420px;
+        padding: 2rem;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+      }
+      .auth-tab { 
+        flex: 1; 
+        padding: 10px; 
+        font-size: 0.875rem; 
+        font-weight: 600; 
+        border: none; 
+        background: transparent; 
+        color: #8b8fa8; 
+        cursor: pointer; 
+        border-bottom: 2px solid transparent; 
+        transition: all 0.2s; 
+        font-family: 'Inter', sans-serif;
+      }
+      .auth-tab.active { color: #7c5cfc; border-bottom-color: #7c5cfc; }
+      .auth-input {
+        width: 100%;
+        background: #222640;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 0.75rem;
+        padding: 12px 16px;
+        font-size: 0.875rem;
+        color: #fff;
+        font-family: 'Inter', sans-serif;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .auth-input::placeholder { color: #8b8fa8; }
+      .auth-input:focus { outline: none; border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.3); }
+      .auth-submit {
+        width: 100%;
+        padding: 12px;
+        background: #7c5cfc;
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 0.75rem;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        transition: background 0.2s;
+      }
+      .auth-submit:hover { background: #9b82fd; }
+      .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+      .auth-error {
+        background: rgba(239,68,68,0.12);
+        color: #ef4444;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 8px 14px;
+        border-radius: 9999px;
+        text-align: center;
+        display: none;
+      }
+      .auth-error.visible { display: block; }
+      .auth-success {
+        background: rgba(74,222,128,0.12);
+        color: #4ade80;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 8px 14px;
+        border-radius: 9999px;
+        text-align: center;
+        display: none;
+      }
+      .auth-success.visible { display: block; }
+
+      /* App hidden until authed */
+      .app-wrapper { display: none; }
+      .app-wrapper.authed { display: block; }
+    </style>
+</head>
+<body data-id="0" class="font-inter">
+    <app-icon data-id="1" hidden data-icon="grid-3x3" data-palette="Dark"></app-icon>
+
+    <!-- AUTH MODAL -->
+    <div data-id="2" id="auth-overlay" class="auth-overlay">
+      <div data-id="3" class="auth-card">
+        <div data-id="4" class="text-center mb-6">
+          <div data-id="5" class="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center mx-auto mb-4">
+            <i data-id="6" data-lucide="grid-3x3" class="w-7 h-7 text-accent"></i>
+          </div>
+          <h1 data-id="7" class="text-xl font-bold tracking-tight">ClientFlow <span data-id="8" class="text-accent">CRM</span></h1>
+          <p data-id="9" class="text-xs text-muted mt-1">by Constructive Designs Inc.</p>
+        </div>
+        <!-- Tabs -->
+        <div data-id="10" class="flex border-b border-border mb-5">
+          <button data-id="11" id="auth-tab-signin" class="auth-tab active" data-auth-tab="signin">Sign In</button>
+          <button data-id="12" id="auth-tab-signup" class="auth-tab" data-auth-tab="signup">Sign Up</button>
+        </div>
+        <!-- Error / Success -->
+        <div data-id="13" id="auth-error" class="auth-error mb-4"></div>
+        <div data-id="14" id="auth-success" class="auth-success mb-4"></div>
+        <!-- Sign In Form -->
+        <form data-id="15" id="auth-signin-form" class="space-y-4">
+          <div data-id="16">
+            <label data-id="17" class="text-xs font-medium text-muted mb-1 block">Email</label>
+            <input data-id="18" id="auth-si-email" type="email" class="auth-input" placeholder="you@example.com" required />
+          </div>
+          <div data-id="19">
+            <label data-id="20" class="text-xs font-medium text-muted mb-1 block">Password</label>
+            <input data-id="21" id="auth-si-password" type="password" class="auth-input" placeholder="Your password" required />
+          </div>
+          <button data-id="22" type="submit" class="auth-submit" id="auth-signin-btn">Sign In</button>
+        </form>
+        <!-- Sign Up Form -->
+        <form data-id="23" id="auth-signup-form" class="space-y-4" style="display:none;">
+          <div data-id="24">
+            <label data-id="25" class="text-xs font-medium text-muted mb-1 block">Business Name</label>
+            <input data-id="26" id="auth-su-business" type="text" class="auth-input" placeholder="Your business name" />
+          </div>
+          <div data-id="27">
+            <label data-id="28" class="text-xs font-medium text-muted mb-1 block">Email</label>
+            <input data-id="29" id="auth-su-email" type="email" class="auth-input" placeholder="you@example.com" required />
+          </div>
+          <div data-id="30">
+            <label data-id="31" class="text-xs font-medium text-muted mb-1 block">Password</label>
+            <input data-id="32" id="auth-su-password" type="password" class="auth-input" placeholder="Choose a password (min 6 chars)" required minlength="6" />
+          </div>
+          <div data-id="33">
+            <label data-id="34" class="text-xs font-medium text-muted mb-1 block">Confirm Password</label>
+            <input data-id="35" id="auth-su-confirm" type="password" class="auth-input" placeholder="Confirm your password" required minlength="6" />
+          </div>
+          <button data-id="36" type="submit" class="auth-submit" id="auth-signup-btn">Create Account</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- APP WRAPPER (hidden until authenticated) -->
+    <div data-id="37" id="app-wrapper" class="app-wrapper">
+
+    <!-- HEADER NAV -->
+    <header data-id="38" id="header-nav-a1b2" class="sticky top-0 z-40 bg-bg/90 backdrop-blur-md border-b border-border">
+      <div data-id="39" class="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between h-16">
+        <div data-id="40" class="flex items-center gap-3">
+          <div data-id="41" class="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
+            <i data-id="42" data-lucide="grid-3x3" class="w-5 h-5 text-accent"></i>
+          </div>
+          <span data-id="43" class="text-lg font-bold tracking-tight">ClientFlow <span data-id="44" class="text-accent">CRM</span></span>
+        </div>
+
+        <!-- Desktop Nav -->
+        <nav data-id="45" class="hidden md:flex items-center gap-1">
+          <button data-id="46" class="nav-link active px-4 py-2 text-sm font-medium rounded-lg hover:bg-white/5" data-nav="dashboard">Dashboard</button>
+          <button data-id="47" class="nav-link px-4 py-2 text-sm font-medium text-muted rounded-lg hover:bg-white/5" data-nav="contacts">Contacts</button>
+          <button data-id="48" class="nav-link px-4 py-2 text-sm font-medium text-muted rounded-lg hover:bg-white/5" data-nav="leads">Leads</button>
+          <button data-id="49" class="nav-link px-4 py-2 text-sm font-medium text-muted rounded-lg hover:bg-white/5" data-nav="deals">Deals</button>
+          <button data-id="50" class="nav-link relative px-4 py-2 text-sm font-medium text-muted rounded-lg hover:bg-white/5" data-nav="activity">
+            Activity
+            <span data-id="51" id="followup-badge-desk-c3d4" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-coral text-white text-[10px] font-bold rounded-full flex items-center justify-center pulse-badge">0</span>
+          </button>
+        </nav>
+
+        <div data-id="52" class="flex items-center gap-3">
+          <!-- User Badge (Desktop) -->
+          <div data-id="53" id="user-badge-desktop" class="hidden md:flex items-center gap-2">
+            <div data-id="54" id="user-avatar-desktop" class="w-8 h-8 rounded-full bg-accent/25 flex items-center justify-center text-accent text-xs font-bold"></div>
+            <span data-id="55" id="user-email-desktop" class="text-xs text-muted max-w-[140px] truncate"></span>
+            <button data-id="56" id="sign-out-btn-desktop" class="px-3 py-1.5 text-xs font-medium text-coral bg-coral/10 rounded-lg hover:bg-coral/20 transition-colors">Sign Out</button>
+          </div>
+          <!-- Help Button -->
+          <button data-id="57" id="help-btn" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full border border-border bg-bg-elevated hover:bg-accent/15 hover:border-accent/40 text-muted hover:text-accent transition-all" title="Help Guide">
+            <span data-id="58" class="text-sm font-bold leading-none">?</span>
+          </button>
+          <button data-id="59" id="add-contact-btn-e5f6" class="hidden md:flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">
+            <i data-id="60" data-lucide="plus" class="w-4 h-4"></i> Add Contact
+          </button>
+          <!-- Mobile menu button -->
+          <button data-id="61" id="mobile-menu-btn-g7h8" class="md:hidden p-2 rounded-lg hover:bg-white/5">
+            <i data-id="62" data-lucide="menu" class="w-6 h-6"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mobile Nav -->
+    <nav data-id="63" id="mobile-menu-i9j0" class="hidden fixed inset-0 bg-bg z-50 flex flex-col p-6">
+      <div data-id="64" class="flex items-center justify-between mb-8">
+        <span data-id="65" class="text-lg font-bold">ClientFlow <span data-id="66" class="text-accent">CRM</span></span>
+        <button data-id="67" id="mobile-menu-close-k1l2" class="p-2 rounded-lg hover:bg-white/5">
+          <i data-id="68" data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <!-- Mobile User Badge -->
+      <div data-id="69" id="user-badge-mobile" class="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-bg-card border border-border">
+        <div data-id="70" id="user-avatar-mobile" class="w-9 h-9 rounded-full bg-accent/25 flex items-center justify-center text-accent text-xs font-bold"></div>
+        <div data-id="71" class="flex-1 min-w-0">
+          <p data-id="72" id="user-email-mobile" class="text-xs text-muted truncate"></p>
+        </div>
+        <button data-id="73" id="sign-out-btn-mobile" class="px-3 py-1.5 text-xs font-medium text-coral bg-coral/10 rounded-lg hover:bg-coral/20 transition-colors">Sign Out</button>
+      </div>
+      <div data-id="74" class="flex flex-col gap-2">
+        <button data-id="75" class="mobile-nav-link text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-accent" data-nav="dashboard">
+          <i data-id="76" data-lucide="layout-dashboard" class="w-5 h-5 inline mr-3"></i> Dashboard
+        </button>
+        <button data-id="77" class="mobile-nav-link text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-muted" data-nav="contacts">
+          <i data-id="78" data-lucide="users" class="w-5 h-5 inline mr-3"></i> Contacts
+        </button>
+        <button data-id="79" class="mobile-nav-link text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-muted" data-nav="leads">
+          <i data-id="80" data-lucide="target" class="w-5 h-5 inline mr-3"></i> Leads
+        </button>
+        <button data-id="81" class="mobile-nav-link text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-muted" data-nav="deals">
+          <i data-id="82" data-lucide="handshake" class="w-5 h-5 inline mr-3"></i> Deals
+        </button>
+        <button data-id="83" class="mobile-nav-link relative text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-muted" data-nav="activity">
+          <i data-id="84" data-lucide="activity" class="w-5 h-5 inline mr-3"></i> Activity
+          <span data-id="85" id="followup-badge-mob-m3n4" class="hidden ml-2 inline-flex w-5 h-5 bg-coral text-white text-[10px] font-bold rounded-full items-center justify-center pulse-badge">0</span>
+        </button>
+        <button data-id="86" id="mobile-help-btn" class="mobile-nav-link text-left px-4 py-3 text-base font-medium rounded-xl hover:bg-white/5 text-muted">
+          <i data-id="87" data-lucide="help-circle" class="w-5 h-5 inline mr-3"></i> Help Guide
+        </button>
+      </div>
+      <button data-id="88" id="mobile-add-contact-btn-o5p6" class="mt-6 flex items-center justify-center gap-2 px-4 py-3 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">
+        <i data-id="89" data-lucide="plus" class="w-4 h-4"></i> Add Contact
+      </button>
+    </nav>
+
+    <!-- HELP MODAL -->
+    <div data-id="90" id="help-modal" class="help-modal-overlay fixed inset-0 bg-black/70 z-[60] flex items-start justify-center overflow-y-auto">
+      <div data-id="91" class="help-modal-panel w-full max-w-2xl mx-4 my-8 md:my-12">
+        <div data-id="92" class="bg-bg-card rounded-t-2xl border border-border border-b-0 px-6 py-5 flex items-center justify-between sticky top-0 z-10">
+          <div data-id="93" class="flex items-center gap-3">
+            <div data-id="94" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center">
+              <i data-id="95" data-lucide="grid-3x3" class="w-5 h-5 text-accent"></i>
+            </div>
+            <h2 data-id="96" class="text-lg font-bold">How to Use ClientFlow <span data-id="97" class="text-accent">CRM</span></h2>
+          </div>
+          <button data-id="98" id="help-modal-close" class="p-2 rounded-lg hover:bg-white/10 text-muted hover:text-white transition-colors">
+            <i data-id="99" data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div data-id="100" class="bg-bg-card rounded-b-2xl border border-border border-t-0 px-6 pb-6">
+          <p data-id="101" class="text-sm text-muted leading-relaxed mb-6">ClientFlow CRM helps you manage your client relationships, track leads through your sales pipeline, monitor deal outcomes, and stay on top of follow-ups — all from one streamlined dashboard. Here's everything you need to know to get started.</p>
+          <div data-id="102" class="space-y-3" id="help-accordions">
+            <div data-id="103" class="rounded-xl border border-border overflow-hidden">
+              <button data-id="104" class="help-accordion-btn w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors" data-help-section="dashboard">
+                <div data-id="105" class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0"><i data-id="106" data-lucide="layout-dashboard" class="w-4 h-4 text-accent"></i></div>
+                <span data-id="107" class="flex-1 text-sm font-semibold">Dashboard</span>
+                <i data-id="108" data-lucide="chevron-down" class="w-4 h-4 text-muted chevron-icon"></i>
+              </button>
+              <div data-id="109" class="help-accordion-content">
+                <div data-id="110" class="px-4 pb-4 pt-1">
+                  <p data-id="111" class="text-xs text-muted mb-3">Your at-a-glance overview of everything happening in your CRM.</p>
+                  <ol data-id="112" class="space-y-2 list-none" style="counter-reset: step;">
+                    <li data-id="113" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">View key metrics: total clients, active leads, deals won, and follow-ups due in the stat cards at the top.</li>
+                    <li data-id="114" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Check the "Recent Contacts" panel to see who you've interacted with most recently.</li>
+                    <li data-id="115" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Review the "Upcoming Follow-ups" panel to see all follow-ups due within the next 7 days, with overdue items highlighted in red.</li>
+                    <li data-id="116" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click "View All →" on the Recent Contacts panel to jump directly to the Contacts tab.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div data-id="117" class="rounded-xl border border-border overflow-hidden">
+              <button data-id="118" class="help-accordion-btn w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors" data-help-section="contacts">
+                <div data-id="119" class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0"><i data-id="120" data-lucide="users" class="w-4 h-4 text-accent"></i></div>
+                <span data-id="121" class="flex-1 text-sm font-semibold">Contacts</span>
+                <i data-id="122" data-lucide="chevron-down" class="w-4 h-4 text-muted chevron-icon"></i>
+              </button>
+              <div data-id="123" class="help-accordion-content">
+                <div data-id="124" class="px-4 pb-4 pt-1">
+                  <p data-id="125" class="text-xs text-muted mb-3">Your full contact database with search, filtering, and inline editing.</p>
+                  <ol data-id="126" class="space-y-2 list-none" style="counter-reset: step;">
+                    <li data-id="127" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click the <strong data-id="128" class="text-accent font-semibold">Add Contact</strong> button in the top nav to create a new contact with name, email, phone, company, and status.</li>
+                    <li data-id="129" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Use the search bar to find contacts by name, email, or company. Use the dropdown filter to show only Leads, Active, or Inactive contacts.</li>
+                    <li data-id="130" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click the <strong data-id="131" class="text-accent font-semibold">Edit</strong> button on a contact card to update their details in a modal form.</li>
+                    <li data-id="132" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click the <strong data-id="133" class="text-blue-400 font-semibold">Follow-up</strong> button to schedule a follow-up date and reminder note for that contact.</li>
+                    <li data-id="134" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click directly on a contact's notes text to edit it inline — press Enter to save or click away.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div data-id="135" class="rounded-xl border border-border overflow-hidden">
+              <button data-id="136" class="help-accordion-btn w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors" data-help-section="leads">
+                <div data-id="137" class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0"><i data-id="138" data-lucide="target" class="w-4 h-4 text-accent"></i></div>
+                <span data-id="139" class="flex-1 text-sm font-semibold">Leads (Sales Pipeline)</span>
+                <i data-id="140" data-lucide="chevron-down" class="w-4 h-4 text-muted chevron-icon"></i>
+              </button>
+              <div data-id="141" class="help-accordion-content">
+                <div data-id="142" class="px-4 pb-4 pt-1">
+                  <p data-id="143" class="text-xs text-muted mb-3">A Kanban-style board to visually track leads through your sales pipeline stages.</p>
+                  <ol data-id="144" class="space-y-2 list-none" style="counter-reset: step;">
+                    <li data-id="145" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click <strong data-id="146" class="text-accent font-semibold">Add Lead</strong> to create a new lead with a name, estimated deal value, pipeline stage, and notes.</li>
+                    <li data-id="147" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Your pipeline has four stages: <strong data-id="148">New → Contacted → Proposal Sent → Closed</strong>. Each column shows leads at that stage.</li>
+                    <li data-id="149" class="help-step flex items-start text-xs text-gray-300 leading-relaxed"><strong data-id="150">Drag and drop</strong> a lead card from one column to another to move it through the pipeline. The activity log will record the change.</li>
+                    <li data-id="151" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Click the <strong data-id="152" class="text-coral font-semibold">×</strong> button on a lead card to remove it from the pipeline.</li>
+                    <li data-id="153" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">The count badge at the top of each column updates automatically as you add, move, or remove leads.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div data-id="154" class="rounded-xl border border-border overflow-hidden">
+              <button data-id="155" class="help-accordion-btn w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors" data-help-section="deals">
+                <div data-id="156" class="w-8 h-8 rounded-lg bg-success/15 flex items-center justify-center shrink-0"><i data-id="157" data-lucide="handshake" class="w-4 h-4 text-success"></i></div>
+                <span data-id="158" class="flex-1 text-sm font-semibold">Deals</span>
+                <i data-id="159" data-lucide="chevron-down" class="w-4 h-4 text-muted chevron-icon"></i>
+              </button>
+              <div data-id="160" class="help-accordion-content">
+                <div data-id="161" class="px-4 pb-4 pt-1">
+                  <p data-id="162" class="text-xs text-muted mb-3">Track closed deals and review your revenue performance at a glance.</p>
+                  <ol data-id="163" class="space-y-2 list-none" style="counter-reset: step;">
+                    <li data-id="164" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">View the three summary cards at the top: <strong data-id="165">Total Revenue Won</strong>, <strong data-id="166">Average Deal Size</strong>, and <strong data-id="167">Win Rate</strong>.</li>
+                    <li data-id="168" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Review the deals table below for a full history of all deals, sorted by most recently closed.</li>
+                    <li data-id="169" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Each deal shows the client name, deal value (green for won, red for lost), close date, status badge, and notes.</li>
+                    <li data-id="170" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Use this tab to assess your sales performance and identify trends over time.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div data-id="171" class="rounded-xl border border-border overflow-hidden">
+              <button data-id="172" class="help-accordion-btn w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition-colors" data-help-section="activity">
+                <div data-id="173" class="w-8 h-8 rounded-lg bg-yellow-400/15 flex items-center justify-center shrink-0"><i data-id="174" data-lucide="activity" class="w-4 h-4 text-yellow-400"></i></div>
+                <span data-id="175" class="flex-1 text-sm font-semibold">Activity</span>
+                <i data-id="176" data-lucide="chevron-down" class="w-4 h-4 text-muted chevron-icon"></i>
+              </button>
+              <div data-id="177" class="help-accordion-content">
+                <div data-id="178" class="px-4 pb-4 pt-1">
+                  <p data-id="179" class="text-xs text-muted mb-3">A chronological timeline of every action taken in your CRM.</p>
+                  <ol data-id="180" class="space-y-2 list-none" style="counter-reset: step;">
+                    <li data-id="181" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Every action you take — adding contacts, updating notes, moving leads, scheduling follow-ups — is automatically logged here.</li>
+                    <li data-id="182" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Activities are displayed newest-first with color-coded icons so you can quickly scan the type of action.</li>
+                    <li data-id="183" class="help-step flex items-start text-xs text-gray-300 leading-relaxed">Check the red pulse badge on the Activity nav link to see how many follow-ups are due soon.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-id="184" class="mt-6 rounded-xl border border-accent/20 bg-accent/[0.04] p-5">
+            <div data-id="185" class="flex items-center gap-2 mb-4">
+              <div data-id="186" class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center"><i data-id="187" data-lucide="lightbulb" class="w-4 h-4 text-accent"></i></div>
+              <h3 data-id="188" class="text-sm font-bold text-accent-light">Tips &amp; Tricks</h3>
+            </div>
+            <div data-id="189" class="space-y-3">
+              <div data-id="190" class="flex items-start gap-3">
+                <div data-id="191" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5"><span data-id="192" class="text-[10px] font-bold text-accent">1</span></div>
+                <p data-id="193" class="text-xs text-gray-300 leading-relaxed"><strong data-id="194" class="text-white font-semibold">Follow-up badges:</strong> Keep an eye on the red pulse badge on the Activity nav link — it shows the number of follow-ups due in the next 7 days so you never miss a touchpoint.</p>
+              </div>
+              <div data-id="195" class="flex items-start gap-3">
+                <div data-id="196" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5"><span data-id="197" class="text-[10px] font-bold text-accent">2</span></div>
+                <p data-id="198" class="text-xs text-gray-300 leading-relaxed"><strong data-id="199" class="text-white font-semibold">Inline note editing:</strong> On any contact card, click directly on the notes text to edit it in place. Press Enter to save instantly — no modal needed.</p>
+              </div>
+              <div data-id="200" class="flex items-start gap-3">
+                <div data-id="201" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5"><span data-id="202" class="text-[10px] font-bold text-accent">3</span></div>
+                <p data-id="203" class="text-xs text-gray-300 leading-relaxed"><strong data-id="204" class="text-white font-semibold">Kanban drag-and-drop:</strong> In the Leads tab, grab any lead card and drag it to a different pipeline column to instantly update its stage. The change is saved automatically and logged in your activity timeline.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main data-id="205" class="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+
+      <!-- DASHBOARD TAB -->
+      <section data-id="206" id="tab-dashboard" class="tab-content active">
+        <div data-id="207" class="mb-6">
+          <h1 data-id="208" id="greeting-q7r8" class="text-xl md:text-2xl font-bold mb-1">Good morning, Heather 👋</h1>
+          <p data-id="209" class="text-muted text-sm">Tuesday, May 19, 2026 — Here's your CRM overview.</p>
+        </div>
+        <div data-id="210" id="stat-cards-s9t0" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div data-id="211" class="bg-bg-card rounded-2xl p-5 border border-border card-hover">
+            <div data-id="212" class="flex items-center justify-between mb-3">
+              <div data-id="213" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center"><i data-id="214" data-lucide="users" class="w-5 h-5 text-accent"></i></div>
+              <span data-id="215" class="text-xs font-medium text-success flex items-center gap-1"><i data-id="216" data-lucide="trending-up" class="w-3 h-3"></i> +12%</span>
+            </div>
+            <p data-id="217" id="stat-clients-u1v2" class="text-2xl font-bold tabular-nums">0</p>
+            <p data-id="218" class="text-xs text-muted mt-1">Total Clients</p>
+          </div>
+          <div data-id="219" class="bg-bg-card rounded-2xl p-5 border border-border card-hover">
+            <div data-id="220" class="flex items-center justify-between mb-3">
+              <div data-id="221" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center"><i data-id="222" data-lucide="target" class="w-5 h-5 text-accent-light"></i></div>
+              <span data-id="223" class="text-xs font-medium text-success flex items-center gap-1"><i data-id="224" data-lucide="trending-up" class="w-3 h-3"></i> +8%</span>
+            </div>
+            <p data-id="225" id="stat-leads-w3x4" class="text-2xl font-bold tabular-nums">0</p>
+            <p data-id="226" class="text-xs text-muted mt-1">Active Leads</p>
+          </div>
+          <div data-id="227" class="bg-bg-card rounded-2xl p-5 border border-border card-hover">
+            <div data-id="228" class="flex items-center justify-between mb-3">
+              <div data-id="229" class="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center"><i data-id="230" data-lucide="trophy" class="w-5 h-5 text-success"></i></div>
+              <span data-id="231" class="text-xs font-medium text-success flex items-center gap-1"><i data-id="232" data-lucide="trending-up" class="w-3 h-3"></i> +5%</span>
+            </div>
+            <p data-id="233" id="stat-won-y5z6" class="text-2xl font-bold tabular-nums">0</p>
+            <p data-id="234" class="text-xs text-muted mt-1">Deals Won</p>
+          </div>
+          <div data-id="235" class="bg-bg-card rounded-2xl p-5 border border-border card-hover">
+            <div data-id="236" class="flex items-center justify-between mb-3">
+              <div data-id="237" class="w-10 h-10 rounded-xl bg-coral/15 flex items-center justify-center"><i data-id="238" data-lucide="bell-ring" class="w-5 h-5 text-coral"></i></div>
+              <span data-id="239" id="followup-trend-a2b3" class="text-xs font-medium text-coral flex items-center gap-1"><i data-id="240" data-lucide="alert-circle" class="w-3 h-3"></i> Due</span>
+            </div>
+            <p data-id="241" id="stat-followups-c4d5" class="text-2xl font-bold tabular-nums">0</p>
+            <p data-id="242" class="text-xs text-muted mt-1">Follow-ups Due</p>
+          </div>
+        </div>
+
+        <!-- LeadCatcher Banner -->
+        <div data-id="243" id="banner-clientflow_leadcatcher_banner" class="pairing-banner mb-6" data-banner-id="clientflow_leadcatcher_banner">
+          <div data-id="244" class="bg-bg-card rounded-xl border border-border overflow-hidden" style="border-left: 3px solid #fb923c; background: linear-gradient(to right, rgba(251,146,60,0.06), transparent);">
+            <div data-id="245" class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 px-4 py-3.5">
+              <div data-id="246" class="flex items-center gap-3 flex-1 min-w-0">
+                <div data-id="247" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(251,146,60,0.15);"><i data-id="248" data-lucide="crosshair" class="w-4.5 h-4.5" style="color: #fb923c; width:18px; height:18px;"></i></div>
+                <div data-id="249" class="flex-1 min-w-0">
+                  <span data-id="250" class="text-sm font-bold text-white">LeadCatcher</span>
+                  <p data-id="251" class="text-xs text-muted leading-relaxed mt-0.5">Your CRM is only as good as what feeds it. LeadCatcher captures leads from every channel and funnels them straight into your pipeline — so ClientFlow always has fresh contacts to work.</p>
+                </div>
+              </div>
+              <div data-id="252" class="flex items-center gap-2 shrink-0 ml-12 sm:ml-0">
+                <button data-id="253" class="banner-connect-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors" style="background: #fb923c;" data-banner-id="clientflow_leadcatcher_banner">Connect Now</button>
+                <button data-id="254" class="banner-learn-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors" style="color: #fb923c; border-color: rgba(251,146,60,0.3);" data-banner-id="clientflow_leadcatcher_banner">Learn More</button>
+                <button data-id="255" class="banner-dismiss-btn p-1 rounded-md hover:bg-white/5 text-muted hover:text-white transition-colors" data-banner-id="clientflow_leadcatcher_banner" title="Dismiss"><i data-id="256" data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div data-id="257" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div data-id="258" class="bg-bg-card rounded-2xl border border-border p-5">
+            <div data-id="259" class="flex items-center justify-between mb-4">
+              <h2 data-id="260" class="font-semibold text-base">Recent Contacts</h2>
+              <button data-id="261" class="text-xs text-accent hover:text-accent-light font-medium" data-nav="contacts">View All →</button>
+            </div>
+            <div data-id="262" id="recent-contacts-e6f7" class="space-y-3"></div>
+          </div>
+          <div data-id="263" class="bg-bg-card rounded-2xl border border-border p-5">
+            <div data-id="264" class="flex items-center justify-between mb-4">
+              <h2 data-id="265" class="font-semibold text-base">Upcoming Follow-ups</h2>
+              <span data-id="266" class="text-xs text-muted"><i data-id="267" data-lucide="clock" class="w-3 h-3 inline"></i> Next 7 days</span>
+            </div>
+            <div data-id="268" id="upcoming-followups-g8h9" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTACTS TAB -->
+      <section data-id="269" id="tab-contacts" class="tab-content">
+        <div data-id="270" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <h1 data-id="271" class="text-xl md:text-2xl font-bold">Contacts</h1>
+          <div data-id="272" class="flex flex-col sm:flex-row gap-3">
+            <div data-id="273" class="relative">
+              <i data-id="274" data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted"></i>
+              <input data-id="275" id="contact-search-i0j1" type="text" placeholder="Search contacts..." class="bg-bg-elevated border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm w-full sm:w-64 text-white placeholder-muted focus:border-accent" />
+            </div>
+            <select data-id="276" id="contact-filter-k2l3" class="bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-muted appearance-none cursor-pointer focus:border-accent">
+              <option data-id="277" value="all">All Statuses</option>
+              <option data-id="278" value="Lead">Lead</option>
+              <option data-id="279" value="Active">Active</option>
+              <option data-id="280" value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ProposalPro Banner -->
+        <div data-id="281" id="banner-clientflow_proposalpro_banner" class="pairing-banner mb-6" data-banner-id="clientflow_proposalpro_banner">
+          <div data-id="282" class="bg-bg-card rounded-xl border border-border overflow-hidden" style="border-left: 3px solid #f472b6; background: linear-gradient(to right, rgba(244,114,182,0.06), transparent);">
+            <div data-id="283" class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 px-4 py-3.5">
+              <div data-id="284" class="flex items-center gap-3 flex-1 min-w-0">
+                <div data-id="285" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(244,114,182,0.15);"><i data-id="286" data-lucide="file-signature" class="w-4.5 h-4.5" style="color: #f472b6; width:18px; height:18px;"></i></div>
+                <div data-id="287" class="flex-1 min-w-0">
+                  <span data-id="288" class="text-sm font-bold text-white">ProposalPro</span>
+                  <p data-id="289" class="text-xs text-muted leading-relaxed mt-0.5">Your clients are in ClientFlow — now close them. ProposalPro lets you send polished, professional proposals directly tied to your client records, and when they're accepted, the invoice writes itself.</p>
+                </div>
+              </div>
+              <div data-id="290" class="flex items-center gap-2 shrink-0 ml-12 sm:ml-0">
+                <button data-id="291" class="banner-connect-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors" style="background: #f472b6;" data-banner-id="clientflow_proposalpro_banner">Connect Now</button>
+                <button data-id="292" class="banner-learn-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors" style="color: #f472b6; border-color: rgba(244,114,182,0.3);" data-banner-id="clientflow_proposalpro_banner">Learn More</button>
+                <button data-id="293" class="banner-dismiss-btn p-1 rounded-md hover:bg-white/5 text-muted hover:text-white transition-colors" data-banner-id="clientflow_proposalpro_banner" title="Dismiss"><i data-id="294" data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div data-id="295" id="contacts-grid-m4n5" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- LEADS TAB -->
+      <section data-id="296" id="tab-leads" class="tab-content">
+        <div data-id="297" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h1 data-id="298" class="text-xl md:text-2xl font-bold">Sales Pipeline</h1>
+          <button data-id="299" id="add-lead-btn-o6p7" class="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">
+            <i data-id="300" data-lucide="plus" class="w-4 h-4"></i> Add Lead
+          </button>
+        </div>
+        <div data-id="301" id="kanban-board-q8r9" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div data-id="302" class="kanban-col rounded-2xl bg-bg-card border border-border p-4" data-stage="New">
+            <div data-id="303" class="flex items-center gap-2 mb-4">
+              <div data-id="304" class="w-2.5 h-2.5 rounded-full bg-accent"></div>
+              <h3 data-id="305" class="text-sm font-semibold">New</h3>
+              <span data-id="306" id="count-new-s0t1" class="text-xs text-muted ml-auto tabular-nums">0</span>
+            </div>
+            <div data-id="307" class="space-y-3 min-h-[200px]" data-drop="New"></div>
+          </div>
+          <div data-id="308" class="kanban-col rounded-2xl bg-bg-card border border-border p-4" data-stage="Contacted">
+            <div data-id="309" class="flex items-center gap-2 mb-4">
+              <div data-id="310" class="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
+              <h3 data-id="311" class="text-sm font-semibold">Contacted</h3>
+              <span data-id="312" id="count-contacted-u2v3" class="text-xs text-muted ml-auto tabular-nums">0</span>
+            </div>
+            <div data-id="313" class="space-y-3 min-h-[200px]" data-drop="Contacted"></div>
+          </div>
+          <div data-id="314" class="kanban-col rounded-2xl bg-bg-card border border-border p-4" data-stage="Proposal Sent">
+            <div data-id="315" class="flex items-center gap-2 mb-4">
+              <div data-id="316" class="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
+              <h3 data-id="317" class="text-sm font-semibold">Proposal Sent</h3>
+              <span data-id="318" id="count-proposal-w4x5" class="text-xs text-muted ml-auto tabular-nums">0</span>
+            </div>
+            <div data-id="319" class="space-y-3 min-h-[200px]" data-drop="Proposal Sent"></div>
+          </div>
+          <div data-id="320" class="kanban-col rounded-2xl bg-bg-card border border-border p-4" data-stage="Closed">
+            <div data-id="321" class="flex items-center gap-2 mb-4">
+              <div data-id="322" class="w-2.5 h-2.5 rounded-full bg-success"></div>
+              <h3 data-id="323" class="text-sm font-semibold">Closed</h3>
+              <span data-id="324" id="count-closed-y6z7" class="text-xs text-muted ml-auto tabular-nums">0</span>
+            </div>
+            <div data-id="325" class="space-y-3 min-h-[200px]" data-drop="Closed"></div>
+          </div>
+        </div>
+
+        <!-- Book It Banner -->
+        <div data-id="326" id="banner-clientflow_bookit_banner" class="pairing-banner" data-banner-id="clientflow_bookit_banner">
+          <div data-id="327" class="bg-bg-card rounded-xl border border-border overflow-hidden" style="border-left: 3px solid #ff6b6b; background: linear-gradient(to right, rgba(255,107,107,0.06), transparent);">
+            <div data-id="328" class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 px-4 py-3.5">
+              <div data-id="329" class="flex items-center gap-3 flex-1 min-w-0">
+                <div data-id="330" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(255,107,107,0.15);"><i data-id="331" data-lucide="calendar-check" class="w-4.5 h-4.5" style="color: #ff6b6b; width:18px; height:18px;"></i></div>
+                <div data-id="332" class="flex-1 min-w-0">
+                  <span data-id="333" class="text-sm font-bold text-white">Book It</span>
+                  <p data-id="334" class="text-xs text-muted leading-relaxed mt-0.5">Turn a warm lead into a scheduled meeting — instantly. Book It lets clients book time with you directly, and every new booking lands as a contact right here in ClientFlow.</p>
+                </div>
+              </div>
+              <div data-id="335" class="flex items-center gap-2 shrink-0 ml-12 sm:ml-0">
+                <button data-id="336" class="banner-connect-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors" style="background: #ff6b6b;" data-banner-id="clientflow_bookit_banner">Connect Now</button>
+                <button data-id="337" class="banner-learn-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors" style="color: #ff6b6b; border-color: rgba(255,107,107,0.3);" data-banner-id="clientflow_bookit_banner">Learn More</button>
+                <button data-id="338" class="banner-dismiss-btn p-1 rounded-md hover:bg-white/5 text-muted hover:text-white transition-colors" data-banner-id="clientflow_bookit_banner" title="Dismiss"><i data-id="339" data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DEALS TAB -->
+      <section data-id="340" id="tab-deals" class="tab-content">
+        <h1 data-id="341" class="text-xl md:text-2xl font-bold mb-6">Deals</h1>
+        <div data-id="342" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div data-id="343" class="bg-bg-card rounded-2xl border border-border p-5 text-center">
+            <p data-id="344" id="deals-revenue-a8b9" class="text-2xl font-bold text-success tabular-nums">$0</p>
+            <p data-id="345" class="text-xs text-muted mt-1">Total Revenue Won</p>
+          </div>
+          <div data-id="346" class="bg-bg-card rounded-2xl border border-border p-5 text-center">
+            <p data-id="347" id="deals-avg-c0d1" class="text-2xl font-bold text-accent tabular-nums">$0</p>
+            <p data-id="348" class="text-xs text-muted mt-1">Avg Deal Size</p>
+          </div>
+          <div data-id="349" class="bg-bg-card rounded-2xl border border-border p-5 text-center">
+            <p data-id="350" id="deals-winrate-e2f3" class="text-2xl font-bold text-accent-light tabular-nums">0%</p>
+            <p data-id="351" class="text-xs text-muted mt-1">Win Rate</p>
+          </div>
+        </div>
+        <div data-id="352" class="bg-bg-card rounded-2xl border border-border overflow-hidden">
+          <div data-id="353" class="overflow-x-auto">
+            <table data-id="354" class="w-full text-left text-sm">
+              <thead data-id="355" class="bg-bg-elevated text-xs font-medium uppercase tracking-wide text-muted">
+                <tr data-id="356">
+                  <th data-id="357" class="px-5 py-3">Client Name</th>
+                  <th data-id="358" class="px-5 py-3 text-right">Deal Value</th>
+                  <th data-id="359" class="px-5 py-3">Date Closed</th>
+                  <th data-id="360" class="px-5 py-3">Status</th>
+                  <th data-id="361" class="px-5 py-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody data-id="362" id="deals-table-body-g4h5" class="divide-y divide-border"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIVITY TAB -->
+      <section data-id="363" id="tab-activity" class="tab-content">
+        <h1 data-id="364" class="text-xl md:text-2xl font-bold mb-6">Activity Timeline</h1>
+        <div data-id="365" id="activity-timeline-i6j7" class="relative pl-10 space-y-6">
+          <div data-id="366" class="timeline-line"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- CONTACT MODAL -->
+    <div data-id="367" id="contact-modal-k8l9" class="modal-overlay hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div data-id="368" class="modal-panel bg-bg-card rounded-2xl border border-border w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div data-id="369" class="flex items-center justify-between mb-5">
+          <h2 data-id="370" id="modal-title-m0n1" class="text-lg font-bold">Add Contact</h2>
+          <button data-id="371" id="modal-close-o2p3" class="p-2 rounded-lg hover:bg-white/5 text-muted"><i data-id="372" data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <form data-id="373" id="contact-form-q4r5" class="space-y-4">
+          <input data-id="374" type="hidden" id="edit-contact-id-s6t7" value="" />
+          <div data-id="375">
+            <label data-id="376" class="text-xs font-medium text-muted mb-1 block">Name *</label>
+            <input data-id="377" id="cf-name-u8v9" type="text" required class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="Full name" />
+          </div>
+          <div data-id="378" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div data-id="379"><label data-id="380" class="text-xs font-medium text-muted mb-1 block">Email</label><input data-id="381" id="cf-email-w0x1" type="email" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="email@example.com" /></div>
+            <div data-id="382"><label data-id="383" class="text-xs font-medium text-muted mb-1 block">Phone</label><input data-id="384" id="cf-phone-y2z3" type="tel" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="(555) 000-0000" /></div>
+          </div>
+          <div data-id="385" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div data-id="386"><label data-id="387" class="text-xs font-medium text-muted mb-1 block">Company</label><input data-id="388" id="cf-company-a4b5" type="text" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="Company name" /></div>
+            <div data-id="389"><label data-id="390" class="text-xs font-medium text-muted mb-1 block">Status</label>
+              <select data-id="391" id="cf-status-c6d7" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white appearance-none cursor-pointer focus:border-accent">
+                <option data-id="392" value="Lead">Lead</option><option data-id="393" value="Active">Active</option><option data-id="394" value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div data-id="395"><label data-id="396" class="text-xs font-medium text-muted mb-1 block">Notes</label><textarea data-id="397" id="cf-notes-e8f9" rows="3" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent resize-none" placeholder="Any notes..."></textarea></div>
+          <div data-id="398" class="flex gap-3 pt-2">
+            <button data-id="399" type="submit" class="flex-1 py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">Save Contact</button>
+            <button data-id="400" type="button" id="modal-cancel-g0h1" class="px-5 py-2.5 bg-bg-elevated border border-border text-muted text-sm font-medium rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- LEAD MODAL -->
+    <div data-id="401" id="lead-modal-i2j3" class="modal-overlay hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div data-id="402" class="modal-panel bg-bg-card rounded-2xl border border-border w-full max-w-lg p-6">
+        <div data-id="403" class="flex items-center justify-between mb-5">
+          <h2 data-id="404" class="text-lg font-bold">Add Lead</h2>
+          <button data-id="405" id="lead-modal-close-k4l5" class="p-2 rounded-lg hover:bg-white/5 text-muted"><i data-id="406" data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <form data-id="407" id="lead-form-m6n7" class="space-y-4">
+          <div data-id="408"><label data-id="409" class="text-xs font-medium text-muted mb-1 block">Name *</label><input data-id="410" id="lf-name-o8p9" type="text" required class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="Lead name" /></div>
+          <div data-id="411" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div data-id="412"><label data-id="413" class="text-xs font-medium text-muted mb-1 block">Estimated Value</label><input data-id="414" id="lf-value-q0r1" type="number" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" placeholder="5000" /></div>
+            <div data-id="415"><label data-id="416" class="text-xs font-medium text-muted mb-1 block">Pipeline Stage</label>
+              <select data-id="417" id="lf-stage-s2t3" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white appearance-none cursor-pointer focus:border-accent">
+                <option data-id="418" value="New">New</option><option data-id="419" value="Contacted">Contacted</option><option data-id="420" value="Proposal Sent">Proposal Sent</option><option data-id="421" value="Closed">Closed</option>
+              </select>
+            </div>
+          </div>
+          <div data-id="422"><label data-id="423" class="text-xs font-medium text-muted mb-1 block">Notes</label><textarea data-id="424" id="lf-notes-u4v5" rows="3" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent resize-none" placeholder="Any notes about this lead..."></textarea></div>
+          <div data-id="425" class="flex gap-3 pt-2">
+            <button data-id="426" type="submit" class="flex-1 py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">Add Lead</button>
+            <button data-id="427" type="button" id="lead-modal-cancel-w6x7" class="px-5 py-2.5 bg-bg-elevated border border-border text-muted text-sm font-medium rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- FOLLOW-UP MODAL -->
+    <div data-id="428" id="followup-modal-y8z9" class="modal-overlay hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div data-id="429" class="modal-panel bg-bg-card rounded-2xl border border-border w-full max-w-md p-6">
+        <div data-id="430" class="flex items-center justify-between mb-5">
+          <h2 data-id="431" class="text-lg font-bold">Schedule Follow-up</h2>
+          <button data-id="432" id="followup-modal-close-a0b1" class="p-2 rounded-lg hover:bg-white/5 text-muted"><i data-id="433" data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <form data-id="434" id="followup-form-c2d3" class="space-y-4">
+          <input data-id="435" type="hidden" id="fu-contact-id-e4f5" value="" />
+          <div data-id="436"><label data-id="437" class="text-xs font-medium text-muted mb-1 block">Follow-up Date *</label><input data-id="438" id="fu-date-g6h7" type="date" required class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent" /></div>
+          <div data-id="439"><label data-id="440" class="text-xs font-medium text-muted mb-1 block">Note</label><textarea data-id="441" id="fu-note-i8j9" rows="2" class="w-full bg-bg-elevated border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:border-accent resize-none" placeholder="Reminder note..."></textarea></div>
+          <button data-id="442" type="submit" class="w-full py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-xl transition-colors">Schedule</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer data-id="443" id="footer-k0l1" class="max-w-7xl mx-auto px-4 md:px-6 py-8 mt-8 border-t border-border">
+      <div data-id="444" class="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
+        <div data-id="445" class="flex items-center gap-2">
+          <div data-id="446" class="w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center"><i data-id="447" data-lucide="grid-3x3" class="w-3 h-3 text-accent"></i></div>
+          <span data-id="448">ClientFlow CRM</span>
+        </div>
+        <p data-id="449">Made by Copilot</p>
+      </div>
+    </footer>
+
+    <!-- CDI SUITE STICKY FOOTER BAR -->
+    <div data-id="450" class="cdi-footer-bar">
+      <div data-id="451" class="flex items-center gap-2 min-w-0">
+        <i data-id="452" data-lucide="sparkles" class="w-4 h-4 text-accent shrink-0"></i>
+        <span data-id="453" class="text-xs font-semibold text-white whitespace-nowrap hidden md:inline">CDI Business Suite</span>
+        <span data-id="454" class="text-xs font-semibold text-white whitespace-nowrap md:hidden">CDI Suite</span>
+        <span data-id="455" class="text-[11px] text-muted whitespace-nowrap hidden sm:inline"> · Part of 8 powerful business tools</span>
+      </div>
+      <button data-id="456" id="cdi-explore-btn" class="cdi-explore-btn">✨ Explore All 8 Apps →</button>
+    </div>
+
+    </div><!-- END APP WRAPPER -->
+
+    <script>
+    // ==================== SUPABASE INIT ====================
+    const SUPABASE_URL = 'https://lizbvlcogvjgycsyiqrc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si';
+    let db;
+    let currentUser = null;
+    let supabaseAvailable = false;
+
+    try {
+      if (typeof supabase !== 'undefined' && supabase.createClient) {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabaseAvailable = true;
+      }
+    } catch(e) {
+      console.warn('Supabase SDK not available, running in local mode.');
+    }
+
+    // ==================== AUTH LOGIC ====================
+    function showAuthModal() {
+      document.getElementById('auth-overlay').classList.remove('hidden-auth');
+      document.getElementById('app-wrapper').classList.remove('authed');
+    }
+
+    function hideAuthModal() {
+      document.getElementById('auth-overlay').classList.add('hidden-auth');
+      document.getElementById('app-wrapper').classList.add('authed');
+      updateUserBadge();
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById('auth-error');
+      el.textContent = msg;
+      el.classList.add('visible');
+      document.getElementById('auth-success').classList.remove('visible');
+    }
+
+    function showAuthSuccess(msg) {
+      const el = document.getElementById('auth-success');
+      el.textContent = msg;
+      el.classList.add('visible');
+      document.getElementById('auth-error').classList.remove('visible');
+    }
+
+    function clearAuthMessages() {
+      document.getElementById('auth-error').classList.remove('visible');
+      document.getElementById('auth-success').classList.remove('visible');
+    }
+
+    function updateUserBadge() {
+      if (!currentUser) return;
+      const email = currentUser.email || '';
+      const initials = email.substring(0, 2).toUpperCase();
+      document.getElementById('user-avatar-desktop').textContent = initials;
+      document.getElementById('user-email-desktop').textContent = email;
+      document.getElementById('user-avatar-mobile').textContent = initials;
+      document.getElementById('user-email-mobile').textContent = email;
+    }
+
+    // Auth tab switching
+    document.getElementById('auth-tab-signin').addEventListener('click', () => {
+      document.getElementById('auth-tab-signin').classList.add('active');
+      document.getElementById('auth-tab-signup').classList.remove('active');
+      document.getElementById('auth-signin-form').style.display = '';
+      document.getElementById('auth-signup-form').style.display = 'none';
+      clearAuthMessages();
+    });
+
+    document.getElementById('auth-tab-signup').addEventListener('click', () => {
+      document.getElementById('auth-tab-signup').classList.add('active');
+      document.getElementById('auth-tab-signin').classList.remove('active');
+      document.getElementById('auth-signup-form').style.display = '';
+      document.getElementById('auth-signin-form').style.display = 'none';
+      clearAuthMessages();
+    });
+
+    // Sign In
+    document.getElementById('auth-signin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAuthMessages();
+      const email = document.getElementById('auth-si-email').value.trim();
+      const password = document.getElementById('auth-si-password').value;
+      const btn = document.getElementById('auth-signin-btn');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      try {
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) showAuthError(error.message);
+      } catch(err) {
+        showAuthError(err.message || 'Sign in failed.');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    });
+
+    // Sign Up
+    document.getElementById('auth-signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAuthMessages();
+      const businessName = document.getElementById('auth-su-business').value.trim();
+      const email = document.getElementById('auth-su-email').value.trim();
+      const password = document.getElementById('auth-su-password').value;
+      const confirm = document.getElementById('auth-su-confirm').value;
+
+      if (password !== confirm) {
+        showAuthError('Passwords do not match.');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthError('Password must be at least 6 characters.');
+        return;
+      }
+
+      const btn = document.getElementById('auth-signup-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+      try {
+        const { error } = await db.auth.signUp({
+          email,
+          password,
+          options: { data: { business_name: businessName } }
+        });
+        if (error) showAuthError(error.message);
+        else showAuthSuccess('Check your email to confirm your account!');
+      } catch(err) {
+        showAuthError(err.message || 'Sign up failed.');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    });
+
+    // Sign Out
+    async function signOut() {
+      if (db) {
+        await db.auth.signOut();
+      }
+      currentUser = null;
+      showAuthModal();
+    }
+
+    document.getElementById('sign-out-btn-desktop').addEventListener('click', signOut);
+    document.getElementById('sign-out-btn-mobile').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      signOut();
+    });
+
+    // Auth state change listener
+    if (supabaseAvailable && db) {
+      db.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          currentUser = session.user;
+          hideAuthModal();
+          loadAllData();
+        }
+        if (event === 'SIGNED_OUT') {
+          currentUser = null;
+          showAuthModal();
+        }
+      });
+    }
+
+    async function initAuth() {
+      if (!supabaseAvailable || !db) {
+        // Supabase not available — run in local/demo mode
+        hideAuthModal();
+        await loadLocalState();
+        renderAll();
+        return;
+      }
+      try {
+        const { data: { session } } = await db.auth.getSession();
+        if (session) {
+          currentUser = session.user;
+          hideAuthModal();
+          await loadAllData();
+        } else {
+          showAuthModal();
+        }
+      } catch(e) {
+        console.warn('Auth check failed, running local mode:', e);
+        hideAuthModal();
+        await loadLocalState();
+        renderAll();
+      }
+    }
+
+    // ==================== DATA LAYER ====================
+    const TODAY = new Date('2026-05-19T10:43:00-04:00');
+
+    function genId() { return 'local_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
+    function formatDate(d) { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+
+    const DEFAULT_CONTACTS = [
+      { id: 'local_c1', name: 'Marcus Rivera', email: 'marcus@rivtech.com', phone: '(937) 555-0142', company: 'RivTech Solutions', status: 'Active', notes: 'Key account — renewed contract in April.', last_contacted: '2026-05-15', follow_up_date: '2026-05-19', follow_up_note: 'Discuss Q3 expansion plan' },
+      { id: 'local_c2', name: 'Sarah Chen', email: 'sarah@bloomdesign.co', phone: '(614) 555-0288', company: 'Bloom Design Co.', status: 'Lead', notes: 'Interested in branding package.', last_contacted: '2026-05-12', follow_up_date: '2026-05-18', follow_up_note: 'Send proposal draft' },
+      { id: 'local_c3', name: 'James Okonkwo', email: 'james@peakfit.io', phone: '(937) 555-0319', company: 'PeakFit Studios', status: 'Active', notes: 'Monthly retainer client since Jan 2026.', last_contacted: '2026-05-16', follow_up_date: null, follow_up_note: '' },
+      { id: 'local_c4', name: 'Diana Morales', email: 'diana@craftbrew.com', phone: '(513) 555-0477', company: 'CraftBrew Collective', status: 'Inactive', notes: 'Paused services in March. Re-engage later.', last_contacted: '2026-03-20', follow_up_date: '2026-05-20', follow_up_note: 'Check in about restarting services' },
+      { id: 'local_c5', name: 'Alex Thompson', email: 'alex@greenleaf.org', phone: '(937) 555-0561', company: 'Greenleaf Nonprofit', status: 'Lead', notes: 'Needs website redesign, budget TBD.', last_contacted: '2026-05-10', follow_up_date: '2026-05-22', follow_up_note: 'Follow up on budget approval' }
+    ];
+
+    const DEFAULT_LEADS = [
+      { id: 'local_l1', name: 'Sarah Chen', value: 4500, stage: 'New', notes: 'Branding package inquiry', date_added: '2026-05-12' },
+      { id: 'local_l2', name: 'Alex Thompson', value: 8000, stage: 'Contacted', notes: 'Website redesign discussion', date_added: '2026-05-10' },
+      { id: 'local_l3', name: 'Priya Patel', value: 12000, stage: 'Proposal Sent', notes: 'Full digital marketing suite', date_added: '2026-05-05' },
+      { id: 'local_l4', name: 'Marcus Rivera', value: 6500, stage: 'Closed', notes: 'Q3 expansion contract signed', date_added: '2026-04-28' }
+    ];
+
+    const DEFAULT_DEALS = [
+      { id: 'local_d1', client: 'Marcus Rivera', value: 6500, date_closed: '2026-05-14', status: 'Won', notes: 'Q3 expansion' },
+      { id: 'local_d2', client: 'James Okonkwo', value: 3200, date_closed: '2026-04-30', status: 'Won', notes: 'Monthly retainer setup' },
+      { id: 'local_d3', client: 'Linda Zhao', value: 5000, date_closed: '2026-04-15', status: 'Lost', notes: 'Went with competitor' },
+      { id: 'local_d4', client: 'Tom Baker', value: 2800, date_closed: '2026-05-01', status: 'Won', notes: 'Logo & brand guide' }
+    ];
+
+    const DEFAULT_ACTIVITIES = [
+      { id: 'local_a1', activity_type: 'contact_added', description: 'Added contact Sarah Chen', activity_date: '2026-05-12T09:15:00' },
+      { id: 'local_a2', activity_type: 'deal_won', description: 'Deal won: Marcus Rivera — $6,500', activity_date: '2026-05-14T14:30:00' },
+      { id: 'local_a3', activity_type: 'followup_set', description: 'Follow-up scheduled with Diana Morales', activity_date: '2026-05-15T10:00:00' },
+      { id: 'local_a4', activity_type: 'lead_moved', description: 'Lead Priya Patel moved to Proposal Sent', activity_date: '2026-05-15T11:45:00' },
+      { id: 'local_a5', activity_type: 'contact_updated', description: 'Updated notes for James Okonkwo', activity_date: '2026-05-16T16:20:00' },
+      { id: 'local_a6', activity_type: 'deal_lost', description: 'Deal lost: Linda Zhao — $5,000', activity_date: '2026-04-15T13:00:00' },
+      { id: 'local_a7', activity_type: 'contact_added', description: 'Added contact Alex Thompson', activity_date: '2026-05-10T08:00:00' }
+    ];
+
+    // Unified state — works with both Supabase and local
+    let STATE = { contacts: [], leads: [], deals: [], activities: [] };
+
+    // ==================== SUPABASE DATA OPERATIONS ====================
+    async function loadAllData() {
+      if (!currentUser || !supabaseAvailable) return;
+      try {
+        const [contactsRes, activitiesRes, dealsRes] = await Promise.all([
+          db.from('cf_contacts').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+          db.from('cf_activities').select('*').eq('user_id', currentUser.id).order('activity_date', { ascending: false }),
+          db.from('cf_deals').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+        ]);
+
+        STATE.contacts = contactsRes.data || [];
+        STATE.activities = activitiesRes.data || [];
+        STATE.deals = dealsRes.data || [];
+
+        // Leads are stored in contacts with a lead_stage field, or we keep them local
+        // For now, leads use the contacts table filtered by lead fields
+        // We'll manage leads in local state synced via contacts
+        STATE.leads = STATE.contacts.filter(c => c.lead_stage).map(c => ({
+          id: c.id,
+          name: c.name,
+          value: c.lead_value || 0,
+          stage: c.lead_stage,
+          notes: c.notes,
+          date_added: c.created_at
+        }));
+
+        // Filter out lead-only entries from contacts display
+        // (leads that also exist as contacts stay in both)
+
+        renderAll();
+      } catch(e) {
+        console.warn('Failed to load from Supabase, using local data:', e);
+        await loadLocalState();
+        renderAll();
+      }
+    }
+
+    async function saveContactToDb(contact) {
+      if (!currentUser || !supabaseAvailable) {
+        // Local mode — just update STATE
+        return;
+      }
+      try {
+        const payload = {
+          name: contact.name,
+          email: contact.email || '',
+          phone: contact.phone || '',
+          company: contact.company || '',
+          status: contact.status || 'Lead',
+          notes: contact.notes || '',
+          last_contacted: contact.last_contacted || new Date().toISOString().split('T')[0],
+          follow_up_date: contact.follow_up_date || null,
+          follow_up_note: contact.follow_up_note || '',
+          user_id: currentUser.id
+        };
+
+        if (contact.id && !String(contact.id).startsWith('local_')) {
+          await db.from('cf_contacts').update(payload).eq('id', contact.id).eq('user_id', currentUser.id);
+        } else {
+          const { data } = await db.from('cf_contacts').insert(payload).select();
+          if (data && data[0]) return data[0];
+        }
+      } catch(e) {
+        console.warn('Failed to save contact to DB:', e);
+      }
+      return contact;
+    }
+
+    async function deleteContactFromDb(id) {
+      if (!currentUser || !supabaseAvailable || String(id).startsWith('local_')) return;
+      try {
+        await db.from('cf_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
+      } catch(e) {
+        console.warn('Failed to delete contact from DB:', e);
+      }
+    }
+
+    async function saveActivityToDb(activity) {
+      if (!currentUser || !supabaseAvailable) return;
+      try {
+        const payload = {
+          activity_type: activity.activity_type,
+          description: activity.description,
+          activity_date: activity.activity_date || new Date().toISOString(),
+          user_id: currentUser.id
+        };
+        if (activity.id && !String(activity.id).startsWith('local_')) {
+          await db.from('cf_activities').update(payload).eq('id', activity.id).eq('user_id', currentUser.id);
+        } else {
+          delete payload.id;
+          await db.from('cf_activities').insert(payload);
+        }
+      } catch(e) {
+        console.warn('Failed to save activity to DB:', e);
+      }
+    }
+
+    async function saveDealToDb(deal) {
+      if (!currentUser || !supabaseAvailable) return;
+      try {
+        const payload = {
+          client: deal.client,
+          value: deal.value || 0,
+          date_closed: deal.date_closed,
+          status: deal.status,
+          notes: deal.notes || '',
+          user_id: currentUser.id
+        };
+        if (deal.id && !String(deal.id).startsWith('local_')) {
+          await db.from('cf_deals').update(payload).eq('id', deal.id).eq('user_id', currentUser.id);
+        } else {
+          delete payload.id;
+          await db.from('cf_deals').insert(payload);
+        }
+      } catch(e) {
+        console.warn('Failed to save deal to DB:', e);
+      }
+    }
+
+    async function deleteDealFromDb(id) {
+      if (!currentUser || !supabaseAvailable || String(id).startsWith('local_')) return;
+      try {
+        await db.from('cf_deals').delete().eq('id', id).eq('user_id', currentUser.id);
+      } catch(e) {
+        console.warn('Failed to delete deal from DB:', e);
+      }
+    }
+
+    // ==================== LOCAL FALLBACK ====================
+    async function loadLocalState() {
+      try {
+        if (window.AppSDK && window.AppSDK.list) {
+          const result = await window.AppSDK.list('crm_state');
+          if (result && result.documents && result.documents.length > 0) {
+            const doc = result.documents.find(d => d.entityType === 'main');
+            if (doc && doc.data && doc.data.contacts && doc.data.contacts.length > 0) {
+              STATE = doc.data;
+              return;
+            }
+          }
+        }
+      } catch(e) { /* fallback */ }
+      STATE = {
+        contacts: JSON.parse(JSON.stringify(DEFAULT_CONTACTS)),
+        leads: JSON.parse(JSON.stringify(DEFAULT_LEADS)),
+        deals: JSON.parse(JSON.stringify(DEFAULT_DEALS)),
+        activities: JSON.parse(JSON.stringify(DEFAULT_ACTIVITIES))
+      };
+    }
+
+    async function saveLocalState() {
+      try {
+        if (window.AppSDK && window.AppSDK.upsert) {
+          await window.AppSDK.upsert('crm_state', 'main', STATE);
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    // ==================== UNIFIED ADD ACTIVITY ====================
+    function addActivity(type, text) {
+      const activity = {
+        id: genId(),
+        activity_type: type,
+        description: text,
+        activity_date: new Date().toISOString()
+      };
+      STATE.activities.unshift(activity);
+      saveActivityToDb(activity);
+      saveLocalState();
+    }
+
+    // ==================== DISMISSED BANNERS ====================
+    let dismissedBanners = [];
+
+    async function loadDismissedBanners() {
+      try {
+        if (window.AppSDK) {
+          const doc = await window.AppSDK.get('dismissed_banners', 'list');
+          if (doc && doc.data && Array.isArray(doc.data.ids)) {
+            dismissedBanners = doc.data.ids;
+          }
+        }
+      } catch(e) { /* no dismissed banners yet */ }
+    }
+
+    async function saveDismissedBanners() {
+      try {
+        if (window.AppSDK) {
+          await window.AppSDK.upsert('dismissed_banners', 'list', { ids: dismissedBanners });
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    function showBannersForTab(tab) {
+      const bannerMap = {
+        dashboard: 'clientflow_leadcatcher_banner',
+        contacts: 'clientflow_proposalpro_banner',
+        leads: 'clientflow_bookit_banner'
+      };
+      document.querySelectorAll('.pairing-banner').forEach(b => {
+        b.classList.remove('visible');
+      });
+      const bannerId = bannerMap[tab];
+      if (bannerId && !dismissedBanners.includes(bannerId)) {
+        const el = document.getElementById('banner-' + bannerId);
+        if (el) {
+          requestAnimationFrame(() => { el.classList.add('visible'); });
+        }
+      }
+    }
+
+    function dismissBanner(bannerId) {
+      const el = document.getElementById('banner-' + bannerId);
+      if (el) {
+        el.classList.add('dismissing');
+        el.classList.remove('visible');
+        setTimeout(() => { el.style.display = 'none'; }, 450);
+      }
+      if (!dismissedBanners.includes(bannerId)) {
+        dismissedBanners.push(bannerId);
+        saveDismissedBanners();
+      }
+    }
+
+    document.querySelectorAll('.banner-dismiss-btn').forEach(btn => {
+      btn.addEventListener('click', () => { dismissBanner(btn.dataset.bannerId); });
+    });
+    document.querySelectorAll('.banner-connect-btn').forEach(btn => {
+      btn.addEventListener('click', () => { window.open('https://shopreneur.constructivedesignsinc.org', '_blank'); });
+    });
+    document.querySelectorAll('.banner-learn-btn').forEach(btn => {
+      btn.addEventListener('click', () => { window.open('https://shopreneur.constructivedesignsinc.org', '_blank'); });
+    });
+    document.getElementById('cdi-explore-btn').addEventListener('click', () => {
+      window.open('https://shopreneur.constructivedesignsinc.org', '_blank');
+    });
+
+    // ==================== HELP MODAL ====================
+    function openHelpModal() {
+      const modal = document.getElementById('help-modal');
+      modal.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      lucide.createIcons();
+    }
+    function closeHelpModal() {
+      const modal = document.getElementById('help-modal');
+      modal.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('help-btn').addEventListener('click', openHelpModal);
+    document.getElementById('mobile-help-btn').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      openHelpModal();
+    });
+    document.getElementById('help-modal-close').addEventListener('click', closeHelpModal);
+    document.getElementById('help-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeHelpModal();
+    });
+    document.querySelectorAll('.help-accordion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const content = btn.nextElementSibling;
+        const isOpen = content.classList.contains('open');
+        document.querySelectorAll('.help-accordion-content').forEach(c => c.classList.remove('open'));
+        document.querySelectorAll('.help-accordion-btn').forEach(b => b.classList.remove('active'));
+        if (!isOpen) { content.classList.add('open'); btn.classList.add('active'); }
+      });
+    });
+
+    // ==================== NAV ====================
+    let currentTab = 'dashboard';
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.querySelectorAll('.nav-link').forEach(el => {
+        el.classList.remove('active'); el.classList.add('text-muted');
+        if (el.dataset.nav === tab) { el.classList.add('active'); el.classList.remove('text-muted'); }
+      });
+      document.querySelectorAll('.mobile-nav-link').forEach(el => {
+        el.classList.remove('text-accent'); el.classList.add('text-muted');
+        if (el.dataset.nav === tab) { el.classList.add('text-accent'); el.classList.remove('text-muted'); }
+      });
+      if (tab === 'dashboard') renderDashboard();
+      if (tab === 'contacts') renderContacts();
+      if (tab === 'leads') renderKanban();
+      if (tab === 'deals') renderDeals();
+      if (tab === 'activity') renderActivity();
+      showBannersForTab(tab);
+    }
+
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.nav);
+        document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      });
+    });
+    document.getElementById('mobile-menu-btn-g7h8').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.remove('hidden');
+      lucide.createIcons();
+    });
+    document.getElementById('mobile-menu-close-k1l2').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+    });
+
+    // ==================== RENDER ALL ====================
+    function renderAll() {
+      renderDashboard();
+      renderContacts();
+      renderKanban();
+      renderDeals();
+      renderActivity();
+      showBannersForTab(currentTab);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ==================== DASHBOARD ====================
+    function getFollowupsDue() {
+      return STATE.contacts.filter(c => {
+        const fDate = c.follow_up_date ? new Date(c.follow_up_date + 'T00:00:00') : null;
+        if (!fDate) return false;
+        const diff = (fDate - TODAY) / (1000 * 60 * 60 * 24);
+        return diff <= 7 && diff >= -1;
+      });
+    }
+
+    function renderDashboard() {
+      const totalClients = STATE.contacts.length;
+      const activeLeads = STATE.leads.filter(l => l.stage !== 'Closed').length;
+      const dealsWon = STATE.deals.filter(d => d.status === 'Won').length;
+      const followupsDue = getFollowupsDue().length;
+
+      document.getElementById('stat-clients-u1v2').textContent = totalClients;
+      document.getElementById('stat-leads-w3x4').textContent = activeLeads;
+      document.getElementById('stat-won-y5z6').textContent = dealsWon;
+      document.getElementById('stat-followups-c4d5').textContent = followupsDue;
+
+      const dBadge = document.getElementById('followup-badge-desk-c3d4');
+      const mBadge = document.getElementById('followup-badge-mob-m3n4');
+      if (followupsDue > 0) {
+        dBadge.classList.remove('hidden'); dBadge.classList.add('flex'); dBadge.textContent = followupsDue;
+        mBadge.classList.remove('hidden'); mBadge.classList.add('inline-flex'); mBadge.textContent = followupsDue;
+      } else {
+        dBadge.classList.add('hidden'); dBadge.classList.remove('flex');
+        mBadge.classList.add('hidden'); mBadge.classList.remove('inline-flex');
+      }
+
+      const recentEl = document.getElementById('recent-contacts-e6f7');
+      const sorted = [...STATE.contacts].sort((a,b) => new Date(b.last_contacted || 0) - new Date(a.last_contacted || 0));
+      const recent = sorted.slice(0, 5);
+      recentEl.innerHTML = recent.length === 0 ? '<p class="text-muted text-sm">No contacts yet.</p>' : recent.map(c => {
+        const initials = c.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        const badgeClass = c.status === 'Lead' ? 'badge-lead' : c.status === 'Active' ? 'badge-active' : 'badge-inactive';
+        return `<div class="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.03] transition-colors">
+          <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-semibold shrink-0">${initials}</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${c.name}</p>
+            <p class="text-xs text-muted">${c.last_contacted ? formatDate(c.last_contacted) : 'Never'}</p>
+          </div>
+          <span class="badge ${badgeClass}">${c.status}</span>
+        </div>`;
+      }).join('');
+
+      const fuEl = document.getElementById('upcoming-followups-g8h9');
+      const fups = getFollowupsDue().sort((a,b) => new Date(a.follow_up_date) - new Date(b.follow_up_date));
+      fuEl.innerHTML = fups.length === 0 ? '<p class="text-muted text-sm">No follow-ups due. 🎉</p>' : fups.map(c => {
+        const isOverdue = new Date(c.follow_up_date + 'T00:00:00') < TODAY;
+        return `<div class="flex items-start gap-3 p-3 rounded-xl hover:bg-white/[0.03] transition-colors">
+          <div class="w-8 h-8 rounded-lg ${isOverdue ? 'bg-coral/15' : 'bg-accent/15'} flex items-center justify-center shrink-0 mt-0.5">
+            <i data-lucide="${isOverdue ? 'alert-triangle' : 'clock'}" class="w-4 h-4 ${isOverdue ? 'text-coral' : 'text-accent'}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium">${c.name} ${isOverdue ? '<span class="text-xs text-coral font-normal ml-1">Overdue</span>' : ''}</p>
+            <p class="text-xs text-muted">${formatDate(c.follow_up_date)} — ${c.follow_up_note || 'No note'}</p>
+          </div>
+        </div>`;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    // ==================== CONTACTS ====================
+    function renderContacts() {
+      const search = document.getElementById('contact-search-i0j1').value.toLowerCase();
+      const filter = document.getElementById('contact-filter-k2l3').value;
+      let filtered = STATE.contacts;
+      if (search) filtered = filtered.filter(c => c.name.toLowerCase().includes(search) || (c.email||'').toLowerCase().includes(search) || (c.company||'').toLowerCase().includes(search));
+      if (filter !== 'all') filtered = filtered.filter(c => c.status === filter);
+
+      const grid = document.getElementById('contacts-grid-m4n5');
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-16"><i data-lucide="users" class="w-12 h-12 text-muted/50 mx-auto mb-3"></i><p class="text-muted">No contacts found.</p></div>';
+        lucide.createIcons();
+        return;
+      }
+
+      grid.innerHTML = filtered.map(c => {
+        const initials = c.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        const badgeClass = c.status === 'Lead' ? 'badge-lead' : c.status === 'Active' ? 'badge-active' : 'badge-inactive';
+        const colors = c.status === 'Lead' ? 'bg-accent/20 text-accent' : c.status === 'Active' ? 'bg-success/20 text-success' : 'bg-gray-500/20 text-gray-400';
+        return `<div class="bg-bg-card rounded-2xl border border-border p-5 card-hover" data-contact-id="${c.id}">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full ${colors} flex items-center justify-center text-sm font-bold shrink-0">${initials}</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm truncate">${c.name}</p>
+              <p class="text-xs text-muted truncate">${c.company || 'No company'}</p>
+            </div>
+            <span class="badge ${badgeClass}">${c.status}</span>
+          </div>
+          <div class="space-y-2 mb-4 text-xs text-muted">
+            <div class="flex items-center gap-2"><i data-lucide="mail" class="w-3.5 h-3.5"></i><span class="truncate">${c.email || '—'}</span></div>
+            <div class="flex items-center gap-2"><i data-lucide="phone" class="w-3.5 h-3.5"></i><span>${c.phone || '—'}</span></div>
+            <div class="flex items-center gap-2"><i data-lucide="calendar" class="w-3.5 h-3.5"></i><span>Last: ${c.last_contacted ? formatDate(c.last_contacted) : 'Never'}</span></div>
+          </div>
+          <div class="contact-notes-area mb-4">
+            <p class="text-xs text-muted mb-1">Notes:</p>
+            <p class="text-xs text-gray-300 contact-notes-display cursor-pointer hover:bg-white/5 rounded-lg px-2 py-1.5 transition-colors" data-cid="${c.id}" title="Click to edit">${c.notes || 'Click to add notes...'}</p>
+          </div>
+          <div class="flex gap-2">
+            <button class="edit-contact-btn flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors" data-cid="${c.id}"><i data-lucide="pencil" class="w-3 h-3"></i> Edit</button>
+            <button class="followup-contact-btn flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-400 bg-blue-400/10 rounded-lg hover:bg-blue-400/20 transition-colors" data-cid="${c.id}"><i data-lucide="clock" class="w-3 h-3"></i> Follow-up</button>
+            <button class="delete-contact-btn flex items-center justify-center p-2 text-xs text-coral bg-coral/10 rounded-lg hover:bg-coral/20 transition-colors" data-cid="${c.id}"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+
+      grid.querySelectorAll('.edit-contact-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditContact(btn.dataset.cid));
+      });
+      grid.querySelectorAll('.delete-contact-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteContact(btn.dataset.cid));
+      });
+      grid.querySelectorAll('.followup-contact-btn').forEach(btn => {
+        btn.addEventListener('click', () => openFollowupModal(btn.dataset.cid));
+      });
+      grid.querySelectorAll('.contact-notes-display').forEach(el => {
+        el.addEventListener('click', () => startInlineEdit(el, el.dataset.cid));
+      });
+
+      lucide.createIcons();
+    }
+
+    function startInlineEdit(el, cid) {
+      const contact = STATE.contacts.find(c => String(c.id) === String(cid));
+      if (!contact) return;
+      const input = document.createElement('textarea');
+      input.className = 'w-full bg-bg-elevated border border-accent rounded-lg px-2 py-1.5 text-xs text-white resize-none focus:outline-none';
+      input.rows = 2;
+      input.value = contact.notes || '';
+      el.replaceWith(input);
+      input.focus();
+
+      const save = async () => {
+        contact.notes = input.value;
+        contact.last_contacted = TODAY.toISOString().split('T')[0];
+        addActivity('contact_updated', `Updated notes for ${contact.name}`);
+        await saveContactToDb(contact);
+        saveLocalState();
+        renderContacts();
+      };
+      input.addEventListener('blur', save);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); } });
+    }
+
+    document.getElementById('contact-search-i0j1').addEventListener('input', renderContacts);
+    document.getElementById('contact-filter-k2l3').addEventListener('change', renderContacts);
+
+    // ==================== CONTACT MODAL ====================
+    function openContactModal(editId) {
+      const modal = document.getElementById('contact-modal-k8l9');
+      modal.classList.remove('hidden');
+      const title = document.getElementById('modal-title-m0n1');
+      const idField = document.getElementById('edit-contact-id-s6t7');
+
+      if (editId) {
+        const c = STATE.contacts.find(x => String(x.id) === String(editId));
+        if (!c) return;
+        title.textContent = 'Edit Contact';
+        idField.value = editId;
+        document.getElementById('cf-name-u8v9').value = c.name;
+        document.getElementById('cf-email-w0x1').value = c.email || '';
+        document.getElementById('cf-phone-y2z3').value = c.phone || '';
+        document.getElementById('cf-company-a4b5').value = c.company || '';
+        document.getElementById('cf-status-c6d7').value = c.status;
+        document.getElementById('cf-notes-e8f9').value = c.notes || '';
+      } else {
+        title.textContent = 'Add Contact';
+        idField.value = '';
+        document.getElementById('contact-form-q4r5').reset();
+      }
+    }
+
+    function closeContactModal() {
+      document.getElementById('contact-modal-k8l9').classList.add('hidden');
+    }
+
+    function openEditContact(cid) { openContactModal(cid); }
+
+    document.getElementById('add-contact-btn-e5f6').addEventListener('click', () => openContactModal(null));
+    document.getElementById('mobile-add-contact-btn-o5p6').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      openContactModal(null);
+    });
+    document.getElementById('modal-close-o2p3').addEventListener('click', closeContactModal);
+    document.getElementById('modal-cancel-g0h1').addEventListener('click', closeContactModal);
+    document.getElementById('contact-modal-k8l9').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeContactModal(); });
+
+    document.getElementById('contact-form-q4r5').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('edit-contact-id-s6t7').value;
+      const data = {
+        name: document.getElementById('cf-name-u8v9').value.trim(),
+        email: document.getElementById('cf-email-w0x1').value.trim(),
+        phone: document.getElementById('cf-phone-y2z3').value.trim(),
+        company: document.getElementById('cf-company-a4b5').value.trim(),
+        status: document.getElementById('cf-status-c6d7').value,
+        notes: document.getElementById('cf-notes-e8f9').value.trim()
+      };
+
+      if (editId) {
+        const idx = STATE.contacts.findIndex(c => String(c.id) === String(editId));
+        if (idx > -1) {
+          STATE.contacts[idx] = { ...STATE.contacts[idx], ...data };
+          addActivity('contact_updated', `Updated contact ${data.name}`);
+          await saveContactToDb(STATE.contacts[idx]);
+        }
+      } else {
+        const newContact = {
+          id: genId(),
+          ...data,
+          last_contacted: TODAY.toISOString().split('T')[0],
+          follow_up_date: null,
+          follow_up_note: ''
+        };
+        const saved = await saveContactToDb(newContact);
+        if (saved && saved.id && !String(saved.id).startsWith('local_')) {
+          newContact.id = saved.id;
+        }
+        STATE.contacts.push(newContact);
+        addActivity('contact_added', `Added contact ${data.name}`);
+      }
+      saveLocalState();
+      closeContactModal();
+      renderContacts();
+      renderDashboard();
+    });
+
+    async function deleteContact(cid) {
+      const c = STATE.contacts.find(x => String(x.id) === String(cid));
+      if (!c) return;
+      if (!confirm(`Delete ${c.name}?`)) return;
+      STATE.contacts = STATE.contacts.filter(x => String(x.id) !== String(cid));
+      addActivity('contact_deleted', `Deleted contact ${c.name}`);
+      await deleteContactFromDb(cid);
+      saveLocalState();
+      renderContacts();
+      renderDashboard();
+    }
+
+    // ==================== FOLLOW-UP MODAL ====================
+    function openFollowupModal(cid) {
+      document.getElementById('followup-modal-y8z9').classList.remove('hidden');
+      document.getElementById('fu-contact-id-e4f5').value = cid;
+      document.getElementById('fu-date-g6h7').value = '';
+      document.getElementById('fu-note-i8j9').value = '';
+    }
+
+    document.getElementById('followup-modal-close-a0b1').addEventListener('click', () => {
+      document.getElementById('followup-modal-y8z9').classList.add('hidden');
+    });
+    document.getElementById('followup-modal-y8z9').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) document.getElementById('followup-modal-y8z9').classList.add('hidden');
+    });
+
+    document.getElementById('followup-form-c2d3').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const cid = document.getElementById('fu-contact-id-e4f5').value;
+      const c = STATE.contacts.find(x => String(x.id) === String(cid));
+      if (!c) return;
+      c.follow_up_date = document.getElementById('fu-date-g6h7').value;
+      c.follow_up_note = document.getElementById('fu-note-i8j9').value.trim();
+      addActivity('followup_set', `Follow-up scheduled with ${c.name} for ${formatDate(c.follow_up_date)}`);
+      await saveContactToDb(c);
+      saveLocalState();
+      document.getElementById('followup-modal-y8z9').classList.add('hidden');
+      renderDashboard();
+      renderContacts();
+    });
+
+    // ==================== LEADS / KANBAN ====================
+    function renderKanban() {
+      const stages = ['New', 'Contacted', 'Proposal Sent', 'Closed'];
+      stages.forEach(stage => {
+        const container = document.querySelector(`[data-drop="${stage}"]`);
+        const leads = STATE.leads.filter(l => l.stage === stage);
+        const countId = stage === 'New' ? 'count-new-s0t1' : stage === 'Contacted' ? 'count-contacted-u2v3' : stage === 'Proposal Sent' ? 'count-proposal-w4x5' : 'count-closed-y6z7';
+        document.getElementById(countId).textContent = leads.length;
+
+        container.innerHTML = leads.length === 0 ? '<p class="text-xs text-muted/50 text-center py-8">Drop leads here</p>' : leads.map(l => `
+          <div class="kanban-card bg-bg-elevated rounded-xl border border-border p-4 hover:border-accent/30 transition-colors" draggable="true" data-lead-id="${l.id}">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-semibold truncate">${l.name}</p>
+              <button class="delete-lead-btn p-1 rounded hover:bg-coral/20 text-muted hover:text-coral transition-colors" data-lid="${l.id}"><i data-lucide="x" class="w-3 h-3"></i></button>
+            </div>
+            <p class="text-accent font-bold text-sm tabular-nums mb-1">$${l.value ? l.value.toLocaleString() : '0'}</p>
+            <p class="text-xs text-muted mb-2">${l.notes || 'No notes'}</p>
+            <p class="text-[10px] text-muted/60">Added ${formatDate(l.date_added)}</p>
+          </div>
+        `).join('');
+      });
+
+      document.querySelectorAll('.kanban-card[draggable]').forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', card.dataset.leadId);
+          card.classList.add('dragging');
+        });
+        card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      });
+
+      document.querySelectorAll('[data-drop]').forEach(zone => {
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.parentElement.classList.add('drop-zone-active'); });
+        zone.addEventListener('dragleave', () => zone.parentElement.classList.remove('drop-zone-active'));
+        zone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          zone.parentElement.classList.remove('drop-zone-active');
+          const leadId = e.dataTransfer.getData('text/plain');
+          const newStage = zone.dataset.drop;
+          const lead = STATE.leads.find(l => String(l.id) === String(leadId));
+          if (lead && lead.stage !== newStage) {
+            const oldStage = lead.stage;
+            lead.stage = newStage;
+            addActivity('lead_moved', `Lead ${lead.name} moved from ${oldStage} to ${newStage}`);
+            saveLocalState();
+            renderKanban();
+            renderDashboard();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-lead-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const lid = btn.dataset.lid;
+          const lead = STATE.leads.find(l => String(l.id) === String(lid));
+          if (lead && confirm(`Remove lead ${lead.name}?`)) {
+            STATE.leads = STATE.leads.filter(l => String(l.id) !== String(lid));
+            addActivity('lead_removed', `Removed lead ${lead.name}`);
+            saveLocalState();
+            renderKanban();
+            renderDashboard();
+          }
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    document.getElementById('add-lead-btn-o6p7').addEventListener('click', () => {
+      document.getElementById('lead-modal-i2j3').classList.remove('hidden');
+      document.getElementById('lead-form-m6n7').reset();
+    });
+    document.getElementById('lead-modal-close-k4l5').addEventListener('click', () => document.getElementById('lead-modal-i2j3').classList.add('hidden'));
+    document.getElementById('lead-modal-cancel-w6x7').addEventListener('click', () => document.getElementById('lead-modal-i2j3').classList.add('hidden'));
+    document.getElementById('lead-modal-i2j3').addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('lead-modal-i2j3').classList.add('hidden'); });
+
+    document.getElementById('lead-form-m6n7').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newLead = {
+        id: genId(),
+        name: document.getElementById('lf-name-o8p9').value.trim(),
+        value: parseInt(document.getElementById('lf-value-q0r1').value) || 0,
+        stage: document.getElementById('lf-stage-s2t3').value,
+        notes: document.getElementById('lf-notes-u4v5').value.trim(),
+        date_added: TODAY.toISOString().split('T')[0]
+      };
+      STATE.leads.push(newLead);
+      addActivity('lead_added', `Added lead ${newLead.name} ($${newLead.value.toLocaleString()})`);
+      saveLocalState();
+      document.getElementById('lead-modal-i2j3').classList.add('hidden');
+      renderKanban();
+      renderDashboard();
+    });
+
+    // ==================== DEALS ====================
+    function renderDeals() {
+      const wonDeals = STATE.deals.filter(d => d.status === 'Won');
+      const totalRevenue = wonDeals.reduce((s, d) => s + (d.value || 0), 0);
+      const avgDeal = wonDeals.length > 0 ? Math.round(totalRevenue / wonDeals.length) : 0;
+      const winRate = STATE.deals.length > 0 ? Math.round((wonDeals.length / STATE.deals.length) * 100) : 0;
+
+      document.getElementById('deals-revenue-a8b9').textContent = '$' + totalRevenue.toLocaleString();
+      document.getElementById('deals-avg-c0d1').textContent = '$' + avgDeal.toLocaleString();
+      document.getElementById('deals-winrate-e2f3').textContent = winRate + '%';
+
+      const tbody = document.getElementById('deals-table-body-g4h5');
+      tbody.innerHTML = STATE.deals.length === 0 ? '<tr><td colspan="5" class="px-5 py-10 text-center text-muted">No deals yet.</td></tr>' :
+        [...STATE.deals].sort((a,b) => new Date(b.date_closed || 0) - new Date(a.date_closed || 0)).map(d => {
+          const statusClass = d.status === 'Won' ? 'badge-won' : 'badge-lost';
+          return `<tr class="hover:bg-white/[0.02] transition-colors">
+            <td class="px-5 py-4 font-medium text-sm">${d.client}</td>
+            <td class="px-5 py-4 text-sm text-right tabular-nums font-semibold ${d.status === 'Won' ? 'text-success' : 'text-coral'}">$${(d.value||0).toLocaleString()}</td>
+            <td class="px-5 py-4 text-sm text-muted">${d.date_closed ? formatDate(d.date_closed) : '—'}</td>
+            <td class="px-5 py-4"><span class="badge ${statusClass}">${d.status}</span></td>
+            <td class="px-5 py-4 text-sm text-muted">${d.notes || '—'}</td>
+          </tr>`;
+        }).join('');
+    }
+
+    // ==================== ACTIVITY ====================
+    function renderActivity() {
+      const timeline = document.getElementById('activity-timeline-i6j7');
+      const sorted = [...STATE.activities].sort((a,b) => new Date(b.activity_date || 0) - new Date(a.activity_date || 0));
+
+      const iconMap = {
+        contact_added: { icon: 'user-plus', color: 'text-accent', bg: 'bg-accent/15' },
+        contact_updated: { icon: 'pencil', color: 'text-blue-400', bg: 'bg-blue-400/15' },
+        contact_deleted: { icon: 'user-minus', color: 'text-coral', bg: 'bg-coral/15' },
+        deal_won: { icon: 'trophy', color: 'text-success', bg: 'bg-success/15' },
+        deal_lost: { icon: 'thumbs-down', color: 'text-coral', bg: 'bg-coral/15' },
+        followup_set: { icon: 'clock', color: 'text-yellow-400', bg: 'bg-yellow-400/15' },
+        lead_moved: { icon: 'arrow-right', color: 'text-accent-light', bg: 'bg-accent/15' },
+        lead_added: { icon: 'target', color: 'text-accent', bg: 'bg-accent/15' },
+        lead_removed: { icon: 'x-circle', color: 'text-coral', bg: 'bg-coral/15' }
+      };
+
+      timeline.innerHTML = '<div class="timeline-line"></div>' + (sorted.length === 0 ? '<p class="text-muted text-sm ml-4">No activity yet.</p>' :
+        sorted.map(a => {
+          const type = a.activity_type || 'contact_added';
+          const cfg = iconMap[type] || { icon: 'circle', color: 'text-muted', bg: 'bg-white/10' };
+          const dt = new Date(a.activity_date || Date.now());
+          const timeStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          return `<div class="relative flex gap-4 items-start">
+            <div class="w-10 h-10 rounded-full ${cfg.bg} flex items-center justify-center shrink-0 z-10">
+              <i data-lucide="${cfg.icon}" class="w-4 h-4 ${cfg.color}"></i>
+            </div>
+            <div class="flex-1 pb-2">
+              <p class="text-sm">${a.description || ''}</p>
+              <p class="text-xs text-muted mt-0.5">${timeStr}</p>
+            </div>
+          </div>`;
+        }).join(''));
+
+      lucide.createIcons();
+    }
+
+    // ==================== INIT ====================
+    async function init() {
+      await loadDismissedBanners();
+      await initAuth();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    init();
+    </script>
+</body>
+</html>

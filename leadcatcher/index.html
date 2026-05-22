@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>LeadCatcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: { base: '#0f1117', card: '#1a1d2e', elevated: '#222640', hover: '#252a3d' },
+            accent: { DEFAULT: '#fb923c', light: '#fdba74', dark: '#ea770d' },
+            success: '#4ade80',
+            muted: '#8b8fa8',
+            danger: '#f87171',
+            stroke: 'rgba(255,255,255,0.08)',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f1117; color: #e2e4ed; font-family: 'Inter', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    .tab-active { color: #fb923c; border-bottom: 2px solid #fb923c; }
+    .tab-inactive { color: #8b8fa8; border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: #e2e4ed; }
+    .kanban-col { min-width: 260px; }
+    .badge-hot { background: rgba(251,146,60,0.18); color: #fb923c; }
+    .badge-warm { background: rgba(253,186,116,0.18); color: #fdba74; }
+    .badge-cold { background: rgba(139,143,168,0.18); color: #8b8fa8; }
+    .funnel-bar { transition: width 0.8s ease; }
+    .card-transition { transition: all 0.2s ease; }
+    .card-transition:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .gauge-ring { transition: stroke-dashoffset 1s ease; }
+    .modal-overlay { background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+    input, select, textarea {
+      background: #222640;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #e2e4ed;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #fb923c;
+      box-shadow: 0 0 0 2px rgba(251,146,60,0.2);
+    }
+    .notification-dot {
+      position: absolute; top: -2px; right: -6px;
+      width: 16px; height: 16px; background: #fb923c;
+      border-radius: 50%; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      color: #0f1117;
+    }
+
+    .help-modal-overlay {
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    .help-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .help-modal-content {
+      transform: translateY(30px) scale(0.97);
+      opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease;
+    }
+    .help-modal-overlay.active .help-modal-content {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .accordion-trigger {
+      cursor: pointer;
+      user-select: none;
+    }
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.16,1,0.3,1), padding 0.3s ease;
+    }
+    .accordion-body.open {
+      max-height: 600px;
+    }
+    .accordion-chevron {
+      transition: transform 0.3s ease;
+    }
+    .accordion-chevron.rotated {
+      transform: rotate(180deg);
+    }
+
+    .pairing-banner {
+      border-radius: 0.75rem;
+      overflow: hidden;
+      animation: bannerSlideIn 0.4s cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes bannerSlideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .pairing-banner.dismissing {
+      animation: bannerSlideOut 0.3s ease forwards;
+    }
+    @keyframes bannerSlideOut {
+      to { opacity: 0; transform: translateY(-8px); height: 0; margin: 0; padding: 0; border: 0; }
+    }
+
+    .cdi-footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 90;
+      height: 44px;
+      background: linear-gradient(to right, #1a1d2e, #0f1117);
+      border-top: 1px solid rgba(251, 146, 60, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1rem;
+    }
+    .cdi-explore-btn {
+      background: linear-gradient(to right, #fb923c, #fdba74);
+      color: #0f1117;
+      font-weight: 600;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.875rem;
+      border-radius: 9999px;
+      white-space: nowrap;
+      transition: filter 0.2s ease;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .cdi-explore-btn:hover {
+      filter: brightness(1.15);
+    }
+
+    /* Auth modal */
+    .auth-modal-overlay {
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(12px);
+    }
+    .auth-tab-active {
+      color: #fb923c;
+      border-bottom: 2px solid #fb923c;
+    }
+    .auth-tab-inactive {
+      color: #8b8fa8;
+      border-bottom: 2px solid transparent;
+    }
+    .auth-tab-inactive:hover { color: #e2e4ed; }
+    .auth-input {
+      background: #222640 !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+      color: #e2e4ed !important;
+    }
+    .auth-input:focus {
+      border-color: #fb923c !important;
+      box-shadow: 0 0 0 2px rgba(251,146,60,0.2) !important;
+    }
+    .auth-error-pill {
+      background: rgba(248,113,113,0.15);
+      color: #f87171;
+      border: 1px solid rgba(248,113,113,0.3);
+    }
+    .auth-success-pill {
+      background: rgba(74,222,128,0.15);
+      color: #4ade80;
+      border: 1px solid rgba(74,222,128,0.3);
+    }
+
+    /* Hide app content when not authed */
+    .app-hidden { display: none !important; }
+  </style>
+</head>
+<body data-id="0" class="min-h-screen flex flex-col">
+  <app-icon data-id="1" hidden data-icon="target" data-palette="Earth"></app-icon>
+
+  <!-- AUTH MODAL -->
+  <div data-id="2" id="auth-modal" class="auth-modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none;">
+    <div data-id="3" class="w-full max-w-[420px] mx-auto">
+      <div data-id="4" class="bg-bg-card rounded-2xl border border-stroke shadow-2xl overflow-hidden">
+        <!-- Auth Header -->
+        <div data-id="5" class="px-8 pt-8 pb-5 text-center border-b border-stroke bg-gradient-to-br from-bg-card to-bg-elevated">
+          <div data-id="6" class="flex items-center justify-center gap-2 mb-2">
+            <i data-id="7" data-lucide="target" class="w-7 h-7 text-accent"></i>
+            <span data-id="8" class="font-bold text-2xl tracking-tight text-accent">LeadCatcher</span>
+          </div>
+          <p data-id="9" class="text-xs text-muted">by Constructive Designs Inc.</p>
+        </div>
+
+        <!-- Auth Tabs -->
+        <div data-id="10" class="flex border-b border-stroke">
+          <button data-id="11" id="auth-tab-signin" class="flex-1 py-3 text-sm font-semibold auth-tab-active cursor-pointer transition-colors">Sign In</button>
+          <button data-id="12" id="auth-tab-signup" class="flex-1 py-3 text-sm font-semibold auth-tab-inactive cursor-pointer transition-colors">Sign Up</button>
+        </div>
+
+        <!-- Error/Success Messages -->
+        <div data-id="13" id="auth-message" class="mx-6 mt-4 hidden">
+          <div data-id="14" id="auth-message-content" class="px-4 py-2.5 rounded-full text-xs font-medium text-center"></div>
+        </div>
+
+        <!-- Sign In Form -->
+        <div data-id="15" id="auth-signin-form" class="p-6 space-y-4">
+          <div data-id="16">
+            <label data-id="17" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Email</label>
+            <input data-id="18" id="auth-signin-email" type="email" class="w-full auth-input" placeholder="you@company.com" />
+          </div>
+          <div data-id="19">
+            <label data-id="20" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Password</label>
+            <input data-id="21" id="auth-signin-password" type="password" class="w-full auth-input" placeholder="••••••••" />
+          </div>
+          <button data-id="22" id="auth-signin-btn" class="w-full bg-accent hover:bg-accent-dark text-bg-base font-semibold py-3 rounded-lg transition-colors cursor-pointer text-sm">Sign In</button>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div data-id="23" id="auth-signup-form" class="p-6 space-y-4 hidden">
+          <div data-id="24">
+            <label data-id="25" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Business Name</label>
+            <input data-id="26" id="auth-signup-business" type="text" class="w-full auth-input" placeholder="Your Business Name" />
+          </div>
+          <div data-id="27">
+            <label data-id="28" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Email</label>
+            <input data-id="29" id="auth-signup-email" type="email" class="w-full auth-input" placeholder="you@company.com" />
+          </div>
+          <div data-id="30">
+            <label data-id="31" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Password</label>
+            <input data-id="32" id="auth-signup-password" type="password" class="w-full auth-input" placeholder="••••••••" />
+          </div>
+          <div data-id="33">
+            <label data-id="34" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1.5">Confirm Password</label>
+            <input data-id="35" id="auth-signup-confirm" type="password" class="w-full auth-input" placeholder="••••••••" />
+          </div>
+          <button data-id="36" id="auth-signup-btn" class="w-full bg-accent hover:bg-accent-dark text-bg-base font-semibold py-3 rounded-lg transition-colors cursor-pointer text-sm">Create Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header data-id="37" id="header-nav-a1b2" class="sticky top-0 z-50 bg-bg-base/95 backdrop-blur border-b border-stroke app-content">
+    <div data-id="38" class="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between h-14">
+      <div data-id="39" class="flex items-center gap-2">
+        <i data-id="40" data-lucide="target" class="w-6 h-6 text-accent"></i>
+        <span data-id="41" class="font-bold text-lg tracking-tight">LeadCatcher</span>
+      </div>
+      <nav data-id="42" id="desktop-nav-c3d4" class="hidden md:flex items-center gap-1">
+        <button data-id="43" class="tab-btn tab-active px-3 py-4 text-sm font-medium cursor-pointer" data-tab="dashboard">Dashboard</button>
+        <button data-id="44" class="tab-btn tab-inactive px-3 py-4 text-sm font-medium cursor-pointer" data-tab="pipeline">Pipeline</button>
+        <button data-id="45" class="tab-btn tab-inactive px-3 py-4 text-sm font-medium cursor-pointer relative" data-tab="leads">
+          Leads
+          <span data-id="46" id="lead-notif-badge" class="notification-dot">3</span>
+        </button>
+        <button data-id="47" class="tab-btn tab-inactive px-3 py-4 text-sm font-medium cursor-pointer" data-tab="forms">Forms</button>
+        <button data-id="48" class="tab-btn tab-inactive px-3 py-4 text-sm font-medium cursor-pointer" data-tab="analytics">Analytics</button>
+      </nav>
+      <div data-id="49" class="flex items-center gap-3">
+        <!-- User badge -->
+        <div data-id="50" id="user-badge" class="hidden md:flex items-center gap-2">
+          <div data-id="51" class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+            <span data-id="52" id="user-avatar-letter" class="text-xs font-bold text-accent">H</span>
+          </div>
+          <span data-id="53" id="user-email-display" class="text-xs text-muted max-w-[140px] truncate hidden lg:inline"></span>
+          <button data-id="54" id="signout-btn" class="text-xs text-muted hover:text-danger transition-colors cursor-pointer px-2 py-1 rounded border border-stroke hover:border-danger/40" title="Sign Out">
+            <i data-id="55" data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <button data-id="56" id="help-btn" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full border border-stroke text-muted hover:text-accent hover:border-accent transition-colors cursor-pointer" title="Help">
+          <span data-id="57" class="text-sm font-bold">?</span>
+        </button>
+        <button data-id="58" id="add-lead-btn-e5f6" class="hidden md:flex items-center gap-2 bg-accent hover:bg-accent-dark text-bg-base font-semibold text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer">
+          <i data-id="59" data-lucide="plus" class="w-4 h-4"></i> Add Lead
+        </button>
+        <button data-id="60" id="mobile-menu-btn-g7h8" class="md:hidden p-2 cursor-pointer">
+          <i data-id="61" data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MOBILE MENU -->
+  <nav data-id="62" id="mobile-menu-i9j0" class="hidden fixed inset-0 bg-bg-base z-[60] flex flex-col p-5">
+    <div data-id="63" class="flex items-center justify-between mb-8">
+      <div data-id="64" class="flex items-center gap-2">
+        <i data-id="65" data-lucide="target" class="w-6 h-6 text-accent"></i>
+        <span data-id="66" class="font-bold text-lg">LeadCatcher</span>
+      </div>
+      <button data-id="67" id="mobile-menu-close-k1l2" class="p-2 cursor-pointer">
+        <i data-id="68" data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+    <!-- Mobile user badge -->
+    <div data-id="69" id="mobile-user-badge" class="flex items-center gap-3 mb-6 p-3 rounded-lg bg-bg-card border border-stroke">
+      <div data-id="70" class="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
+        <span data-id="71" id="mobile-user-avatar-letter" class="text-sm font-bold text-accent">H</span>
+      </div>
+      <div data-id="72" class="flex-1 min-w-0">
+        <p data-id="73" id="mobile-user-email" class="text-xs text-muted truncate"></p>
+      </div>
+      <button data-id="74" id="mobile-signout-btn" class="text-xs text-muted hover:text-danger transition-colors cursor-pointer p-2 rounded border border-stroke hover:border-danger/40" title="Sign Out">
+        <i data-id="75" data-lucide="log-out" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div data-id="76" class="flex flex-col gap-1">
+      <button data-id="77" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-accent bg-bg-card cursor-pointer" data-tab="dashboard">Dashboard</button>
+      <button data-id="78" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:text-white cursor-pointer" data-tab="pipeline">Pipeline</button>
+      <button data-id="79" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:text-white cursor-pointer relative" data-tab="leads">Leads <span data-id="80" class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-bg-base text-xs font-bold">3</span></button>
+      <button data-id="81" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:text-white cursor-pointer" data-tab="forms">Forms</button>
+      <button data-id="82" class="mobile-tab-btn text-left px-4 py-3 rounded-lg text-base font-medium text-muted hover:text-white cursor-pointer" data-tab="analytics">Analytics</button>
+    </div>
+    <button data-id="83" id="mobile-help-btn" class="mt-4 flex items-center justify-center gap-2 border border-stroke text-muted hover:text-accent rounded-lg px-4 py-3 cursor-pointer">
+      <span data-id="84" class="text-sm font-bold">?</span> Help Guide
+    </button>
+    <button data-id="85" id="mobile-add-lead-btn-m3n4" class="mt-2 flex items-center justify-center gap-2 bg-accent text-bg-base font-semibold px-4 py-3 rounded-lg cursor-pointer">
+      <i data-id="86" data-lucide="plus" class="w-4 h-4"></i> Add Lead
+    </button>
+  </nav>
+
+  <!-- HELP MODAL -->
+  <div data-id="87" id="help-modal" class="help-modal-overlay fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto">
+    <div data-id="88" class="help-modal-content w-full max-w-2xl mx-4 my-8 md:my-16">
+      <div data-id="89" class="bg-bg-card rounded-2xl border border-stroke shadow-2xl overflow-hidden">
+        <div data-id="90" class="relative px-6 pt-6 pb-5 border-b border-stroke bg-gradient-to-br from-bg-card to-bg-elevated">
+          <button data-id="91" id="help-close-btn" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-bg-base/60 hover:bg-bg-base flex items-center justify-center text-muted hover:text-white transition-colors cursor-pointer">
+            <i data-id="92" data-lucide="x" class="w-5 h-5"></i>
+          </button>
+          <div data-id="93" class="flex items-center gap-3 mb-3">
+            <div data-id="94" class="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center">
+              <i data-id="95" data-lucide="target" class="w-5 h-5 text-accent"></i>
+            </div>
+            <h2 data-id="96" class="text-xl font-bold">How to Use LeadCatcher</h2>
+          </div>
+          <p data-id="97" class="text-sm text-muted leading-relaxed max-w-lg">
+            LeadCatcher is your all-in-one lead management dashboard. Track prospects from first contact to closed deal, visualize your sales funnel, capture leads with embeddable forms, and monitor performance with real-time analytics.
+          </p>
+        </div>
+
+        <div data-id="98" class="divide-y divide-stroke">
+          <div data-id="99" class="help-accordion">
+            <div data-id="100" class="accordion-trigger flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors">
+              <div data-id="101" class="flex items-center gap-3">
+                <div data-id="102" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <i data-id="103" data-lucide="layout-dashboard" class="w-4 h-4 text-accent"></i>
+                </div>
+                <span data-id="104" class="font-semibold text-sm">Dashboard</span>
+              </div>
+              <i data-id="105" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+            </div>
+            <div data-id="106" class="accordion-body">
+              <div data-id="107" class="px-6 pb-5">
+                <p data-id="108" class="text-xs text-muted mb-3">Your command center — see key metrics and recent activity at a glance.</p>
+                <ol data-id="109" class="space-y-2 text-sm text-muted/90">
+                  <li data-id="110" class="flex gap-2"><span data-id="111" class="text-accent font-bold tabular-nums shrink-0">1.</span><span data-id="112">Review the <strong data-id="113" class="text-white font-medium">stat cards</strong> at the top: Total Leads, Hot Leads, Converted, and This Week's new leads.</span></li>
+                  <li data-id="114" class="flex gap-2"><span data-id="115" class="text-accent font-bold tabular-nums shrink-0">2.</span><span data-id="116">Check the <strong data-id="117" class="text-white font-medium">Sales Funnel</strong> visualization to see how leads are distributed across pipeline stages.</span></li>
+                  <li data-id="118" class="flex gap-2"><span data-id="119" class="text-accent font-bold tabular-nums shrink-0">3.</span><span data-id="120">Scan <strong data-id="121" class="text-white font-medium">Recent Activity</strong> to stay on top of the latest lead interactions and updates.</span></li>
+                  <li data-id="122" class="flex gap-2"><span data-id="123" class="text-accent font-bold tabular-nums shrink-0">4.</span><span data-id="124">Analyze <strong data-id="125" class="text-white font-medium">Top Sources</strong> to understand where your best leads are coming from.</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div data-id="126" class="help-accordion">
+            <div data-id="127" class="accordion-trigger flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors">
+              <div data-id="128" class="flex items-center gap-3">
+                <div data-id="129" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <i data-id="130" data-lucide="columns-3" class="w-4 h-4 text-accent"></i>
+                </div>
+                <span data-id="131" class="font-semibold text-sm">Pipeline</span>
+              </div>
+              <i data-id="132" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+            </div>
+            <div data-id="133" class="accordion-body">
+              <div data-id="134" class="px-6 pb-5">
+                <p data-id="135" class="text-xs text-muted mb-3">A Kanban-style board to visually manage leads through your sales process.</p>
+                <ol data-id="136" class="space-y-2 text-sm text-muted/90">
+                  <li data-id="137" class="flex gap-2"><span data-id="138" class="text-accent font-bold tabular-nums shrink-0">1.</span><span data-id="139">Each column represents a stage: <strong data-id="140" class="text-white font-medium">New → Contacted → Qualified → Proposal Sent → Closed</strong>.</span></li>
+                  <li data-id="141" class="flex gap-2"><span data-id="142" class="text-accent font-bold tabular-nums shrink-0">2.</span><span data-id="143">Click the <strong data-id="144" class="text-white font-medium">Move</strong> button on any card to advance a lead to the next stage.</span></li>
+                  <li data-id="145" class="flex gap-2"><span data-id="146" class="text-accent font-bold tabular-nums shrink-0">3.</span><span data-id="147">Click a <strong data-id="148" class="text-white font-medium">lead card</strong> to open its full detail view with notes and activity log.</span></li>
+                  <li data-id="149" class="flex gap-2"><span data-id="150" class="text-accent font-bold tabular-nums shrink-0">4.</span><span data-id="151">Use the <strong data-id="152" class="text-white font-medium">+ Add Lead</strong> button at the bottom of any column to create a lead directly in that stage.</span></li>
+                  <li data-id="153" class="flex gap-2"><span data-id="154" class="text-accent font-bold tabular-nums shrink-0">5.</span><span data-id="155">Each column header shows the <strong data-id="156" class="text-white font-medium">total deal value</strong> for leads in that stage.</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div data-id="157" class="help-accordion">
+            <div data-id="158" class="accordion-trigger flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors">
+              <div data-id="159" class="flex items-center gap-3">
+                <div data-id="160" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <i data-id="161" data-lucide="users" class="w-4 h-4 text-accent"></i>
+                </div>
+                <span data-id="162" class="font-semibold text-sm">Leads</span>
+              </div>
+              <i data-id="163" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+            </div>
+            <div data-id="164" class="accordion-body">
+              <div data-id="165" class="px-6 pb-5">
+                <p data-id="166" class="text-xs text-muted mb-3">A sortable, filterable table view of every lead in your system.</p>
+                <ol data-id="167" class="space-y-2 text-sm text-muted/90">
+                  <li data-id="168" class="flex gap-2"><span data-id="169" class="text-accent font-bold tabular-nums shrink-0">1.</span><span data-id="170">Use the <strong data-id="171" class="text-white font-medium">search bar</strong> to find leads by name, company, or email.</span></li>
+                  <li data-id="172" class="flex gap-2"><span data-id="173" class="text-accent font-bold tabular-nums shrink-0">2.</span><span data-id="174">Filter by <strong data-id="175" class="text-white font-medium">Stage</strong>, <strong data-id="176" class="text-white font-medium">Score</strong>, or <strong data-id="177" class="text-white font-medium">Source</strong> using the dropdown menus.</span></li>
+                  <li data-id="178" class="flex gap-2"><span data-id="179" class="text-accent font-bold tabular-nums shrink-0">3.</span><span data-id="180">Click column headers (<strong data-id="181" class="text-white font-medium">Name, Company, Value</strong>) to sort ascending or descending.</span></li>
+                  <li data-id="182" class="flex gap-2"><span data-id="183" class="text-accent font-bold tabular-nums shrink-0">4.</span><span data-id="184">An <strong data-id="185" class="text-white font-medium">orange dot</strong> next to a name means the lead hasn't been viewed yet.</span></li>
+                  <li data-id="186" class="flex gap-2"><span data-id="187" class="text-accent font-bold tabular-nums shrink-0">5.</span><span data-id="188">Use the <strong data-id="189" class="text-white font-medium">eye icon</strong> to view details or the <strong data-id="190" class="text-white font-medium">trash icon</strong> to delete a lead.</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div data-id="191" class="help-accordion">
+            <div data-id="192" class="accordion-trigger flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors">
+              <div data-id="193" class="flex items-center gap-3">
+                <div data-id="194" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <i data-id="195" data-lucide="file-text" class="w-4 h-4 text-accent"></i>
+                </div>
+                <span data-id="196" class="font-semibold text-sm">Forms</span>
+              </div>
+              <i data-id="197" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+            </div>
+            <div data-id="198" class="accordion-body">
+              <div data-id="199" class="px-6 pb-5">
+                <p data-id="200" class="text-xs text-muted mb-3">Create and customize lead capture forms to embed on your website.</p>
+                <ol data-id="201" class="space-y-2 text-sm text-muted/90">
+                  <li data-id="202" class="flex gap-2"><span data-id="203" class="text-accent font-bold tabular-nums shrink-0">1.</span><span data-id="204">Browse the two built-in templates: <strong data-id="205" class="text-white font-medium">Contact Us</strong> and <strong data-id="206" class="text-white font-medium">Quote Request</strong>.</span></li>
+                  <li data-id="207" class="flex gap-2"><span data-id="208" class="text-accent font-bold tabular-nums shrink-0">2.</span><span data-id="209">Click <strong data-id="210" class="text-white font-medium">Customize</strong> to open the form builder with a live preview.</span></li>
+                  <li data-id="211" class="flex gap-2"><span data-id="212" class="text-accent font-bold tabular-nums shrink-0">3.</span><span data-id="213">Toggle fields on/off, mark them as required, and change the form title and button text.</span></li>
+                  <li data-id="214" class="flex gap-2"><span data-id="215" class="text-accent font-bold tabular-nums shrink-0">4.</span><span data-id="216">Click <strong data-id="217" class="text-white font-medium">Embed Code</strong> to get an iframe snippet you can paste into any website.</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div data-id="218" class="help-accordion">
+            <div data-id="219" class="accordion-trigger flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors">
+              <div data-id="220" class="flex items-center gap-3">
+                <div data-id="221" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <i data-id="222" data-lucide="bar-chart-3" class="w-4 h-4 text-accent"></i>
+                </div>
+                <span data-id="223" class="font-semibold text-sm">Analytics</span>
+              </div>
+              <i data-id="224" data-lucide="chevron-down" class="w-4 h-4 text-muted accordion-chevron"></i>
+            </div>
+            <div data-id="225" class="accordion-body">
+              <div data-id="226" class="px-6 pb-5">
+                <p data-id="227" class="text-xs text-muted mb-3">Dive into performance data to optimize your lead generation strategy.</p>
+                <ol data-id="228" class="space-y-2 text-sm text-muted/90">
+                  <li data-id="229" class="flex gap-2"><span data-id="230" class="text-accent font-bold tabular-nums shrink-0">1.</span><span data-id="231">Check <strong data-id="232" class="text-white font-medium">Lead Volume</strong> to see weekly trends in new lead acquisition.</span></li>
+                  <li data-id="233" class="flex gap-2"><span data-id="234" class="text-accent font-bold tabular-nums shrink-0">2.</span><span data-id="235">The <strong data-id="236" class="text-white font-medium">Win Rate gauge</strong> shows your overall conversion percentage at a glance.</span></li>
+                  <li data-id="237" class="flex gap-2"><span data-id="238" class="text-accent font-bold tabular-nums shrink-0">3.</span><span data-id="239">Review <strong data-id="240" class="text-white font-medium">Conversion Rate by Source</strong> to identify your highest-performing channels.</span></li>
+                  <li data-id="241" class="flex gap-2"><span data-id="242" class="text-accent font-bold tabular-nums shrink-0">4.</span><span data-id="243">Use <strong data-id="244" class="text-white font-medium">Avg. Time in Pipeline Stage</strong> to spot bottlenecks in your sales process.</span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div data-id="245" class="px-6 py-5 bg-bg-elevated/40 border-t border-stroke">
+          <h3 data-id="246" class="font-semibold text-sm flex items-center gap-2 mb-4">
+            <div data-id="247" class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
+              <i data-id="248" data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
+            </div>
+            Tips & Tricks
+          </h3>
+          <div data-id="249" class="space-y-3">
+            <div data-id="250" class="flex gap-3 p-3 rounded-lg bg-bg-base/60 border border-stroke/50">
+              <div data-id="251" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+                <i data-id="252" data-lucide="flame" class="w-3 h-3 text-accent"></i>
+              </div>
+              <div data-id="253">
+                <p data-id="254" class="text-sm font-medium text-white mb-0.5">Lead Scoring System</p>
+                <p data-id="255" class="text-xs text-muted leading-relaxed">Leads are automatically scored as Hot, Warm, or Cold based on deal value and time in stage. High-value leads ($8K+) that are recent get marked Hot, while leads stale for 7+ days turn Cold. Focus on Hot leads first!</p>
+              </div>
+            </div>
+            <div data-id="256" class="flex gap-3 p-3 rounded-lg bg-bg-base/60 border border-stroke/50">
+              <div data-id="257" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+                <i data-id="258" data-lucide="filter" class="w-3 h-3 text-accent"></i>
+              </div>
+              <div data-id="259">
+                <p data-id="260" class="text-sm font-medium text-white mb-0.5">Read the Funnel</p>
+                <p data-id="261" class="text-xs text-muted leading-relaxed">The Sales Funnel on your Dashboard shows lead distribution across stages. A healthy funnel narrows from New to Closed. If leads pile up in one stage, it's a signal to take action there.</p>
+              </div>
+            </div>
+            <div data-id="262" class="flex gap-3 p-3 rounded-lg bg-bg-base/60 border border-stroke/50">
+              <div data-id="263" class="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+                <i data-id="264" data-lucide="code" class="w-3 h-3 text-accent"></i>
+              </div>
+              <div data-id="265">
+                <p data-id="266" class="text-sm font-medium text-white mb-0.5">Embed Capture Forms</p>
+                <p data-id="267" class="text-xs text-muted leading-relaxed">Go to the Forms tab, customize a template to match your brand, then grab the embed code. Paste it into your website's HTML and new leads will flow straight into your pipeline automatically.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main data-id="268" class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-6 py-6 pb-20 app-content">
+
+    <!-- ====== DASHBOARD TAB ====== -->
+    <section data-id="269" id="tab-dashboard" class="tab-content">
+      <div data-id="270" class="mb-6">
+        <h1 data-id="271" id="greeting-o5p6" class="text-xl md:text-2xl font-bold">Good morning, Heather</h1>
+        <p data-id="272" class="text-muted text-sm mt-1">Tuesday, May 19, 2026 · Trotwood, OH</p>
+      </div>
+
+      <div data-id="273" id="stat-cards-q7r8" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div data-id="274" class="bg-bg-card rounded-xl p-4 md:p-5 border border-stroke card-transition">
+          <div data-id="275" class="flex items-center justify-between mb-3">
+            <span data-id="276" class="text-muted text-xs font-medium uppercase tracking-wide">Total Leads</span>
+            <div data-id="277" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center"><i data-id="278" data-lucide="users" class="w-4 h-4 text-accent"></i></div>
+          </div>
+          <p data-id="279" id="stat-total-s9t0" class="text-2xl md:text-3xl font-bold tabular-nums">8</p>
+          <p data-id="280" class="text-xs text-success mt-1 flex items-center gap-1"><i data-id="281" data-lucide="trending-up" class="w-3 h-3"></i> +12% this month</p>
+        </div>
+        <div data-id="282" class="bg-bg-card rounded-xl p-4 md:p-5 border border-stroke card-transition">
+          <div data-id="283" class="flex items-center justify-between mb-3">
+            <span data-id="284" class="text-muted text-xs font-medium uppercase tracking-wide">Hot Leads</span>
+            <div data-id="285" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center"><i data-id="286" data-lucide="flame" class="w-4 h-4 text-accent"></i></div>
+          </div>
+          <p data-id="287" id="stat-hot-u1v2" class="text-2xl md:text-3xl font-bold tabular-nums">3</p>
+          <p data-id="288" class="text-xs text-accent-light mt-1">Needs attention</p>
+        </div>
+        <div data-id="289" class="bg-bg-card rounded-xl p-4 md:p-5 border border-stroke card-transition">
+          <div data-id="290" class="flex items-center justify-between mb-3">
+            <span data-id="291" class="text-muted text-xs font-medium uppercase tracking-wide">Converted</span>
+            <div data-id="292" class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center"><i data-id="293" data-lucide="circle-check-big" class="w-4 h-4 text-success"></i></div>
+          </div>
+          <p data-id="294" id="stat-converted-w3x4" class="text-2xl md:text-3xl font-bold tabular-nums">1</p>
+          <p data-id="295" class="text-xs text-success mt-1">12.5% conversion rate</p>
+        </div>
+        <div data-id="296" class="bg-bg-card rounded-xl p-4 md:p-5 border border-stroke card-transition">
+          <div data-id="297" class="flex items-center justify-between mb-3">
+            <span data-id="298" class="text-muted text-xs font-medium uppercase tracking-wide">This Week</span>
+            <div data-id="299" class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center"><i data-id="300" data-lucide="calendar-days" class="w-4 h-4 text-accent"></i></div>
+          </div>
+          <p data-id="301" id="stat-week-y5z6" class="text-2xl md:text-3xl font-bold tabular-nums">2</p>
+          <p data-id="302" class="text-xs text-muted mt-1">New leads this week</p>
+        </div>
+      </div>
+
+      <div data-id="303" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div data-id="304" class="bg-bg-card rounded-xl p-5 border border-stroke">
+          <h2 data-id="305" class="font-semibold text-base mb-5 flex items-center gap-2"><i data-id="306" data-lucide="filter" class="w-4 h-4 text-accent"></i> Sales Funnel</h2>
+          <div data-id="307" id="funnel-viz-a2b3" class="space-y-3"></div>
+        </div>
+        <div data-id="308" class="bg-bg-card rounded-xl p-5 border border-stroke">
+          <h2 data-id="309" class="font-semibold text-base mb-5 flex items-center gap-2"><i data-id="310" data-lucide="activity" class="w-4 h-4 text-accent"></i> Recent Activity</h2>
+          <div data-id="311" id="recent-activity-c4d5" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <div data-id="312" class="bg-bg-card rounded-xl p-5 border border-stroke">
+        <h2 data-id="313" class="font-semibold text-base mb-5 flex items-center gap-2"><i data-id="314" data-lucide="pie-chart" class="w-4 h-4 text-accent"></i> Top Sources</h2>
+        <div data-id="315" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div data-id="316" class="relative h-64"><canvas data-id="317" id="sources-chart-e6f7"></canvas></div>
+          <div data-id="318" id="sources-legend-g8h9" class="flex flex-col justify-center gap-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== PIPELINE TAB ====== -->
+    <section data-id="319" id="tab-pipeline" class="tab-content hidden">
+      <div data-id="320" class="flex items-center justify-between mb-6">
+        <h1 data-id="321" class="text-xl md:text-2xl font-bold">Pipeline</h1>
+      </div>
+      <div data-id="322" id="clientflow-banner-r7s8" class="pairing-banner mb-5 border border-stroke bg-bg-card" style="border-left: 3px solid #7c5cfc; background: linear-gradient(to right, rgba(124,92,252,0.06), transparent);">
+        <div data-id="323" class="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 px-4 py-3.5">
+          <div data-id="324" class="flex items-center gap-3 flex-1 min-w-0">
+            <div data-id="325" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(124,92,252,0.12);">
+              <i data-id="326" data-lucide="grid-2x2" class="w-4.5 h-4.5" style="color: #7c5cfc;"></i>
+            </div>
+            <div data-id="327" class="min-w-0">
+              <span data-id="328" class="font-bold text-sm text-white">ClientFlow CRM</span>
+              <p data-id="329" class="text-xs text-muted leading-relaxed mt-0.5">A lead that converts is a client that deserves more than a spreadsheet. ClientFlow CRM picks up where LeadCatcher leaves off — full relationship history, follow-up reminders, and deal tracking all in one place.</p>
+            </div>
+          </div>
+          <div data-id="330" class="flex items-center gap-2 shrink-0 ml-12 md:ml-0">
+            <a data-id="331" id="clientflow-connect-btn-a1b2" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-bg-base cursor-pointer transition-colors" style="background: #7c5cfc;">Connect Now</a>
+            <a data-id="332" id="clientflow-learn-btn-c3d4" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors" style="color: #7c5cfc; border-color: #7c5cfc;">Learn More</a>
+            <button data-id="333" id="clientflow-dismiss-btn-e5f6" class="p-1 rounded text-muted hover:text-white transition-colors cursor-pointer ml-1" title="Dismiss">
+              <i data-id="334" data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div data-id="335" id="kanban-board-i0j1" class="flex gap-4 overflow-x-auto pb-4" style="min-height: 500px;"></div>
+    </section>
+
+    <!-- ====== LEADS TAB ====== -->
+    <section data-id="336" id="tab-leads" class="tab-content hidden">
+      <div data-id="337" class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <h1 data-id="338" class="text-xl md:text-2xl font-bold">All Leads</h1>
+        <div data-id="339" class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div data-id="340" class="relative flex-1 md:flex-none md:w-56">
+            <i data-id="341" data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted"></i>
+            <input data-id="342" id="lead-search-k2l3" type="text" placeholder="Search leads..." class="w-full pl-9 pr-3 py-2 text-sm" />
+          </div>
+          <select data-id="343" id="filter-stage-m4n5" class="text-sm py-2 px-3 w-full md:w-auto"><option data-id="344" value="">All Stages</option><option data-id="345">New</option><option data-id="346">Contacted</option><option data-id="347">Qualified</option><option data-id="348">Proposal Sent</option><option data-id="349">Closed</option></select>
+          <select data-id="350" id="filter-score-o6p7" class="text-sm py-2 px-3 w-full md:w-auto"><option data-id="351" value="">All Scores</option><option data-id="352">Hot</option><option data-id="353">Warm</option><option data-id="354">Cold</option></select>
+          <select data-id="355" id="filter-source-q8r9" class="text-sm py-2 px-3 w-full md:w-auto"><option data-id="356" value="">All Sources</option><option data-id="357">Website</option><option data-id="358">Referral</option><option data-id="359">Social</option><option data-id="360">Cold Outreach</option><option data-id="361">Event</option></select>
+        </div>
+      </div>
+      <div data-id="362" id="leads-count-s0t1" class="text-xs text-muted mb-3"></div>
+      <div data-id="363" class="overflow-x-auto rounded-xl border border-stroke">
+        <table data-id="364" class="w-full text-left text-sm">
+          <thead data-id="365" class="bg-bg-elevated text-xs font-medium uppercase tracking-wide text-muted">
+            <tr data-id="366">
+              <th data-id="367" class="px-4 py-3 cursor-pointer whitespace-nowrap" data-sort="name">Name <i data-id="368" data-lucide="chevrons-up-down" class="w-3 h-3 inline"></i></th>
+              <th data-id="369" class="px-4 py-3 cursor-pointer whitespace-nowrap hidden md:table-cell" data-sort="company">Company <i data-id="370" data-lucide="chevrons-up-down" class="w-3 h-3 inline"></i></th>
+              <th data-id="371" class="px-4 py-3 hidden lg:table-cell">Email</th>
+              <th data-id="372" class="px-4 py-3 hidden xl:table-cell">Phone</th>
+              <th data-id="373" class="px-4 py-3 whitespace-nowrap">Source</th>
+              <th data-id="374" class="px-4 py-3 whitespace-nowrap">Stage</th>
+              <th data-id="375" class="px-4 py-3 whitespace-nowrap">Score</th>
+              <th data-id="376" class="px-4 py-3 cursor-pointer whitespace-nowrap tabular-nums" data-sort="value">Value <i data-id="377" data-lucide="chevrons-up-down" class="w-3 h-3 inline"></i></th>
+              <th data-id="378" class="px-4 py-3 whitespace-nowrap hidden md:table-cell">Last Activity</th>
+              <th data-id="379" class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody data-id="380" id="leads-tbody-u2v3" class="divide-y divide-stroke"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== FORMS TAB ====== -->
+    <section data-id="381" id="tab-forms" class="tab-content hidden">
+      <h1 data-id="382" class="text-xl md:text-2xl font-bold mb-6">Lead Capture Forms</h1>
+      <div data-id="383" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div data-id="384" class="bg-bg-card rounded-xl border border-stroke overflow-hidden card-transition">
+          <div data-id="385" class="p-5 border-b border-stroke">
+            <h3 data-id="386" class="font-semibold text-base">Contact Us Form</h3>
+            <p data-id="387" class="text-muted text-xs mt-1">Simple name, email, message form for your website</p>
+          </div>
+          <div data-id="388" class="p-5">
+            <div data-id="389" class="space-y-3 mb-4">
+              <div data-id="390" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Full Name *</div>
+              <div data-id="391" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Email Address *</div>
+              <div data-id="392" class="h-16 rounded bg-bg-elevated border border-stroke flex items-start px-3 pt-2 text-xs text-muted">Message</div>
+              <div data-id="393" class="h-8 rounded bg-accent flex items-center justify-center text-xs font-semibold text-bg-base">Submit</div>
+            </div>
+            <div data-id="394" class="flex gap-2">
+              <button data-id="395" class="embed-code-btn flex-1 flex items-center justify-center gap-2 border border-stroke rounded-lg py-2 text-xs text-muted hover:text-white cursor-pointer" data-form="contact"><i data-id="396" data-lucide="code" class="w-3 h-3"></i> Embed Code</button>
+              <button data-id="397" class="customize-form-btn flex-1 flex items-center justify-center gap-2 border border-accent rounded-lg py-2 text-xs text-accent hover:bg-accent/10 cursor-pointer" data-template="contact"><i data-id="398" data-lucide="pencil" class="w-3 h-3"></i> Customize</button>
+            </div>
+          </div>
+        </div>
+        <div data-id="399" class="bg-bg-card rounded-xl border border-stroke overflow-hidden card-transition">
+          <div data-id="400" class="p-5 border-b border-stroke">
+            <h3 data-id="401" class="font-semibold text-base">Quote Request Form</h3>
+            <p data-id="402" class="text-muted text-xs mt-1">Detailed intake with budget and service interest</p>
+          </div>
+          <div data-id="403" class="p-5">
+            <div data-id="404" class="space-y-3 mb-4">
+              <div data-id="405" class="grid grid-cols-2 gap-3">
+                <div data-id="406" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Full Name *</div>
+                <div data-id="407" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Company</div>
+              </div>
+              <div data-id="408" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Email Address *</div>
+              <div data-id="409" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Phone</div>
+              <div data-id="410" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">Budget Range</div>
+              <div data-id="411" class="h-8 rounded bg-bg-elevated border border-stroke flex items-center px-3 text-xs text-muted">How did you hear about us?</div>
+              <div data-id="412" class="h-8 rounded bg-accent flex items-center justify-center text-xs font-semibold text-bg-base">Get a Quote</div>
+            </div>
+            <div data-id="413" class="flex gap-2">
+              <button data-id="414" class="embed-code-btn flex-1 flex items-center justify-center gap-2 border border-stroke rounded-lg py-2 text-xs text-muted hover:text-white cursor-pointer" data-form="quote"><i data-id="415" data-lucide="code" class="w-3 h-3"></i> Embed Code</button>
+              <button data-id="416" class="customize-form-btn flex-1 flex items-center justify-center gap-2 border border-accent rounded-lg py-2 text-xs text-accent hover:bg-accent/10 cursor-pointer" data-template="quote"><i data-id="417" data-lucide="pencil" class="w-3 h-3"></i> Customize</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-id="418" id="form-builder-w4x5" class="hidden bg-bg-card rounded-xl border border-stroke p-5">
+        <div data-id="419" class="flex items-center justify-between mb-5">
+          <h2 data-id="420" class="font-semibold text-base flex items-center gap-2"><i data-id="421" data-lucide="wrench" class="w-4 h-4 text-accent"></i> Form Builder</h2>
+          <button data-id="422" id="close-builder-y6z7" class="text-muted hover:text-white cursor-pointer p-1"><i data-id="423" data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div data-id="424" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div data-id="425" class="space-y-4">
+            <div data-id="426">
+              <label data-id="427" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1">Form Title</label>
+              <input data-id="428" id="builder-title-a8b9" type="text" value="Contact Us" class="w-full" />
+            </div>
+            <div data-id="429">
+              <label data-id="430" class="text-xs font-medium text-muted uppercase tracking-wide block mb-1">Submit Button Text</label>
+              <input data-id="431" id="builder-submit-c0d1" type="text" value="Submit" class="w-full" />
+            </div>
+            <div data-id="432">
+              <label data-id="433" class="text-xs font-medium text-muted uppercase tracking-wide block mb-2">Fields</label>
+              <div data-id="434" id="builder-fields-e2f3" class="space-y-2"></div>
+            </div>
+          </div>
+          <div data-id="435">
+            <label data-id="436" class="text-xs font-medium text-muted uppercase tracking-wide block mb-2">Live Preview</label>
+            <div data-id="437" id="builder-preview-g4h5" class="bg-bg-base rounded-xl p-5 border border-stroke"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== ANALYTICS TAB ====== -->
+    <section data-id="438" id="tab-analytics" class="tab-content hidden">
+      <h1 data-id="439" class="text-xl md:text-2xl font-bold mb-6">Analytics</h1>
+      <div data-id="440" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div data-id="441" class="bg-bg-card rounded-xl p-5 border border-stroke">
+          <h2 data-id="442" class="font-semibold text-base mb-4 flex items-center gap-2"><i data-id="443" data-lucide="bar-chart-3" class="w-4 h-4 text-accent"></i> Lead Volume (Last 8 Weeks)</h2>
+          <div data-id="444" class="relative h-64"><canvas data-id="445" id="volume-chart-i6j7"></canvas></div>
+        </div>
+        <div data-id="446" class="bg-bg-card rounded-xl p-5 border border-stroke flex flex-col items-center justify-center">
+          <h2 data-id="447" class="font-semibold text-base mb-4 flex items-center gap-2"><i data-id="448" data-lucide="gauge" class="w-4 h-4 text-accent"></i> Win Rate</h2>
+          <svg data-id="449" id="gauge-svg-k8l9" width="200" height="120" viewBox="0 0 200 120">
+            <path data-id="450" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#222640" stroke-width="14" stroke-linecap="round"/>
+            <path data-id="451" id="gauge-arc-m0n1" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#fb923c" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="219.8"/>
+            <text data-id="452" x="100" y="95" text-anchor="middle" font-size="28" font-weight="700" fill="#e2e4ed" class="tabular-nums">12.5%</text>
+            <text data-id="453" x="100" y="112" text-anchor="middle" font-size="11" fill="#8b8fa8">of leads converted</text>
+          </svg>
+        </div>
+      </div>
+      <div data-id="454" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div data-id="455" class="bg-bg-card rounded-xl p-5 border border-stroke">
+          <h2 data-id="456" class="font-semibold text-base mb-4 flex items-center gap-2"><i data-id="457" data-lucide="git-branch" class="w-4 h-4 text-accent"></i> Conversion Rate by Source</h2>
+          <div data-id="458" class="overflow-x-auto">
+            <table data-id="459" class="w-full text-sm">
+              <thead data-id="460"><tr data-id="461" class="text-xs text-muted uppercase tracking-wide"><th data-id="462" class="text-left pb-3">Source</th><th data-id="463" class="text-right pb-3">Leads</th><th data-id="464" class="text-right pb-3">Converted</th><th data-id="465" class="text-right pb-3">Rate</th></tr></thead>
+              <tbody data-id="466" id="conv-source-tbl-o2p3" class="divide-y divide-stroke"></tbody>
+            </table>
+          </div>
+        </div>
+        <div data-id="467" class="bg-bg-card rounded-xl p-5 border border-stroke">
+          <h2 data-id="468" class="font-semibold text-base mb-4 flex items-center gap-2"><i data-id="469" data-lucide="clock" class="w-4 h-4 text-accent"></i> Avg. Time in Pipeline Stage</h2>
+          <div data-id="470" id="avg-time-stages-q4r5" class="space-y-4"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ADD LEAD MODAL -->
+  <div data-id="471" id="add-lead-modal-s6t7" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="472" class="bg-bg-card rounded-xl border border-stroke w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+      <div data-id="473" class="flex items-center justify-between mb-5">
+        <h2 data-id="474" class="font-semibold text-lg">Add New Lead</h2>
+        <button data-id="475" id="close-add-modal-u8v9" class="text-muted hover:text-white cursor-pointer p-1"><i data-id="476" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="477" class="space-y-4">
+        <div data-id="478" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="479"><label data-id="480" class="text-xs font-medium text-muted block mb-1">Full Name *</label><input data-id="481" id="new-name-w0x1" type="text" class="w-full" required /></div>
+          <div data-id="482"><label data-id="483" class="text-xs font-medium text-muted block mb-1">Company</label><input data-id="484" id="new-company-y2z3" type="text" class="w-full" /></div>
+        </div>
+        <div data-id="485" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="486"><label data-id="487" class="text-xs font-medium text-muted block mb-1">Email *</label><input data-id="488" id="new-email-a4b5" type="email" class="w-full" required /></div>
+          <div data-id="489"><label data-id="490" class="text-xs font-medium text-muted block mb-1">Phone</label><input data-id="491" id="new-phone-c6d7" type="tel" class="w-full" /></div>
+        </div>
+        <div data-id="492" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-id="493"><label data-id="494" class="text-xs font-medium text-muted block mb-1">Source</label>
+            <select data-id="495" id="new-source-e8f9" class="w-full"><option data-id="496">Website</option><option data-id="497">Referral</option><option data-id="498">Social</option><option data-id="499">Cold Outreach</option><option data-id="500">Event</option></select>
+          </div>
+          <div data-id="501"><label data-id="502" class="text-xs font-medium text-muted block mb-1">Estimated Value ($)</label><input data-id="503" id="new-value-g0h1" type="number" class="w-full" placeholder="5000" /></div>
+        </div>
+        <div data-id="504"><label data-id="505" class="text-xs font-medium text-muted block mb-1">Stage</label>
+          <select data-id="506" id="new-stage-i2j3" class="w-full"><option data-id="507">New</option><option data-id="508">Contacted</option><option data-id="509">Qualified</option><option data-id="510">Proposal Sent</option><option data-id="511">Closed</option></select>
+        </div>
+        <div data-id="512"><label data-id="513" class="text-xs font-medium text-muted block mb-1">Notes</label><textarea data-id="514" id="new-notes-k4l5" rows="3" class="w-full" placeholder="Initial notes about this lead..."></textarea></div>
+        <button data-id="515" id="save-lead-btn-m6n7" class="w-full bg-accent hover:bg-accent-dark text-bg-base font-semibold py-3 rounded-lg transition-colors cursor-pointer">Save Lead</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEAD DETAIL MODAL -->
+  <div data-id="516" id="lead-detail-modal-o8p9" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="517" class="bg-bg-card rounded-xl border border-stroke w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+      <div data-id="518" class="flex items-center justify-between mb-5">
+        <h2 data-id="519" id="detail-title-q0r1" class="font-semibold text-lg">Lead Details</h2>
+        <button data-id="520" id="close-detail-modal-s2t3" class="text-muted hover:text-white cursor-pointer p-1"><i data-id="521" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div data-id="522" id="detail-content-u4v5"></div>
+      <div data-id="523" id="proposalpro-banner-g9h0" class="pairing-banner mt-5 border border-stroke bg-bg-card" style="border-left: 3px solid #f472b6; background: linear-gradient(to right, rgba(244,114,182,0.06), transparent);">
+        <div data-id="524" class="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 px-4 py-3.5">
+          <div data-id="525" class="flex items-center gap-3 flex-1 min-w-0">
+            <div data-id="526" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(244,114,182,0.12);">
+              <i data-id="527" data-lucide="file-signature" class="w-4.5 h-4.5" style="color: #f472b6;"></i>
+            </div>
+            <div data-id="528" class="min-w-0">
+              <span data-id="529" class="font-bold text-sm text-white">ProposalPro</span>
+              <p data-id="530" class="text-xs text-muted leading-relaxed mt-0.5">A qualified lead deserves a winning proposal. Send a polished, professional proposal from ProposalPro and when they accept — the invoice is already built. Close faster, earn sooner.</p>
+            </div>
+          </div>
+          <div data-id="531" class="flex items-center gap-2 shrink-0 ml-12 md:ml-0">
+            <a data-id="532" id="proposalpro-connect-btn-i1j2" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-bg-base cursor-pointer transition-colors" style="background: #f472b6;">Connect Now</a>
+            <a data-id="533" id="proposalpro-learn-btn-k3l4" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors" style="color: #f472b6; border-color: #f472b6;">Learn More</a>
+            <button data-id="534" id="proposalpro-dismiss-btn-m5n6" class="p-1 rounded text-muted hover:text-white transition-colors cursor-pointer ml-1" title="Dismiss">
+              <i data-id="535" data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMBED CODE MODAL -->
+  <div data-id="536" id="embed-modal-w6x7" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="537" class="bg-bg-card rounded-xl border border-stroke w-full max-w-lg p-6">
+      <div data-id="538" class="flex items-center justify-between mb-4">
+        <h2 data-id="539" class="font-semibold text-base">Embed Code</h2>
+        <button data-id="540" id="close-embed-modal-y8z9" class="text-muted hover:text-white cursor-pointer p-1"><i data-id="541" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p data-id="542" class="text-xs text-muted mb-3">Copy and paste this code into your website to embed the lead capture form.</p>
+      <pre data-id="543" id="embed-code-content-a0b1" class="bg-bg-base rounded-lg p-4 text-xs text-accent-light overflow-x-auto border border-stroke whitespace-pre-wrap"></pre>
+      <button data-id="544" id="copy-embed-btn-c2d3" class="mt-4 w-full bg-accent hover:bg-accent-dark text-bg-base font-semibold py-2 rounded-lg cursor-pointer text-sm flex items-center justify-center gap-2"><i data-id="545" data-lucide="copy" class="w-4 h-4"></i> Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- MOVE LEAD MODAL -->
+  <div data-id="546" id="move-modal-e4f5" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+    <div data-id="547" class="bg-bg-card rounded-xl border border-stroke w-full max-w-sm p-6">
+      <div data-id="548" class="flex items-center justify-between mb-4">
+        <h2 data-id="549" class="font-semibold text-base">Move Lead</h2>
+        <button data-id="550" id="close-move-modal-g6h7" class="text-muted hover:text-white cursor-pointer p-1"><i data-id="551" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p data-id="552" id="move-lead-name-i8j9" class="text-sm text-muted mb-3"></p>
+      <select data-id="553" id="move-stage-select-k0l1" class="w-full mb-4"><option data-id="554">New</option><option data-id="555">Contacted</option><option data-id="556">Qualified</option><option data-id="557">Proposal Sent</option><option data-id="558">Closed</option></select>
+      <button data-id="559" id="confirm-move-btn-m2n3" class="w-full bg-accent hover:bg-accent-dark text-bg-base font-semibold py-2 rounded-lg cursor-pointer text-sm">Move Lead</button>
+    </div>
+  </div>
+
+  <!-- APP FOOTER -->
+  <footer data-id="560" id="footer-o4p5" class="border-t border-stroke py-6 mb-11 app-content">
+    <div data-id="561" class="max-w-7xl mx-auto px-4 md:px-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-muted">
+      <div data-id="562" class="flex items-center gap-2"><i data-id="563" data-lucide="target" class="w-4 h-4 text-accent"></i> LeadCatcher</div>
+      <p data-id="564">Made by Copilot</p>
+    </div>
+  </footer>
+
+  <!-- CDI SUITE STICKY FOOTER BAR -->
+  <div data-id="565" id="cdi-footer-bar-o7p8" class="cdi-footer-bar app-content">
+    <div data-id="566" class="flex items-center gap-2 min-w-0">
+      <i data-id="567" data-lucide="crosshair" class="w-4 h-4 text-accent shrink-0"></i>
+      <span data-id="568" class="font-semibold text-white text-xs whitespace-nowrap hidden md:inline">CDI Business Suite</span>
+      <span data-id="569" class="font-semibold text-white text-xs whitespace-nowrap md:hidden">CDI Suite</span>
+      <span data-id="570" class="text-xs text-muted hidden md:inline"> · Part of 8 powerful business tools</span>
+    </div>
+    <a data-id="571" id="cdi-explore-btn-q9r0" href="https://shopreneur.constructivedesignsinc.org" target="_blank" rel="noopener" class="cdi-explore-btn">✨ Explore All 8 Apps →</a>
+  </div>
+
+  <script>
+    // ===== SUPABASE INIT =====
+    const db = supabase.createClient(
+      'https://lizbvlcogvjgycsyiqrc.supabase.co',
+      'sb_publishable_NSpp6wiCj6voykZB3jWe-g_eD7N5_Si'
+    );
+    let currentUser = null;
+
+    // ===== DATA =====
+    const STAGES = ['New','Contacted','Qualified','Proposal Sent','Closed'];
+    const SOURCES = ['Website','Referral','Social','Cold Outreach','Event'];
+    const SCORE_LABELS = ['Hot','Warm','Cold'];
+
+    // Default sample leads (used when no DB data exists yet)
+    const DEFAULT_LEADS = [
+      { id:'local_1', name:'Marcus Thompson', company:'TechVibe Solutions', email:'marcus@techvibe.com', phone:'(937) 555-0142', source:'Website', stage:'New', score:'Hot', value:12000, days_in_stage:1, last_activity:'May 16, 2026', notes:'Filled out quote form. Interested in full marketing package.', viewed:false, activities:[{date:'May 16, 2026',action:'Submitted contact form'},{date:'May 16, 2026',action:'Auto-assigned to pipeline'}] },
+      { id:'local_2', name:'Sarah Chen', company:'Bloom Interiors', email:'sarah@bloominteriors.com', phone:'(937) 555-0218', source:'Referral', stage:'Contacted', score:'Hot', value:8500, days_in_stage:3, last_activity:'May 14, 2026', notes:'Referred by James K. Very responsive.', viewed:true, activities:[{date:'May 14, 2026',action:'Follow-up call completed'},{date:'May 12, 2026',action:'Initial email sent'},{date:'May 11, 2026',action:'Lead created via referral'}] },
+      { id:'local_3', name:'David Park', company:'Urban Eats Co.', email:'david@urbaneats.com', phone:'(937) 555-0331', source:'Social', stage:'Qualified', score:'Hot', value:15000, days_in_stage:5, last_activity:'May 12, 2026', notes:'Met at conference. Needs website redesign + SEO.', viewed:true, activities:[{date:'May 12, 2026',action:'Qualified after discovery call'},{date:'May 9, 2026',action:'Scheduled discovery call'},{date:'May 7, 2026',action:'DM received on LinkedIn'}] },
+      { id:'local_4', name:'Lisa Rodriguez', company:'Bright Path Academy', email:'lisa@brightpath.edu', phone:'(937) 555-0459', source:'Event', stage:'Proposal Sent', score:'Warm', value:22000, days_in_stage:7, last_activity:'May 10, 2026', notes:'Proposal sent for 6-month social media management.', viewed:true, activities:[{date:'May 10, 2026',action:'Proposal sent via email'},{date:'May 8, 2026',action:'Budget discussion'},{date:'May 5, 2026',action:'Met at Trotwood Business Mixer'}] },
+      { id:'local_5', name:'Kevin Wright', company:'Wright & Sons HVAC', email:'kevin@wrighthvac.com', phone:'(937) 555-0587', source:'Cold Outreach', stage:'Contacted', score:'Warm', value:6000, days_in_stage:4, last_activity:'May 13, 2026', notes:'Responded to cold email. Somewhat interested.', viewed:true, activities:[{date:'May 13, 2026',action:'Reply received: "Send me more info"'},{date:'May 9, 2026',action:'Cold email sent'}] },
+      { id:'local_6', name:'Jennifer Okafor', company:'GreenLeaf Wellness', email:'jen@greenleaf.com', phone:'(937) 555-0604', source:'Website', stage:'New', score:'Warm', value:4500, days_in_stage:2, last_activity:'May 15, 2026', notes:'Downloaded pricing PDF from website.', viewed:false, activities:[{date:'May 15, 2026',action:'Downloaded pricing guide'},{date:'May 15, 2026',action:'Visited website landing page'}] },
+      { id:'local_7', name:'Robert Kim', company:'Precision Auto Body', email:'robert@precisionauto.com', phone:'(937) 555-0733', source:'Referral', stage:'Closed', score:'Hot', value:9500, days_in_stage:0, last_activity:'May 11, 2026', notes:'Signed contract for brand identity package. Won!', viewed:true, activities:[{date:'May 11, 2026',action:'Contract signed ✓'},{date:'May 8, 2026',action:'Final proposal approved'},{date:'May 3, 2026',action:'Referral from existing client'}] },
+      { id:'local_8', name:'Angela Murphy', company:'Murphy Legal Group', email:'angela@murphylegal.com', phone:'(937) 555-0861', source:'Cold Outreach', stage:'New', score:'Cold', value:7000, days_in_stage:10, last_activity:'May 7, 2026', notes:'No response to initial outreach.', viewed:false, activities:[{date:'May 7, 2026',action:'Cold email sent — no response'}] },
+    ];
+
+    let leads = [];
+    let nextId = 9;
+
+    // ===== AUTH UI =====
+    const authModal = document.getElementById('auth-modal');
+    const authSigninForm = document.getElementById('auth-signin-form');
+    const authSignupForm = document.getElementById('auth-signup-form');
+    const authTabSignin = document.getElementById('auth-tab-signin');
+    const authTabSignup = document.getElementById('auth-tab-signup');
+    const authMessage = document.getElementById('auth-message');
+    const authMessageContent = document.getElementById('auth-message-content');
+
+    function showAuthModal() {
+      authModal.style.display = 'flex';
+      document.querySelectorAll('.app-content').forEach(el => el.classList.add('app-hidden'));
+      lucide.createIcons();
+    }
+
+    function hideAuthModal() {
+      authModal.style.display = 'none';
+      document.querySelectorAll('.app-content').forEach(el => el.classList.remove('app-hidden'));
+      updateUserBadge();
+      lucide.createIcons();
+    }
+
+    function showAuthError(msg) {
+      authMessage.classList.remove('hidden');
+      authMessageContent.className = 'auth-error-pill px-4 py-2.5 rounded-full text-xs font-medium text-center';
+      authMessageContent.textContent = msg;
+    }
+
+    function showAuthSuccess(msg) {
+      authMessage.classList.remove('hidden');
+      authMessageContent.className = 'auth-success-pill px-4 py-2.5 rounded-full text-xs font-medium text-center';
+      authMessageContent.textContent = msg;
+    }
+
+    function clearAuthMessage() {
+      authMessage.classList.add('hidden');
+    }
+
+    // Auth tab switching
+    authTabSignin.addEventListener('click', () => {
+      authTabSignin.className = 'flex-1 py-3 text-sm font-semibold auth-tab-active cursor-pointer transition-colors';
+      authTabSignup.className = 'flex-1 py-3 text-sm font-semibold auth-tab-inactive cursor-pointer transition-colors';
+      authSigninForm.classList.remove('hidden');
+      authSignupForm.classList.add('hidden');
+      clearAuthMessage();
+    });
+
+    authTabSignup.addEventListener('click', () => {
+      authTabSignup.className = 'flex-1 py-3 text-sm font-semibold auth-tab-active cursor-pointer transition-colors';
+      authTabSignin.className = 'flex-1 py-3 text-sm font-semibold auth-tab-inactive cursor-pointer transition-colors';
+      authSignupForm.classList.remove('hidden');
+      authSigninForm.classList.add('hidden');
+      clearAuthMessage();
+    });
+
+    // Sign In
+    document.getElementById('auth-signin-btn').addEventListener('click', async () => {
+      clearAuthMessage();
+      const email = document.getElementById('auth-signin-email').value.trim();
+      const password = document.getElementById('auth-signin-password').value;
+      if (!email || !password) { showAuthError('Please enter email and password.'); return; }
+      try {
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) showAuthError(error.message);
+      } catch(e) { showAuthError('Sign in failed. Please try again.'); }
+    });
+
+    // Sign Up
+    document.getElementById('auth-signup-btn').addEventListener('click', async () => {
+      clearAuthMessage();
+      const business = document.getElementById('auth-signup-business').value.trim();
+      const email = document.getElementById('auth-signup-email').value.trim();
+      const password = document.getElementById('auth-signup-password').value;
+      const confirm = document.getElementById('auth-signup-confirm').value;
+      if (!email || !password) { showAuthError('Please fill in all required fields.'); return; }
+      if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+      if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+      try {
+        const { error } = await db.auth.signUp({
+          email, password,
+          options: { data: { business_name: business } }
+        });
+        if (error) showAuthError(error.message);
+        else showAuthSuccess('Check your email to confirm your account!');
+      } catch(e) { showAuthError('Sign up failed. Please try again.'); }
+    });
+
+    // Allow enter key in auth forms
+    document.getElementById('auth-signin-password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('auth-signin-btn').click();
+    });
+    document.getElementById('auth-signup-confirm').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('auth-signup-btn').click();
+    });
+
+    // ===== USER BADGE =====
+    function updateUserBadge() {
+      if (!currentUser) return;
+      const email = currentUser.email || '';
+      const letter = email.charAt(0).toUpperCase() || 'U';
+      document.getElementById('user-avatar-letter').textContent = letter;
+      document.getElementById('user-email-display').textContent = email;
+      document.getElementById('user-badge').classList.remove('hidden');
+      document.getElementById('user-badge').classList.add('md:flex');
+
+      // Mobile
+      document.getElementById('mobile-user-avatar-letter').textContent = letter;
+      document.getElementById('mobile-user-email').textContent = email;
+
+      // Update greeting
+      const businessName = currentUser.user_metadata?.business_name;
+      const displayName = businessName || email.split('@')[0] || 'there';
+      const capitalName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+      document.getElementById('greeting-o5p6').textContent = `Good morning, ${capitalName}`;
+    }
+
+    // Sign Out
+    document.getElementById('signout-btn').addEventListener('click', async () => {
+      await db.auth.signOut();
+    });
+    document.getElementById('mobile-signout-btn').addEventListener('click', async () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      await db.auth.signOut();
+    });
+
+    // ===== AUTH LOGIC =====
+    async function initAuth() {
+      try {
+        const { data: { session } } = await db.auth.getSession();
+        if (session) {
+          currentUser = session.user;
+          hideAuthModal();
+          await loadAllData();
+        } else {
+          showAuthModal();
+        }
+      } catch(e) {
+        showAuthModal();
+      }
+    }
+
+    db.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        currentUser = session.user;
+        hideAuthModal();
+        loadAllData();
+      }
+      if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        leads = [];
+        showAuthModal();
+      }
+    });
+
+    // ===== LOAD DATA FROM SUPABASE =====
+    async function loadAllData() {
+      if (!currentUser) return;
+      try {
+        const { data, error } = await db.from('lc_leads').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+        if (!error && data && data.length > 0) {
+          leads = data.map(row => ({
+            id: row.id,
+            name: row.name || '',
+            company: row.company || '—',
+            email: row.email || '',
+            phone: row.phone || '—',
+            source: row.source || 'Website',
+            stage: row.stage || 'New',
+            score: row.score || 'Warm',
+            value: row.value || 0,
+            daysInStage: row.days_in_stage || 0,
+            lastActivity: row.last_activity || 'May 19, 2026',
+            notes: row.notes || '',
+            viewed: row.viewed !== undefined ? row.viewed : true,
+            activities: row.activities || []
+          }));
+        } else {
+          // Use default sample data for new users
+          leads = DEFAULT_LEADS.map(l => ({
+            ...l,
+            daysInStage: l.days_in_stage
+          }));
+        }
+      } catch(e) {
+        // Fallback to defaults on error
+        leads = DEFAULT_LEADS.map(l => ({
+          ...l,
+          daysInStage: l.days_in_stage
+        }));
+      }
+      renderAll();
+    }
+
+    function renderAll() {
+      if (currentTab === 'dashboard') renderDashboard();
+      else if (currentTab === 'pipeline') renderPipeline();
+      else if (currentTab === 'leads') renderLeadsTable();
+      else if (currentTab === 'analytics') renderAnalytics();
+      else renderDashboard();
+      lucide.createIcons();
+    }
+
+    // ===== SAVE TO SUPABASE =====
+    async function saveLead(lead) {
+      if (!currentUser) return;
+      const payload = {
+        name: lead.name,
+        company: lead.company,
+        email: lead.email,
+        phone: lead.phone,
+        source: lead.source,
+        stage: lead.stage,
+        score: lead.score,
+        value: lead.value,
+        days_in_stage: lead.daysInStage,
+        last_activity: lead.lastActivity,
+        notes: lead.notes,
+        viewed: lead.viewed,
+        activities: lead.activities,
+        user_id: currentUser.id
+      };
+      try {
+        if (lead.id && !String(lead.id).startsWith('local_')) {
+          await db.from('lc_leads').update(payload).eq('id', lead.id);
+        } else {
+          delete payload.id;
+          await db.from('lc_leads').insert(payload);
+        }
+      } catch(e) {
+        // Silently handle
+      }
+      await loadAllData();
+    }
+
+    async function deleteLeadFromDB(id) {
+      if (!currentUser) return;
+      try {
+        if (!String(id).startsWith('local_')) {
+          await db.from('lc_leads').delete().eq('id', id);
+        }
+      } catch(e) { /* silently handle */ }
+      await loadAllData();
+    }
+
+    // ===== DISMISSED BANNERS PERSISTENCE =====
+    let dismissedBanners = [];
+
+    async function loadDismissedBanners() {
+      try {
+        if (window.AppSDK) {
+          const doc = await AppSDK.get('dismissed_banners', 'list');
+          if (doc && doc.data && doc.data.ids) {
+            dismissedBanners = doc.data.ids;
+          }
+        }
+      } catch(e) {}
+      applyBannerVisibility();
+    }
+
+    async function saveDismissedBanner(bannerId) {
+      if (!dismissedBanners.includes(bannerId)) {
+        dismissedBanners.push(bannerId);
+      }
+      try {
+        if (window.AppSDK) {
+          await AppSDK.upsert('dismissed_banners', 'list', { ids: dismissedBanners });
+        }
+      } catch(e) {}
+    }
+
+    function applyBannerVisibility() {
+      const clientflowBanner = document.getElementById('clientflow-banner-r7s8');
+      const proposalproBanner = document.getElementById('proposalpro-banner-g9h0');
+      if (dismissedBanners.includes('leadcatcher_clientflow_banner')) {
+        clientflowBanner.style.display = 'none';
+      }
+      if (dismissedBanners.includes('leadcatcher_proposalpro_banner')) {
+        proposalproBanner.style.display = 'none';
+      }
+    }
+
+    document.getElementById('clientflow-dismiss-btn-e5f6').addEventListener('click', function() {
+      const banner = document.getElementById('clientflow-banner-r7s8');
+      banner.classList.add('dismissing');
+      saveDismissedBanner('leadcatcher_clientflow_banner');
+      setTimeout(() => { banner.style.display = 'none'; }, 300);
+    });
+
+    document.getElementById('proposalpro-dismiss-btn-m5n6').addEventListener('click', function() {
+      const banner = document.getElementById('proposalpro-banner-g9h0');
+      banner.classList.add('dismissing');
+      saveDismissedBanner('leadcatcher_proposalpro_banner');
+      setTimeout(() => { banner.style.display = 'none'; }, 300);
+    });
+
+    function getScoreClass(score) {
+      if (score === 'Hot') return 'badge-hot';
+      if (score === 'Warm') return 'badge-warm';
+      return 'badge-cold';
+    }
+
+    function autoScore(lead) {
+      if (lead.stage === 'Closed') return lead.score;
+      if (lead.value >= 10000 && lead.daysInStage <= 3) return 'Hot';
+      if (lead.daysInStage > 7) return 'Cold';
+      if (lead.value >= 8000 || lead.daysInStage <= 2) return 'Hot';
+      return 'Warm';
+    }
+
+    // ===== HELP MODAL =====
+    const helpModal = document.getElementById('help-modal');
+    const helpCloseBtn = document.getElementById('help-close-btn');
+    const helpBtn = document.getElementById('help-btn');
+    const mobileHelpBtn = document.getElementById('mobile-help-btn');
+
+    function openHelpModal() {
+      helpModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      lucide.createIcons();
+    }
+    function closeHelpModal() {
+      helpModal.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    helpBtn.addEventListener('click', openHelpModal);
+    mobileHelpBtn.addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      openHelpModal();
+    });
+    helpCloseBtn.addEventListener('click', closeHelpModal);
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) closeHelpModal();
+    });
+
+    document.querySelectorAll('.help-accordion .accordion-trigger').forEach(trigger => {
+      trigger.addEventListener('click', () => {
+        const body = trigger.nextElementSibling;
+        const chevron = trigger.querySelector('.accordion-chevron');
+        const isOpen = body.classList.contains('open');
+
+        document.querySelectorAll('.help-accordion .accordion-body').forEach(b => b.classList.remove('open'));
+        document.querySelectorAll('.help-accordion .accordion-chevron').forEach(c => c.classList.remove('rotated'));
+
+        if (!isOpen) {
+          body.classList.add('open');
+          chevron.classList.add('rotated');
+        }
+      });
+    });
+
+    // ===== TAB NAVIGATION =====
+    let currentTab = 'dashboard';
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('tab-active');
+        btn.classList.add('tab-inactive');
+      });
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.tab === tab) { btn.classList.add('tab-active'); btn.classList.remove('tab-inactive'); }
+      });
+      document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+          btn.classList.add('text-accent','bg-bg-card');
+          btn.classList.remove('text-muted');
+        } else {
+          btn.classList.remove('text-accent','bg-bg-card');
+          btn.classList.add('text-muted');
+        }
+      });
+      if (tab === 'dashboard') renderDashboard();
+      if (tab === 'pipeline') renderPipeline();
+      if (tab === 'leads') renderLeadsTable();
+      if (tab === 'analytics') renderAnalytics();
+      lucide.createIcons();
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.tab);
+        document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+      });
+    });
+
+    document.getElementById('mobile-menu-btn-g7h8').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.remove('hidden');
+      lucide.createIcons();
+    });
+    document.getElementById('mobile-menu-close-k1l2').addEventListener('click', () => {
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+    });
+
+    // ===== DASHBOARD =====
+    function renderDashboard() {
+      updateStats();
+      renderFunnel();
+      renderRecentActivity();
+      renderSourcesChart();
+    }
+
+    function updateStats() {
+      document.getElementById('stat-total-s9t0').textContent = leads.length;
+      document.getElementById('stat-hot-u1v2').textContent = leads.filter(l => l.score === 'Hot').length;
+      document.getElementById('stat-converted-w3x4').textContent = leads.filter(l => l.stage === 'Closed').length;
+      const weekLeads = leads.filter(l => l.daysInStage <= 7 && l.stage === 'New').length;
+      document.getElementById('stat-week-y5z6').textContent = weekLeads;
+      const unviewed = leads.filter(l => !l.viewed).length;
+      const badge = document.getElementById('lead-notif-badge');
+      if (unviewed > 0) { badge.textContent = unviewed; badge.style.display = 'flex'; }
+      else { badge.style.display = 'none'; }
+    }
+
+    function renderFunnel() {
+      const container = document.getElementById('funnel-viz-a2b3');
+      const stageCounts = STAGES.map(s => ({ stage: s, count: leads.filter(l => l.stage === s).length }));
+      const maxCount = Math.max(...stageCounts.map(s => s.count), 1);
+      const colors = ['#fb923c','#fdba74','#60a5fa','#a78bfa','#4ade80'];
+      container.innerHTML = stageCounts.map((s, i) => {
+        const pct = Math.max((s.count / maxCount) * 100, 12);
+        return `<div class="flex items-center gap-3">
+          <div class="w-28 md:w-32 text-xs text-muted truncate text-right">${s.stage}</div>
+          <div class="flex-1 bg-bg-elevated rounded-full h-8 overflow-hidden relative">
+            <div class="funnel-bar h-full rounded-full flex items-center px-3" style="width:${pct}%;background:${colors[i]}">
+              <span class="text-xs font-bold text-bg-base tabular-nums">${s.count}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderRecentActivity() {
+      const container = document.getElementById('recent-activity-c4d5');
+      const allActivities = [];
+      leads.forEach(l => {
+        if (l.activities && Array.isArray(l.activities)) {
+          l.activities.forEach(a => {
+            allActivities.push({ name: l.name, date: a.date, action: a.action });
+          });
+        }
+      });
+      allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const recent = allActivities.slice(0, 5);
+      container.innerHTML = recent.map(a => `
+        <div class="flex items-start gap-3 p-3 rounded-lg bg-bg-base/50">
+          <div class="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5"><i data-lucide="zap" class="w-3.5 h-3.5 text-accent"></i></div>
+          <div class="min-w-0">
+            <p class="text-sm"><span class="font-medium text-white">${a.name}</span></p>
+            <p class="text-xs text-muted truncate">${a.action}</p>
+            <p class="text-xs text-muted/60 mt-0.5">${a.date}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    let sourcesChart = null;
+    function renderSourcesChart() {
+      const ctx = document.getElementById('sources-chart-e6f7').getContext('2d');
+      const sourceCounts = SOURCES.map(s => leads.filter(l => l.source === s).length);
+      const colors = ['#fb923c','#fdba74','#60a5fa','#a78bfa','#4ade80'];
+      if (sourcesChart) sourcesChart.destroy();
+      sourcesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: SOURCES, datasets: [{ data: sourceCounts, backgroundColor: colors, borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1a1d2e', titleColor: '#e2e4ed', bodyColor: '#8b8fa8', borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1 }
+          }
+        }
+      });
+      const legend = document.getElementById('sources-legend-g8h9');
+      legend.innerHTML = SOURCES.map((s, i) => `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full" style="background:${colors[i]}"></div>
+            <span class="text-sm">${s}</span>
+          </div>
+          <span class="text-sm font-semibold tabular-nums">${sourceCounts[i]}</span>
+        </div>
+      `).join('');
+    }
+
+    // ===== PIPELINE =====
+    function renderPipeline() {
+      const board = document.getElementById('kanban-board-i0j1');
+      board.innerHTML = STAGES.map(stage => {
+        const stageLeads = leads.filter(l => l.stage === stage);
+        const totalValue = stageLeads.reduce((sum, l) => sum + l.value, 0);
+        const stageColors = { 'New':'#fb923c','Contacted':'#fdba74','Qualified':'#60a5fa','Proposal Sent':'#a78bfa','Closed':'#4ade80' };
+        return `<div class="kanban-col flex-shrink-0 w-[280px] flex flex-col">
+          <div class="bg-bg-card rounded-t-xl p-4 border border-stroke border-b-0">
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full" style="background:${stageColors[stage]}"></div>
+                <h3 class="font-semibold text-sm">${stage}</h3>
+              </div>
+              <span class="text-xs text-muted tabular-nums">${stageLeads.length}</span>
+            </div>
+            <p class="text-xs text-muted tabular-nums">$${totalValue.toLocaleString()}</p>
+          </div>
+          <div class="flex-1 bg-bg-base/50 rounded-b-xl border border-stroke border-t-0 p-3 space-y-3 min-h-[200px]">
+            ${stageLeads.map(l => `
+              <div class="bg-bg-card rounded-lg p-3 border border-stroke card-transition cursor-pointer kanban-card" data-lead-id="${l.id}">
+                <div class="flex items-center justify-between mb-2">
+                  <p class="font-medium text-sm truncate">${l.name}</p>
+                  <span class="text-xs px-2 py-0.5 rounded-full ${getScoreClass(l.score)}">${l.score}</span>
+                </div>
+                <p class="text-xs text-muted truncate">${l.company}</p>
+                <div class="flex items-center justify-between mt-3">
+                  <span class="text-xs font-semibold text-accent tabular-nums">$${l.value.toLocaleString()}</span>
+                  <span class="text-xs text-muted tabular-nums">${l.daysInStage}d in stage</span>
+                </div>
+                <div class="flex items-center justify-between mt-2">
+                  <span class="text-xs text-muted bg-bg-elevated px-2 py-0.5 rounded">${l.source}</span>
+                  <button class="move-lead-btn text-xs text-accent hover:underline cursor-pointer" data-lead-id="${l.id}"><i data-lucide="move" class="w-3 h-3 inline"></i> Move</button>
+                </div>
+              </div>
+            `).join('')}
+            <button class="kanban-add-btn w-full py-2 rounded-lg border border-dashed border-stroke text-muted hover:text-accent hover:border-accent text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors" data-stage="${stage}">
+              <i data-lucide="plus" class="w-3 h-3"></i> Add Lead
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+      document.querySelectorAll('.kanban-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.move-lead-btn')) return;
+          const lead = leads.find(l => String(l.id) === String(card.dataset.leadId));
+          if (lead) showLeadDetail(lead);
+        });
+      });
+      document.querySelectorAll('.move-lead-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const lead = leads.find(l => String(l.id) === String(btn.dataset.leadId));
+          if (lead) showMoveModal(lead);
+        });
+      });
+      document.querySelectorAll('.kanban-add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('new-stage-i2j3').value = btn.dataset.stage;
+          openAddModal();
+        });
+      });
+    }
+
+    // ===== LEADS TABLE =====
+    let sortCol = null, sortDir = 'asc';
+    function renderLeadsTable() {
+      let filtered = [...leads];
+      const search = document.getElementById('lead-search-k2l3').value.toLowerCase();
+      const stageFilter = document.getElementById('filter-stage-m4n5').value;
+      const scoreFilter = document.getElementById('filter-score-o6p7').value;
+      const sourceFilter = document.getElementById('filter-source-q8r9').value;
+
+      if (search) filtered = filtered.filter(l => (l.name + l.company + l.email).toLowerCase().includes(search));
+      if (stageFilter) filtered = filtered.filter(l => l.stage === stageFilter);
+      if (scoreFilter) filtered = filtered.filter(l => l.score === scoreFilter);
+      if (sourceFilter) filtered = filtered.filter(l => l.source === sourceFilter);
+
+      if (sortCol) {
+        filtered.sort((a, b) => {
+          let va = a[sortCol], vb = b[sortCol];
+          if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+          if (va < vb) return sortDir === 'asc' ? -1 : 1;
+          if (va > vb) return sortDir === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      document.getElementById('leads-count-s0t1').textContent = `Showing ${filtered.length} of ${leads.length} leads`;
+
+      const tbody = document.getElementById('leads-tbody-u2v3');
+      tbody.innerHTML = filtered.map(l => `
+        <tr class="hover:bg-bg-hover transition-colors">
+          <td class="px-4 py-3 font-medium whitespace-nowrap">${!l.viewed ? '<span class="inline-block w-2 h-2 rounded-full bg-accent mr-2"></span>' : ''}${l.name}</td>
+          <td class="px-4 py-3 text-muted hidden md:table-cell">${l.company}</td>
+          <td class="px-4 py-3 text-muted hidden lg:table-cell">${l.email}</td>
+          <td class="px-4 py-3 text-muted hidden xl:table-cell">${l.phone}</td>
+          <td class="px-4 py-3"><span class="text-xs bg-bg-elevated px-2 py-0.5 rounded">${l.source}</span></td>
+          <td class="px-4 py-3"><span class="text-xs">${l.stage}</span></td>
+          <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded-full ${getScoreClass(l.score)}">${l.score}</span></td>
+          <td class="px-4 py-3 tabular-nums font-medium">$${l.value.toLocaleString()}</td>
+          <td class="px-4 py-3 text-muted text-xs hidden md:table-cell whitespace-nowrap">${l.lastActivity}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-1">
+              <button class="view-lead-btn p-1.5 rounded hover:bg-bg-elevated cursor-pointer text-muted hover:text-accent" data-lead-id="${l.id}" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
+              <button class="delete-lead-btn p-1.5 rounded hover:bg-bg-elevated cursor-pointer text-muted hover:text-danger" data-lead-id="${l.id}" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('.view-lead-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lead = leads.find(l => String(l.id) === String(btn.dataset.leadId));
+          if (lead) showLeadDetail(lead);
+        });
+      });
+      document.querySelectorAll('.delete-lead-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (confirm('Delete this lead?')) {
+            const leadId = btn.dataset.leadId;
+            deleteLeadFromDB(leadId);
+          }
+        });
+      });
+      lucide.createIcons();
+    }
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        sortDir = (sortCol === th.dataset.sort) ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+        sortCol = th.dataset.sort;
+        renderLeadsTable();
+      });
+    });
+    document.getElementById('lead-search-k2l3').addEventListener('input', renderLeadsTable);
+    document.getElementById('filter-stage-m4n5').addEventListener('change', renderLeadsTable);
+    document.getElementById('filter-score-o6p7').addEventListener('change', renderLeadsTable);
+    document.getElementById('filter-source-q8r9').addEventListener('change', renderLeadsTable);
+
+    // ===== LEAD DETAIL MODAL =====
+    function showLeadDetail(lead) {
+      lead.viewed = true;
+      updateStats();
+      // Save viewed state
+      saveLead(lead);
+
+      document.getElementById('detail-title-q0r1').textContent = lead.name;
+      const content = document.getElementById('detail-content-u4v5');
+      const activities = (lead.activities && Array.isArray(lead.activities)) ? lead.activities : [];
+      content.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="space-y-3">
+            <div><label class="text-xs text-muted uppercase tracking-wide">Company</label><p class="text-sm font-medium">${lead.company}</p></div>
+            <div><label class="text-xs text-muted uppercase tracking-wide">Email</label><p class="text-sm">${lead.email}</p></div>
+            <div><label class="text-xs text-muted uppercase tracking-wide">Phone</label><p class="text-sm">${lead.phone}</p></div>
+          </div>
+          <div class="space-y-3">
+            <div><label class="text-xs text-muted uppercase tracking-wide">Source</label><p class="text-sm">${lead.source}</p></div>
+            <div><label class="text-xs text-muted uppercase tracking-wide">Stage</label>
+              <select class="w-full mt-1 text-sm detail-stage-select" data-lead-id="${lead.id}">
+                ${STAGES.map(s => `<option ${s === lead.stage ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="flex items-center gap-4">
+              <div><label class="text-xs text-muted uppercase tracking-wide">Score</label><p class="mt-1"><span class="text-xs px-2 py-0.5 rounded-full ${getScoreClass(lead.score)}">${lead.score}</span></p></div>
+              <div><label class="text-xs text-muted uppercase tracking-wide">Value</label><p class="text-sm font-semibold tabular-nums text-accent">$${lead.value.toLocaleString()}</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label class="text-xs text-muted uppercase tracking-wide block mb-1">Notes</label>
+          <textarea class="w-full detail-notes-input" rows="2" data-lead-id="${lead.id}">${lead.notes}</textarea>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold mb-3 flex items-center gap-2"><i data-lucide="list" class="w-4 h-4 text-accent"></i> Activity Log</h3>
+          <div class="space-y-2">
+            ${activities.map(a => `
+              <div class="flex items-start gap-3 p-2 rounded bg-bg-base/50">
+                <div class="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-shrink-0"></div>
+                <div><p class="text-sm">${a.action}</p><p class="text-xs text-muted">${a.date}</p></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      // Show/hide ProposalPro banner based on dismissal state
+      const proposalproBanner = document.getElementById('proposalpro-banner-g9h0');
+      if (dismissedBanners.includes('leadcatcher_proposalpro_banner')) {
+        proposalproBanner.style.display = 'none';
+      } else {
+        proposalproBanner.style.display = 'block';
+        proposalproBanner.classList.remove('dismissing');
+      }
+
+      document.getElementById('lead-detail-modal-o8p9').classList.remove('hidden');
+      lucide.createIcons();
+
+      const stageSelect = content.querySelector('.detail-stage-select');
+      if (stageSelect) {
+        stageSelect.addEventListener('change', () => {
+          lead.stage = stageSelect.value;
+          lead.score = autoScore(lead);
+          lead.lastActivity = 'May 19, 2026';
+          if (!lead.activities) lead.activities = [];
+          lead.activities.unshift({ date: 'May 19, 2026', action: `Moved to ${lead.stage}` });
+          saveLead(lead);
+        });
+      }
+      const notesInput = content.querySelector('.detail-notes-input');
+      if (notesInput) {
+        notesInput.addEventListener('blur', () => {
+          lead.notes = notesInput.value;
+          saveLead(lead);
+        });
+      }
+    }
+
+    document.getElementById('close-detail-modal-s2t3').addEventListener('click', () => {
+      document.getElementById('lead-detail-modal-o8p9').classList.add('hidden');
+      if (currentTab === 'leads') renderLeadsTable();
+      if (currentTab === 'pipeline') renderPipeline();
+      if (currentTab === 'dashboard') renderDashboard();
+    });
+
+    // ===== MOVE MODAL =====
+    let moveLeadTarget = null;
+    function showMoveModal(lead) {
+      moveLeadTarget = lead;
+      document.getElementById('move-lead-name-i8j9').textContent = `Move "${lead.name}" to:`;
+      document.getElementById('move-stage-select-k0l1').value = lead.stage;
+      document.getElementById('move-modal-e4f5').classList.remove('hidden');
+    }
+    document.getElementById('close-move-modal-g6h7').addEventListener('click', () => {
+      document.getElementById('move-modal-e4f5').classList.add('hidden');
+    });
+    document.getElementById('confirm-move-btn-m2n3').addEventListener('click', () => {
+      if (moveLeadTarget) {
+        const newStage = document.getElementById('move-stage-select-k0l1').value;
+        moveLeadTarget.stage = newStage;
+        moveLeadTarget.daysInStage = 0;
+        moveLeadTarget.score = autoScore(moveLeadTarget);
+        moveLeadTarget.lastActivity = 'May 19, 2026';
+        if (!moveLeadTarget.activities) moveLeadTarget.activities = [];
+        moveLeadTarget.activities.unshift({ date: 'May 19, 2026', action: `Moved to ${newStage}` });
+        document.getElementById('move-modal-e4f5').classList.add('hidden');
+        saveLead(moveLeadTarget);
+      }
+    });
+
+    // ===== ADD LEAD MODAL =====
+    function openAddModal() {
+      document.getElementById('add-lead-modal-s6t7').classList.remove('hidden');
+    }
+    document.getElementById('add-lead-btn-e5f6').addEventListener('click', openAddModal);
+    document.getElementById('mobile-add-lead-btn-m3n4').addEventListener('click', () => {
+      openAddModal();
+      document.getElementById('mobile-menu-i9j0').classList.add('hidden');
+    });
+    document.getElementById('close-add-modal-u8v9').addEventListener('click', () => {
+      document.getElementById('add-lead-modal-s6t7').classList.add('hidden');
+    });
+    document.getElementById('save-lead-btn-m6n7').addEventListener('click', () => {
+      const name = document.getElementById('new-name-w0x1').value.trim();
+      const email = document.getElementById('new-email-a4b5').value.trim();
+      if (!name || !email) { alert('Name and Email are required.'); return; }
+      const newLead = {
+        id: 'local_' + Date.now(),
+        name,
+        company: document.getElementById('new-company-y2z3').value.trim() || '—',
+        email,
+        phone: document.getElementById('new-phone-c6d7').value.trim() || '—',
+        source: document.getElementById('new-source-e8f9').value,
+        stage: document.getElementById('new-stage-i2j3').value,
+        score: 'Warm',
+        value: parseInt(document.getElementById('new-value-g0h1').value) || 0,
+        daysInStage: 0,
+        lastActivity: 'May 19, 2026',
+        notes: document.getElementById('new-notes-k4l5').value.trim(),
+        viewed: false,
+        activities: [{ date: 'May 19, 2026', action: 'Lead created' }]
+      };
+      newLead.score = autoScore(newLead);
+
+      document.getElementById('new-name-w0x1').value = '';
+      document.getElementById('new-company-y2z3').value = '';
+      document.getElementById('new-email-a4b5').value = '';
+      document.getElementById('new-phone-c6d7').value = '';
+      document.getElementById('new-value-g0h1').value = '';
+      document.getElementById('new-notes-k4l5').value = '';
+      document.getElementById('add-lead-modal-s6t7').classList.add('hidden');
+
+      // Save to Supabase
+      saveLead(newLead);
+    });
+
+    // ===== FORMS TAB =====
+    const formFields = [
+      { label: 'Full Name', type: 'text', required: true, enabled: true },
+      { label: 'Email Address', type: 'email', required: true, enabled: true },
+      { label: 'Phone', type: 'tel', required: false, enabled: true },
+      { label: 'Company', type: 'text', required: false, enabled: true },
+      { label: 'Message', type: 'textarea', required: false, enabled: true },
+      { label: 'Budget', type: 'select', required: false, enabled: false },
+      { label: 'How did you hear about us?', type: 'select', required: false, enabled: false },
+    ];
+
+    function renderFormBuilder() {
+      const fieldsContainer = document.getElementById('builder-fields-e2f3');
+      fieldsContainer.innerHTML = formFields.map((f, i) => `
+        <div class="flex items-center gap-3 p-2 rounded-lg bg-bg-base/50">
+          <input type="checkbox" class="field-toggle accent-accent w-4 h-4 cursor-pointer" data-index="${i}" ${f.enabled ? 'checked' : ''} />
+          <span class="text-sm flex-1">${f.label}</span>
+          <label class="flex items-center gap-1 text-xs text-muted cursor-pointer">
+            <input type="checkbox" class="field-required accent-accent w-3 h-3 cursor-pointer" data-index="${i}" ${f.required ? 'checked' : ''} /> Req
+          </label>
+        </div>
+      `).join('');
+
+      fieldsContainer.querySelectorAll('.field-toggle').forEach(cb => {
+        cb.addEventListener('change', () => {
+          formFields[parseInt(cb.dataset.index)].enabled = cb.checked;
+          renderFormPreview();
+        });
+      });
+      fieldsContainer.querySelectorAll('.field-required').forEach(cb => {
+        cb.addEventListener('change', () => {
+          formFields[parseInt(cb.dataset.index)].required = cb.checked;
+          renderFormPreview();
+        });
+      });
+
+      renderFormPreview();
+    }
+
+    function renderFormPreview() {
+      const preview = document.getElementById('builder-preview-g4h5');
+      const title = document.getElementById('builder-title-a8b9').value || 'Contact Us';
+      const submitText = document.getElementById('builder-submit-c0d1').value || 'Submit';
+      const enabledFields = formFields.filter(f => f.enabled);
+      preview.innerHTML = `
+        <h3 class="font-semibold text-base mb-4">${title}</h3>
+        <div class="space-y-3">
+          ${enabledFields.map(f => {
+            if (f.type === 'textarea') {
+              return `<div><label class="text-xs text-muted block mb-1">${f.label}${f.required ? ' *' : ''}</label><div class="h-16 rounded bg-bg-elevated border border-stroke"></div></div>`;
+            }
+            return `<div><label class="text-xs text-muted block mb-1">${f.label}${f.required ? ' *' : ''}</label><div class="h-9 rounded bg-bg-elevated border border-stroke"></div></div>`;
+          }).join('')}
+          <div class="h-10 rounded bg-accent flex items-center justify-center text-sm font-semibold text-bg-base">${submitText}</div>
+        </div>
+      `;
+    }
+
+    document.querySelectorAll('.customize-form-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tpl = btn.dataset.template;
+        if (tpl === 'contact') {
+          document.getElementById('builder-title-a8b9').value = 'Contact Us';
+          document.getElementById('builder-submit-c0d1').value = 'Submit';
+          formFields[0].enabled = true; formFields[1].enabled = true; formFields[2].enabled = false;
+          formFields[3].enabled = false; formFields[4].enabled = true; formFields[5].enabled = false; formFields[6].enabled = false;
+        } else {
+          document.getElementById('builder-title-a8b9').value = 'Request a Quote';
+          document.getElementById('builder-submit-c0d1').value = 'Get a Quote';
+          formFields.forEach(f => f.enabled = true);
+        }
+        document.getElementById('form-builder-w4x5').classList.remove('hidden');
+        renderFormBuilder();
+      });
+    });
+    document.getElementById('close-builder-y6z7').addEventListener('click', () => {
+      document.getElementById('form-builder-w4x5').classList.add('hidden');
+    });
+    document.getElementById('builder-title-a8b9').addEventListener('input', renderFormPreview);
+    document.getElementById('builder-submit-c0d1').addEventListener('input', renderFormPreview);
+
+    document.querySelectorAll('.embed-code-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const formType = btn.dataset.form;
+        document.getElementById('embed-code-content-a0b1').textContent =
+          `<iframe\n  src="https://leadcatcher.app/forms/${formType}?id=YOUR_ACCOUNT_ID"\n  width="100%"\n  height="500"\n  frameborder="0"\n  style="border: none; border-radius: 12px;"\n></iframe>`;
+        document.getElementById('embed-modal-w6x7').classList.remove('hidden');
+      });
+    });
+    document.getElementById('close-embed-modal-y8z9').addEventListener('click', () => {
+      document.getElementById('embed-modal-w6x7').classList.add('hidden');
+    });
+    document.getElementById('copy-embed-btn-c2d3').addEventListener('click', () => {
+      const code = document.getElementById('embed-code-content-a0b1').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copy-embed-btn-c2d3');
+        btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Copied!';
+        lucide.createIcons();
+        setTimeout(() => { btn.innerHTML = '<i data-lucide="copy" class="w-4 h-4"></i> Copy to Clipboard'; lucide.createIcons(); }, 2000);
+      });
+    });
+
+    // ===== ANALYTICS =====
+    let volumeChart = null;
+    function renderAnalytics() {
+      renderVolumeChart();
+      renderConversionTable();
+      renderAvgTimeStages();
+      renderGauge();
+    }
+
+    function renderVolumeChart() {
+      const ctx = document.getElementById('volume-chart-i6j7').getContext('2d');
+      const weeks = ['Mar 22','Mar 29','Apr 5','Apr 12','Apr 19','Apr 26','May 3','May 10'];
+      const data = [3, 5, 2, 7, 4, 6, 3, 2];
+      if (volumeChart) volumeChart.destroy();
+      volumeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: weeks,
+          datasets: [{
+            label: 'New Leads',
+            data,
+            backgroundColor: 'rgba(251,146,60,0.7)',
+            borderColor: '#fb923c',
+            borderWidth: 1,
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b8fa8', font: { size: 11 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b8fa8', stepSize: 2, font: { size: 11 } }, beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1a1d2e', titleColor: '#e2e4ed', bodyColor: '#8b8fa8', borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1 }
+          }
+        }
+      });
+    }
+
+    function renderConversionTable() {
+      const tbody = document.getElementById('conv-source-tbl-o2p3');
+      const sourceData = SOURCES.map(s => {
+        const total = leads.filter(l => l.source === s).length;
+        const converted = leads.filter(l => l.source === s && l.stage === 'Closed').length;
+        const rate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0.0';
+        return { source: s, total, converted, rate };
+      });
+      tbody.innerHTML = sourceData.map(s => `
+        <tr>
+          <td class="py-2.5 text-sm">${s.source}</td>
+          <td class="py-2.5 text-sm text-right tabular-nums">${s.total}</td>
+          <td class="py-2.5 text-sm text-right tabular-nums">${s.converted}</td>
+          <td class="py-2.5 text-sm text-right tabular-nums font-medium ${parseFloat(s.rate) > 0 ? 'text-success' : 'text-muted'}">${s.rate}%</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAvgTimeStages() {
+      const container = document.getElementById('avg-time-stages-q4r5');
+      const avgDays = [
+        { stage: 'New', days: 4.3 },
+        { stage: 'Contacted', days: 3.5 },
+        { stage: 'Qualified', days: 5.0 },
+        { stage: 'Proposal Sent', days: 7.0 },
+        { stage: 'Closed', days: 0 },
+      ];
+      const maxDays = Math.max(...avgDays.map(s => s.days), 1);
+      container.innerHTML = avgDays.filter(s => s.stage !== 'Closed').map(s => {
+        const pct = (s.days / maxDays) * 100;
+        return `<div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm">${s.stage}</span>
+            <span class="text-sm font-semibold tabular-nums">${s.days} days</span>
+          </div>
+          <div class="h-2 bg-bg-elevated rounded-full overflow-hidden">
+            <div class="h-full bg-accent rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderGauge() {
+      const closedCount = leads.filter(l => l.stage === 'Closed').length;
+      const total = leads.length;
+      const rate = total > 0 ? (closedCount / total) * 100 : 0;
+      const circumference = 251.2;
+      const offset = circumference - (circumference * (rate / 100));
+      const arc = document.getElementById('gauge-arc-m0n1');
+      arc.setAttribute('stroke-dashoffset', offset);
+      const textEl = document.querySelector('#gauge-svg-k8l9 text:first-of-type');
+      if (textEl) textEl.textContent = rate.toFixed(1) + '%';
+    }
+
+    // ===== MODAL OVERLAY CLICK-TO-CLOSE =====
+    ['add-lead-modal-s6t7','lead-detail-modal-o8p9','embed-modal-w6x7','move-modal-e4f5'].forEach(id => {
+      document.getElementById(id).addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+          e.currentTarget.classList.add('hidden');
+          if (id === 'lead-detail-modal-o8p9') {
+            if (currentTab === 'leads') renderLeadsTable();
+            if (currentTab === 'pipeline') renderPipeline();
+            if (currentTab === 'dashboard') renderDashboard();
+          }
+        }
+      });
+    });
+
+    // ===== INIT =====
+    // Hide app content initially
+    document.querySelectorAll('.app-content').forEach(el => el.classList.add('app-hidden'));
+
+    // Render with defaults first (will be replaced after auth)
+    leads = DEFAULT_LEADS.map(l => ({ ...l, daysInStage: l.days_in_stage }));
+    renderDashboard();
+    loadDismissedBanners();
+    lucide.createIcons();
+
+    // Start auth flow
+    initAuth();
+  </script>
+</body>
+</html>

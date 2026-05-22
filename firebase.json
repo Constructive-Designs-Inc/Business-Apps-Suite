@@ -1,12 +1,11 @@
 {
-  "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**",
-      ".github/**",
-      "deploy.sh"
-    ]
-  }
+  "hosting": [
+    { "target": "bookit",       "public": "bookit",       "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "clientflow",   "public": "clientflow",   "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "invoiceready", "public": "invoiceready", "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "leadcatcher",  "public": "leadcatcher",  "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "proposalpro",  "public": "proposalpro",  "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "expensetrack", "public": "expensetrack", "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] },
+    { "target": "reviewboost",  "public": "reviewboost",  "ignore": ["firebase.json", "**/.*", "**/node_modules/**", ".github/**"] }
+  ]
 }
